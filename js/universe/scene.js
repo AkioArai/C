@@ -1,6 +1,7 @@
 // Состояние «вселенной»: компьютер (экран + буфер ввода), кадры стека функций
 // (листинг кода, карточки переменных, таблицы трассировки циклов), куча, файлы.
 // Раскладка — строгая сетка, поэтому ничего не накладывается.
+import { settings } from '../ui/settings.js';
 
 export const TYPE_COLORS = {
   int: '#c8f05a', 'unsigned int': '#c8f05a', short: '#c8f05a', 'unsigned short': '#c8f05a', 'enum': '#c8f05a',
@@ -96,6 +97,7 @@ export class Scene {
 
   // ——— анимации ———
   anim(a) {
+    if (a.type === 'beam' && !settings.get('run.beams')) { a.onDone?.(); return; }
     a.t0 = this.now + (a.delay || 0);
     if (!a.dur) { a.onDone?.(); return; }
     this.anims.push(a);
@@ -125,7 +127,7 @@ export class Scene {
       scr.lastAt = this.now; scr.fresh = text;
       // печатная машинка: новые символы появляются по одному
       scr.typeFrom = from; scr.typeTo = scr.total; scr.typeAt = this.now;
-      scr.typeDur = dur ? Math.min(dur * 0.9, 30 + (scr.total - from) * 28) : 0;
+      scr.typeDur = dur && settings.get('run.typewriter') ? Math.min(dur * 0.9, 30 + (scr.total - from) * 28) : 0;
     }
   }
 

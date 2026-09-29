@@ -1009,7 +1009,7 @@ export class Interpreter {
       }
       case 'Unary': {
         const a = yield* this.eval(e.arg);
-        if (e.op === '!') { const r = isTruthy(a.v) ? 0 : 1; this.tr({ text: this.src_(e), calc: `!${disp(a)}`, value: String(r), note: 'логическое НЕ' }); return { t: T.int, v: r }; }
+        if (e.op === '!') { const r = isTruthy(a.v) ? 0 : 1; this.tr({ text: this.src_(e), calc: `!${disp(a)}`, value: String(r), note: 'логическое НЕ', vis: { t: 'not', text: this.src_(e.arg), v: disp(a), r } }); return { t: T.int, v: r }; }
         if (!isArith(a.t)) throw new RuntimeError(`унарный ${e.op} неприменим к ${typeName(a.t)}`, e);
         const t = promote(a.t);
         const v = convert(a.v, t);
@@ -1017,7 +1017,12 @@ export class Interpreter {
         if (e.op === '+') r = v;
         else if (e.op === '-') r = convert(typeof v === 'bigint' ? -v : -v, t);
         else r = convert(typeof v === 'bigint' ? ~v : ~v, t);
-        if (e.op !== '+') this.tr({ text: this.src_(e), calc: `${e.op}${disp(a)}`, value: display(t, r), note: e.op === '~' ? 'побитовое НЕ' : '' });
+        if (e.op !== '+') {
+          let vis;
+          if (e.op === '~' && isInt(t)) { const w = t.size >= 4 ? 32 : 16; const bs = (x) => BigInt.asUintN(w, BigInt(x)).toString(2).padStart(w, '0'); vis = { t: 'bits', op: '~', a: String(v), r: String(r), ab: bs(v), rb: bs(r), lt: this.src_(e.arg), width: w }; }
+          else if (e.op === '-') vis = { t: 'neg', text: this.src_(e.arg), v: disp(a), r: display(t, r) };
+          this.tr({ text: this.src_(e), calc: `${e.op}${disp(a)}`, value: display(t, r), note: e.op === '~' ? 'побитовое НЕ' : '', vis });
+        }
         return { t, v: r };
       }
       case 'Cast': {
@@ -1100,12 +1105,16 @@ export class Interpreter {
       this.tr({ text: this.src_(e), calc: 'копирование всех полей', value: '{…}', note: `${lv.t.size} байт скопировано` });
       return rhs;
     }
+    let bvis, cvis, oldDisp = '?';
+    if (this.tracing && isArith(lv.t)) { try { oldDisp = this.mem.isInit(lv.addr, lv.t.size) ? display(lv.t, this.mem.read(lv.addr, lv.t)) : '?'; } catch { /* нет доступа */ } }
     if (e.op === '=') nv = rhs.v;
     else {
       const cur = this.load(lv, e.target);
       const r = this.binop(e.op.slice(0, -1), cur, rhs, e);
+      bvis = this.binVis({ op: e.op.slice(0, -1), left: e.target, right: e.value }, cur, rhs, r);
+      cvis = { t: 'compound', target: this.src_(e.target), op: e.op, rhs: this.src_(e.value), cur: disp(cur), rv: disp(rhs), res: disp(r), a: Number(cur.v), d: Number(r.v) - Number(cur.v) };
       this.tr({ text: `${this.src_(e.target)} ${e.op.slice(0, -1)} ${this.src_(e.value)}`, calc: `${disp(cur)} ${e.op.slice(0, -1)} ${disp(rhs)}`, value: disp(r), note: this.binNote(e.op.slice(0, -1), cur, rhs, r),
-        vis: this.binVis({ op: e.op.slice(0, -1), left: e.target, right: e.value }, cur, rhs, r) || { t: 'compound', target: this.src_(e.target), op: e.op, rhs: this.src_(e.value), cur: disp(cur), rv: disp(rhs), res: disp(r) } });
+        vis: bvis || cvis });
       nv = r.v;
       rhs.t = r.t;
     }
@@ -1114,7 +1123,9 @@ export class Interpreter {
     const res = this.store(lv, nv, e, e.op === '=' ? 'assign' : 'compound', { op: e.op, exprText: this.src_(e.value), fullText: this.src_(e) });
     const cn = convNote(rhs.t, lv.t);
     this.tr({ text: `${this.src_(e.target)} ← ${display(lv.t, res)}`, calc: '', value: display(lv.t, res), note: cn, kind: 'store',
-      vis: cn && isArith(rhs.t) && isArith(lv.t) ? { t: 'conv', explicit: false, from: typeName(rhs.t), to: typeName(lv.t), before: disp(rhs), after: display(lv.t, res), what: this.src_(e.value), target: this.src_(e.target), fromFloat: isFloat(rhs.t), toFloat: isFloat(lv.t), toChar: lv.t.size === 1 && isInt(lv.t) } : undefined });
+      vis: cn && isArith(rhs.t) && isArith(lv.t) ? { t: 'conv', explicit: false, from: typeName(rhs.t), to: typeName(lv.t), before: disp(rhs), after: display(lv.t, res), what: this.src_(e.value), target: this.src_(e.target), fromFloat: isFloat(rhs.t), toFloat: isFloat(lv.t), toChar: lv.t.size === 1 && isInt(lv.t) }
+        : e.op !== '=' ? (bvis ? cvis : undefined)
+        : this.tracing && isArith(lv.t) ? { t: 'assign', target: this.src_(e.target), rhs: this.src_(e.value), old: oldDisp, val: display(lv.t, res), type: typeName(lv.t), simple: /^[-\d.'"]/.test(this.src_(e.value)) } : undefined });
     return { t: lv.t, v: res };
   }
 
@@ -1132,6 +1143,13 @@ export class Interpreter {
     if ((op === '/' || op === '%') && isInt(a.t) && isInt(b.t)) {
       const A = num(a), B = num(b);
       if (B !== 0 && Math.abs(A) <= 1e15) return { t: 'div', op, a: A, b: B, q: Math.trunc(A / B), r: A % B, real: A / B, lt: this.src_(e.left), rt: this.src_(e.right) };
+    }
+    if (['&', '|', '^', '<<', '>>'].includes(op) && isInt(a.t) && isInt(b.t)) {
+      const A = BigInt(num(a)), B = BigInt(num(b)), R = BigInt(num(r));
+      const need = [A, B, R].reduce((m, x) => Math.max(m, (x < 0n ? -x : x).toString(2).length + (x < 0n ? 1 : 0)), 1);
+      const width = need <= 8 ? 8 : need <= 16 ? 16 : 32;
+      const bits = (x) => (BigInt.asUintN(width, x)).toString(2).padStart(width, '0');
+      return { t: 'bits', op, a: String(A), b: String(B), r: String(R), ab: bits(A), bb: bits(B), rb: bits(R), lt: this.src_(e.left), rt: this.src_(e.right), width };
     }
     if (op === '/' && (isFloat(a.t) || isFloat(b.t))) return { t: 'fdiv', a: disp(a), b: disp(b), res: disp(r), lt: this.src_(e.left), rt: this.src_(e.right), aInt: isInt(a.t), bInt: isInt(b.t) };
     if (cmp) return { t: 'cmp', op, a: num(a), b: num(b), ad: disp(a), bd: disp(b), res: num(r), lt: this.src_(e.left), rt: this.src_(e.right) };

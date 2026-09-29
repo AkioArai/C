@@ -1,7 +1,8 @@
 // Лёгкий редактор кода: textarea поверх подсвеченного <pre>, номера строк,
 // точки останова, подчёркивание ошибок и подсветка выполняемой строки.
 import { highlight } from './highlight.js';
-import { suggest, kindLabel } from './complete.js';
+import { complete, signatureAt, expandSnippet, recordUse, kindIcon, kindLabel } from './complete.js';
+import { settings } from './settings.js';
 
 const escH = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -21,6 +22,7 @@ export class Editor {
             <pre class="ed-hl" aria-hidden="true"></pre>
             <div class="ed-marks" aria-hidden="true"></div>
             <div class="ed-ac" hidden></div>
+            <div class="ed-sig" hidden></div>
             <textarea class="ed-ta" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Код программы на C"></textarea>
           </div>
         </div>
@@ -33,15 +35,21 @@ export class Editor {
     this.marks = root.querySelector('.ed-marks');
     this.ta = root.querySelector('.ed-ta');
     this.ac = root.querySelector('.ed-ac');
-    this.ta.addEventListener('input', (e) => { this.refresh(true); this.updateComplete(e.inputType); });
-    this.ta.addEventListener('blur', () => setTimeout(() => this.hideComplete(), 120));
-    this.ta.addEventListener('click', () => this.hideComplete());
+    this.sig = root.querySelector('.ed-sig');
+    this.ta.addEventListener('input', (e) => { this.trackSnippet(); this.refresh(true); this.updateComplete(e.inputType); this.updateSignature(); });
+    this.ta.addEventListener('blur', () => setTimeout(() => { this.hideComplete(); this.sig.hidden = true; }, 150));
+    this.ta.addEventListener('click', () => { this.hideComplete(); this.snip = null; this.updateSignature(); this.emitCursor(); });
+    this.ta.addEventListener('keyup', (e) => { if (/^Arrow|Home|End|Page/.test(e.key)) { this.updateSignature(); this.emitCursor(); } });
     this.ac.addEventListener('mousedown', (e) => {
       const it = e.target.closest('[data-i]');
       if (!it) return;
       e.preventDefault();
       this.acSel = +it.dataset.i;
       this.acceptComplete();
+    });
+    this.ac.addEventListener('mousemove', (e) => {
+      const it = e.target.closest('[data-i]');
+      if (it && +it.dataset.i !== this.acSel) { this.acSel = +it.dataset.i; this.renderComplete(true); }
     });
     this.ta.addEventListener('keydown', (e) => this.onKey(e));
     this.gutter.addEventListener('click', (e) => {
@@ -52,6 +60,7 @@ export class Editor {
       this.opts.onBreakpoints?.(this.breakpoints);
     });
     new ResizeObserver(() => this.measure()).observe(root);
+    settings.on((k) => { if (k.startsWith('editor.')) setTimeout(() => { this.measure(); this.refresh(false); }, 30); });
     this.measure();
   }
 
@@ -184,31 +193,59 @@ export class Editor {
     }
   }
 
-  // ——— подсказки ———
-  updateComplete(inputType) {
-    if (this.ta.readOnly || this.opts.complete === false || (inputType && !inputType.startsWith('insert'))) { this.hideComplete(); return; }
+  emitCursor() {
+    const p = this.ta.selectionStart, v = this.ta.value;
+    const ln = v.slice(0, p).split('\n').length, col = p - v.lastIndexOf('\n', p - 1);
+    this.opts.onCursor?.(ln, col);
+  }
+  caretXY(pos = this.ta.selectionStart) {
+    const before = this.ta.value.slice(0, pos);
+    const line = before.split('\n').length - 1;
+    const col = pos - (before.lastIndexOf('\n') + 1);
+    return { top: this.pad + line * this.lh, left: this.padL + col * this.cw, line, col };
+  }
+  get tabStr() { return ' '.repeat(settings.get('editor.tabSize')); }
+
+  // ——— подсказки при наборе ———
+  updateComplete(inputType, force) {
+    if (this._accepting) return;
+    const on = settings.get('complete.enabled') && this.opts.complete !== false;
+    if (this.ta.readOnly || !on || (!force && inputType && !inputType.startsWith('insert'))) { this.hideComplete(); return; }
     const pos = this.ta.selectionStart;
     if (pos !== this.ta.selectionEnd) { this.hideComplete(); return; }
-    const r = suggest(this.ta.value, pos);
-    if (!r) { this.hideComplete(); return; }
+    const r = complete(this.ta.value, pos, {
+      fuzzy: settings.get('complete.fuzzy'), snippets: settings.get('complete.snippets'), formats: settings.get('complete.formats'),
+      minChars: settings.get('complete.minChars'), force,
+    });
+    if (!r || !r.items.length) { this.hideComplete(); return; }
     this.acData = r;
     this.acSel = 0;
     this.renderComplete();
   }
-  renderComplete() {
+  renderComplete(keepScroll) {
     const r = this.acData;
-    const pos = this.ta.selectionStart;
-    const before = this.ta.value.slice(0, pos);
-    const line = before.split('\n').length - 1;
-    const col = pos - (before.lastIndexOf('\n') + 1);
+    const { top, left } = this.caretXY();
     const it = r.items[this.acSel];
-    const rest = it.ins.slice(r.prefix.length);
-    const top = this.pad + line * this.lh;
-    const left = this.padL + col * this.cw;
-    this.ac.innerHTML = `<div class="ac-ghost" style="top:${top}px;left:${left}px">${escH(rest)}<span class="ac-key">→</span></div>
-      <div class="ac-list" style="top:${top + this.lh + 2}px;left:${Math.max(0, left - r.prefix.length * this.cw - 6)}px">${r.items.map((x, i) =>
-        `<div class="ac-it${i === this.acSel ? ' on' : ''}" data-i="${i}"><code><b>${escH(r.prefix)}</b>${escH(x.w.slice(r.prefix.length))}</code><span class="ac-d">${escH(x.d)}</span><span class="ac-k">${kindLabel(x.kind)}</span></div>`).join('')}</div>`;
+    const ghostOn = settings.get('complete.ghost') && it.label.startsWith(r.prefix) && it.kind !== 'snip';
+    const rest = ghostOn ? it.label.slice(r.prefix.length) : '';
+    const key = { right: '→', right_enter: '→', tab: 'Tab', all: '→' }[settings.get('complete.accept')];
+    const hl = (x) => { let o = ''; for (let i = 0; i < x.label.length; i++) o += x.hits.includes(i) ? `<b>${escH(x.label[i])}</b>` : escH(x.label[i]); return o; };
+    const listLeft = Math.max(0, left - r.prefix.length * this.cw - 26);
+    const doc = it.kind === 'snip' ? `<pre class="ac-snip">${escH(expandSnippet(it.insert, '').text)}</pre>` : '';
+    this.ac.innerHTML = `${rest ? `<div class="ac-ghost" style="top:${top}px;left:${left}px">${escH(rest)}<span class="ac-key">${key}</span></div>` : ''}
+      <div class="ac-box" style="top:${top + this.lh + 2}px;left:${listLeft}px">
+        <div class="ac-list">${r.items.slice(0, 40).map((x, i) =>
+          `<div class="ac-it${i === this.acSel ? ' on' : ''}" data-i="${i}"><span class="ac-ic k-${x.kind}">${escH(kindIcon(x.kind))}</span><code>${hl(x)}</code><span class="ac-dt">${escH(x.detail || '')}</span></div>`).join('')}</div>
+        <div class="ac-doc"><div class="ac-doc-h"><b>${escH(it.label)}</b><span>${escH(kindLabel(it.kind))}${it.header ? ' · ' + escH(it.header) : ''}</span></div>${it.detail && it.kind === 'fn' ? `<code class="ac-sigl">${escH(it.detail)}</code>` : ''}<p>${escH(it.desc || '')}</p>${doc}
+          <div class="ac-hint">${key} или Enter — вставить · ↑↓ — выбрать · Esc — скрыть</div></div>
+      </div>`;
     this.ac.hidden = false;
+    // не вылезать за правый край экрана
+    const box = this.ac.querySelector('.ac-box');
+    const over = box.getBoundingClientRect().right - innerWidth + 8;
+    if (over > 0) box.style.left = Math.max(0, listLeft - over) + 'px';
+    const on = this.ac.querySelector('.ac-it.on');
+    if (on && !keepScroll) on.scrollIntoView({ block: 'nearest' });
   }
   hideComplete() { if (this.ac) { this.ac.hidden = true; this.acData = null; } }
   acceptComplete() {
@@ -216,46 +253,167 @@ export class Editor {
     if (!r) return false;
     const it = r.items[this.acSel];
     this.hideComplete();
-    let ins = it.ins.slice(r.prefix.length);
-    // автоматически закрываем скобку: scanf( → scanf(|)
-    let back = 0;
-    if (ins.endsWith('(') && !/^\s*\)/.test(this.ta.value.slice(this.ta.selectionStart))) { ins += ')'; back = 1; }
-    if (ins.endsWith('<') && !this.ta.value.slice(this.ta.selectionStart).startsWith('>')) { /* заголовок подскажем следующим шагом */ }
-    this.insert(ins);
-    if (back) { const p = this.ta.selectionStart - back; this.ta.setSelectionRange(p, p); }
-    if (ins.endsWith('<')) this.updateComplete('insertText');
+    recordUse(it.label);
+    const ta = this.ta;
+    const v = ta.value;
+    const lineStart = v.lastIndexOf('\n', r.from - 1) + 1;
+    const indent = v.slice(lineStart).match(/^ */)[0];
+    let body = it.insert;
+    // не дублировать уже стоящие скобку/угловую скобку
+    if (body.endsWith('($1)') && v[r.to] === '(') body = body.slice(0, -4);
+    ta.setSelectionRange(r.from, r.to);
+    this._accepting = true;
+    if (/\$\{?\d/.test(body)) this.insertSnippet(body, indent);
+    else this.insert(body);
+    this._accepting = false;
+    if (it.kind === 'hdr' || body.endsWith('<')) this.updateComplete('insertText');
+    this.updateSignature();
     return true;
+  }
+
+  // ——— шаблоны с полями (Tab — следующее поле) ———
+  insertSnippet(body, indent) {
+    const { text, stops } = expandSnippet(body, indent, this.tabStr);
+    const start = this.ta.selectionStart;
+    this.insert(text);
+    this.snip = { stops: stops.map(s => ({ ...s, start: s.start + start, end: s.end + start })), idx: -1, len: this.ta.value.length };
+    this.nextStop();
+  }
+  nextStop(back) {
+    const sn = this.snip;
+    if (!sn) return false;
+    sn.idx += back ? -1 : 1;
+    if (sn.idx < 0) sn.idx = 0;
+    const st = sn.stops[sn.idx];
+    if (!st) { this.snip = null; return false; }
+    this.ta.setSelectionRange(st.start, st.end);
+    if (st.n === 0 || sn.idx === sn.stops.length - 1) this.snip = null;
+    this.renderSnipMarks();
+    return true;
+  }
+  /** Сдвинуть поля шаблона после правки внутри текущего поля. */
+  trackSnippet() {
+    const sn = this.snip;
+    if (!sn) return;
+    const delta = this.ta.value.length - sn.len;
+    sn.len = this.ta.value.length;
+    const cur = sn.stops[sn.idx];
+    const p = this.ta.selectionStart;
+    if (!cur || p < cur.start || p > cur.end + Math.max(0, delta)) { this.snip = null; this.renderSnipMarks(); return; }
+    cur.end += delta;
+    for (let k = sn.idx + 1; k < sn.stops.length; k++) { sn.stops[k].start += delta; sn.stops[k].end += delta; }
+    this.renderSnipMarks();
+  }
+  renderSnipMarks() {
+    this.root.querySelectorAll('.snip-mark').forEach(e => e.remove());
+    if (!this.snip) return;
+    for (const st of this.snip.stops.slice(this.snip.idx + 1)) {
+      if (st.n === 0) continue;
+      const a = this.caretXY(st.start);
+      const d = document.createElement('div');
+      d.className = 'snip-mark';
+      d.style.cssText = `top:${a.top}px;left:${a.left}px;width:${Math.max(2, (st.end - st.start) * this.cw)}px;height:${this.lh}px`;
+      this.marks.appendChild(d);
+    }
+  }
+
+  // ——— подсказка параметров функции ———
+  updateSignature() {
+    if (!settings.get('complete.signature') || this.ta.readOnly) { this.sig.hidden = true; return; }
+    const pos = this.ta.selectionStart;
+    const sg = signatureAt(this.ta.value, pos);
+    if (!sg) { this.sig.hidden = true; return; }
+    const { top, left } = this.caretXY();
+    const ps = sg.params.map((p, k) => {
+      const act = sg.variadic && k === sg.params.length - 1 ? sg.active >= sg.params.length - 1 : k === sg.active;
+      return `<span class="${act ? 'act' : ''}">${escH(p)}</span>`;
+    }).join(', ');
+    let extra = '';
+    if (sg.spec?.text) extra = `<div class="sg-spec">аргумент ${sg.spec.n} из ${sg.spec.total} → для <code>${escH(sg.spec.text)}</code>: ${escH(sg.spec.desc)}${sg.spec.needAddr ? '. Нужен <b>адрес</b>: поставьте &amp; перед именем' : ''}</div>`;
+    else if (sg.spec?.extra) extra = `<div class="sg-spec warn">лишний аргумент: в строке формата всего ${sg.spec.total} спецификатор(а)</div>`;
+    this.sig.innerHTML = `<code>${escH(sg.ret)} <b>${escH(sg.name)}</b>(${ps})</code>${sg.desc ? `<div class="sg-d">${escH(sg.desc)}</div>` : ''}${extra}`;
+    this.sig.style.top = Math.max(0, top - 6) + 'px';
+    this.sig.style.left = Math.max(0, left - 40) + 'px';
+    this.sig.hidden = false;
+  }
+
+  acceptKey(e) {
+    const mode = settings.get('complete.accept');
+    if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return false;
+    if (e.key === 'ArrowRight') return mode !== 'tab';
+    if (e.key === 'Enter') return mode === 'right_enter' || mode === 'all';
+    if (e.key === 'Tab') return mode === 'tab' || mode === 'all';
+    return false;
   }
 
   onKey(e) {
     const ta = this.ta;
+    const mod = e.ctrlKey || e.metaKey;
     if (this.acData && !this.ac.hidden) {
-      // → принимает подсказку (курсор стоит в конце набираемого слова); Tab остаётся отступом
-      if (e.key === 'ArrowRight' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); this.acceptComplete(); return; }
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (this.acceptKey(e)) { e.preventDefault(); this.acceptComplete(); return; }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'PageDown' || e.key === 'PageUp') {
         e.preventDefault();
-        const n = this.acData.items.length;
-        this.acSel = (this.acSel + (e.key === 'ArrowDown' ? 1 : n - 1)) % n;
+        const n = Math.min(40, this.acData.items.length);
+        const step = e.key.startsWith('Page') ? 8 : 1;
+        const down = e.key === 'ArrowDown' || e.key === 'PageDown';
+        if (step === 1) this.acSel = (this.acSel + (down ? 1 : n - 1)) % n;
+        else this.acSel = down ? Math.min(n - 1, this.acSel + step) : Math.max(0, this.acSel - step);
         this.renderComplete();
         return;
       }
       if (e.key === 'Escape') { e.preventDefault(); this.hideComplete(); return; }
       if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'ArrowLeft' || e.key === 'Home' || e.key === 'End') this.hideComplete();
     }
+    if (e.key === 'Escape') { this.sig.hidden = true; this.snip = null; this.renderSnipMarks(); }
+    if (mod && e.key === ' ') { e.preventDefault(); this.updateComplete('insertText', true); return; }
+    // Tab внутри шаблона — к следующему полю
+    if (e.key === 'Tab' && this.snip && !mod) { e.preventDefault(); this.nextStop(e.shiftKey); return; }
     const v = ta.value;
     const s = ta.selectionStart, en = ta.selectionEnd;
     const lineStart = v.lastIndexOf('\n', s - 1) + 1;
+    const lineEndI = v.indexOf('\n', en); const lineEnd = lineEndI < 0 ? v.length : lineEndI;
     const curLine = v.slice(lineStart, s);
     const indent = curLine.match(/^ */)[0];
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); this.opts.onRun?.(); return; }
-    if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+    const T = this.tabStr;
+    if (mod && e.key === 'Enter') { e.preventDefault(); this.opts.onRun?.(); return; }
+    // дублировать строку
+    if (mod && e.key.toLowerCase() === 'd' && !e.shiftKey) {
       e.preventDefault();
-      const le = v.indexOf('\n', en); const end = le < 0 ? v.length : le;
-      const block = v.slice(lineStart, end);
+      const text = v.slice(lineStart, lineEnd);
+      ta.setSelectionRange(lineEnd, lineEnd);
+      this.insert('\n' + text);
+      ta.setSelectionRange(s + text.length + 1, en + text.length + 1);
+      return;
+    }
+    // переместить строку вверх/вниз
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      const up = e.key === 'ArrowUp';
+      if (up && lineStart === 0) return;
+      if (!up && lineEnd >= v.length) return;
+      const text = v.slice(lineStart, lineEnd);
+      if (up) {
+        const pStart = v.lastIndexOf('\n', lineStart - 2) + 1;
+        const prev = v.slice(pStart, lineStart - 1);
+        ta.setSelectionRange(pStart, lineEnd);
+        this.insert(text + '\n' + prev);
+        ta.setSelectionRange(s - prev.length - 1, en - prev.length - 1);
+      } else {
+        const nEndI = v.indexOf('\n', lineEnd + 1); const nEnd = nEndI < 0 ? v.length : nEndI;
+        const next = v.slice(lineEnd + 1, nEnd);
+        ta.setSelectionRange(lineStart, nEnd);
+        this.insert(next + '\n' + text);
+        ta.setSelectionRange(s + next.length + 1, en + next.length + 1);
+      }
+      return;
+    }
+    if (mod && e.key === '/') {
+      e.preventDefault();
+      const block = v.slice(lineStart, lineEnd);
       const ls = block.split('\n');
       const all = ls.every(l => /^\s*\/\//.test(l) || !l.trim());
       const nb = ls.map(l => (all ? l.replace(/^(\s*)\/\/ ?/, '$1') : l.trim() ? l.replace(/^(\s*)/, '$1// ') : l)).join('\n');
-      ta.setSelectionRange(lineStart, end);
+      ta.setSelectionRange(lineStart, lineEnd);
       this.insert(nb);
       return;
     }
@@ -264,23 +422,25 @@ export class Editor {
       if (s !== en && v.slice(s, en).includes('\n')) {
         const le = v.indexOf('\n', en - 1); const end = le < 0 ? v.length : le;
         const ls = v.slice(lineStart, end).split('\n');
-        const nb = ls.map(l => (e.shiftKey ? l.replace(/^ {1,4}/, '') : '    ' + l)).join('\n');
+        const re = new RegExp(`^ {1,${T.length}}`);
+        const nb = ls.map(l => (e.shiftKey ? l.replace(re, '') : T + l)).join('\n');
         ta.setSelectionRange(lineStart, end);
         this.insert(nb);
         ta.setSelectionRange(lineStart, lineStart + nb.length);
       } else if (e.shiftKey) {
-        const m = curLine.match(/^ {1,4}/);
+        const m = curLine.match(new RegExp(`^ {1,${T.length}}`));
         if (m) { ta.setSelectionRange(lineStart, lineStart + m[0].length); this.insert(''); }
-      } else this.insert('    '.slice((curLine.length) % 4));
+      } else this.insert(T.slice(curLine.length % T.length));
       return;
     }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      this.snip = null;
       const before = v.slice(0, s).trimEnd();
       const after = v.slice(en);
       let add = indent;
-      if (before.endsWith('{')) {
-        add = indent + '    ';
+      if (before.endsWith('{') || /^\s*(case\b.*|default\s*):\s*$/.test(v.slice(lineStart, s))) {
+        add = indent + T;
         if (/^\s*}/.test(after)) { this.insert('\n' + add + '\n' + indent); ta.setSelectionRange(s + 1 + add.length, s + 1 + add.length); return; }
       }
       this.insert('\n' + add);
@@ -289,8 +449,31 @@ export class Editor {
     if (e.key === '}' && /^ +$/.test(curLine)) {
       e.preventDefault();
       ta.setSelectionRange(lineStart, s);
-      this.insert(curLine.slice(4) + '}');
+      this.insert(curLine.slice(T.length) + '}');
       return;
+    }
+    // автозакрытие скобок и кавычек
+    if (settings.get('editor.autoClose') && !mod && !e.altKey) {
+      const PAIRS = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'" };
+      const next = v[s] || '';
+      const prev = v[s - 1] || '';
+      if ([')', ']', '}', '"', "'"].includes(e.key) && s === en && next === e.key) {
+        e.preventDefault(); ta.setSelectionRange(s + 1, s + 1); this.updateSignature(); return;
+      }
+      if (PAIRS[e.key]) {
+        const quote = e.key === '"' || e.key === "'";
+        const inWord = /\w/.test(prev) && quote;
+        if (s !== en) { e.preventDefault(); const sel = v.slice(s, en); this.insert(e.key + sel + PAIRS[e.key]); ta.setSelectionRange(s + 1, s + 1 + sel.length); return; }
+        if (!inWord && (!next || /[\s)\]};,]/.test(next))) {
+          e.preventDefault(); this.insert(e.key + PAIRS[e.key]); ta.setSelectionRange(s + 1, s + 1);
+          this.updateSignature();
+          if (e.key === '"') this.updateComplete('insertText');
+          return;
+        }
+      }
+      if (e.key === 'Backspace' && s === en && PAIRS[prev] && next === PAIRS[prev]) {
+        e.preventDefault(); ta.setSelectionRange(s - 1, s + 1); this.insert(''); return;
+      }
     }
   }
 }

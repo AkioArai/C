@@ -14,26 +14,23 @@
 </head>
 <body>
   <nav class="rail" aria-label="Разделы">
-    <a class="rail-logo" href="#/lab" title="Вселенная Си"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="16" cy="16" r="2.6" fill="currentColor"/><circle cx="26.5" cy="11" r="1.7" fill="currentColor"/></svg><span class="sr-only">Вселенная Си</span></a>
-    <a href="#/lab" data-nav="lab" class="rail-i" title="Лаборатория: код и его выполнение"><svg class="ic" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 4l-3 16"/></svg><span>Код</span></a>
+    <a href="#/lab" data-nav="lab" class="rail-i" data-explorer title="Код и проводник файлов (Ctrl+B — скрыть/показать проводник)"><svg class="ic" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9.5 12.5l-1.5 1.5 1.5 1.5M14.5 12.5l1.5 1.5-1.5 1.5"/></svg><span>Код</span></a>
     <a href="#/learn" data-nav="learn" class="rail-i" title="Теория по методичкам"><svg class="ic" viewBox="0 0 24 24"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg><span>Теория</span></a>
     <a href="#/practice" data-nav="practice" class="rail-i" title="Задачи с автопроверкой"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6" fill="currentColor"/></svg><span>Задачи</span><em class="rail-badge" data-progress title="Решено задач"></em></a>
     <div class="rail-sp"></div>
+    <button class="rail-i" data-tour title="Обучение: где что находится"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><path d="M12 17.5v.01"/></svg><span>Обучение</span></button>
     <button class="rail-i" data-keys title="Горячие клавиши"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg><span>Клавиши</span></button>
-    <button class="rail-i" data-tour title="Короткое обучение: где что находится"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><path d="M12 17.5v.01"/></svg><span>Обучение</span></button>
-    <span class="watermark" aria-hidden="true">Вселенная Си</span>
+    <button class="rail-i" data-settings title="Настройки (Ctrl+,)"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Настройки</span></button>
   </nav>
 
   <main>
     <!-- ЛАБОРАТОРИЯ -->
     <section class="view" id="view-lab" data-view="lab">
       <div class="lab">
+        <aside class="pane p-side" data-side aria-label="Проводник"></aside>
+        <div class="splitter s" data-split="s" aria-hidden="true"></div>
         <div class="pane p-editor">
-          <div class="ed-head">
-            <span class="file-tab"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>main.c</span>
-            <select class="select ex-select" data-examples aria-label="Примеры программ"></select>
-            <button class="btn icon ghost" data-act="reset-code" title="Новая пустая программа"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
-          </div>
+          <div class="tabs" data-tabs role="tablist" aria-label="Открытые файлы"></div>
           <div class="editor-host" data-editor></div>
           <details class="stdin-box">
             <summary>Входные данные заранее <small>(необязательно)</small></summary>
@@ -112,6 +109,17 @@
     <section class="view" id="view-practice" data-view="practice" hidden></section>
   </main>
 
+  <footer class="statusbar" data-statusbar>
+    <span class="sb-i sb-state" data-sb="state"><i></i><b>готов</b></span>
+    <span class="sb-i" data-sb="file" title="Текущий файл"></span>
+    <span class="sb-i sb-click" data-sb="problems" title="Ошибки и предупреждения — открыть вкладку «Проблемы»"></span>
+    <span class="sb-sp"></span>
+    <span class="sb-i" data-sb="step" title="Номер шага выполнения"></span>
+    <span class="sb-i" data-sb="pos" title="Строка и столбец курсора"></span>
+    <span class="sb-i" title="Модель компилятора: стандарт C11, gcc на 64-битном Linux (int — 4 байта, long — 8)">C11 · gcc x86-64</span>
+    <span class="sb-i" title="Кодировка">UTF-8</span>
+    <button class="sb-i sb-click" data-sb="settings" title="Настройки (Ctrl+,)"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+  </footer>
   <div class="keys" data-keysdlg hidden>
     <div class="keys-card" role="dialog" aria-label="Горячие клавиши">
       <div class="keys-h"><b>Горячие клавиши</b><button class="in-close" data-close aria-label="Закрыть">×</button></div>
@@ -121,7 +129,16 @@
         <tr><td><kbd>Shift</kbd>+<kbd>F10</kbd></td><td>Шаг назад</td></tr>
         <tr><td><kbd>F8</kbd></td><td>Выполнить мгновенно</td></tr>
         <tr><td><kbd>Shift</kbd>+<kbd>F5</kbd></td><td>Остановить</td></tr>
-        <tr><td><kbd>→</kbd></td><td>Принять подсказку при наборе</td></tr>
+        <tr><td><kbd>→</kbd> / <kbd>Enter</kbd></td><td>Принять подсказку при наборе (меняется в настройках)</td></tr>
+        <tr><td><kbd>Tab</kbd> в шаблоне</td><td>Перейти к следующему полю шаблона</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Space</kbd></td><td>Показать подсказки</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Сохранить файл</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>N</kbd></td><td>Новый файл</td></tr>
+        <tr><td><kbd>F2</kbd></td><td>Переименовать файл</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd></td><td>Скрыть/показать проводник</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>Настройки</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Дублировать строку</td></tr>
+        <tr><td><kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></td><td>Переместить строку</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>/</kbd></td><td>Закомментировать строки</td></tr>
         <tr><td><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>Отступ / убрать отступ</td></tr>
         <tr><td><kbd>Ctrl</kbd> + колесо</td><td>Размер текста в терминале</td></tr>

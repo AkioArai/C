@@ -1,6 +1,7 @@
 // Отрисовка вселенной на canvas: строгая сетка панелей и мини-таблиц.
 // Управление: перетаскивание — перемещение, колесо/щипок — масштаб, касание — выбор.
 import { G, colorForType, shortVal } from './scene.js';
+import { settings } from '../ui/settings.js';
 
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -468,7 +469,7 @@ export class Renderer {
       this.text(src.trimEnd(), x + gutter + 4, ly + G.lineH / 2, { size: 11.5, color: cur ? C.text : fr.visited.has(ln) ? C.text2 : C.muted, maxW: w - gutter - 10 - tagW });
       // вспышка строки: условие проверено — зелёным (истина) или красным (ложь)
       const fsrc = lp ? (lp.lastCond !== undefined ? { at: lp.at, col: lp.lastCond ? C.green : C.red } : null) : s ? { at: s.at, col: tagColor } : null;
-      if (fsrc) {
+      if (fsrc && settings.get('run.flashes')) {
         const cf = this.flashA(fsrc.at, 900);
         if (cf > 0) this.rect(x + 1, ly, w - 2, G.lineH, { fill: alpha(fsrc.col, 0.16 * cf), r: 2 });
       }

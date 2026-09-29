@@ -178,7 +178,7 @@ function callBlock(ev) {
 const PRIORITY = { overflow: 10, output: 9, input: 9, cond: 7, switch: 7, 'frame-enter': 6, alloc: 6, free: 6, file: 6, var: 5, return: 5, write: 4 };
 
 /** HTML панели для шага. */
-export function renderStep(step, { stepNo, srcLines }) {
+export function renderStep(step, { stepNo, srcLines, showVisuals = true }) {
   const evs = step.events || [];
   const line = step.line;
   const codeLine = line ? (srcLines[line - 1] || '').trim() : '';
@@ -202,7 +202,7 @@ export function renderStep(step, { stepNo, srcLines }) {
     if (ev.type === 'return' && !used.has('ret')) { blocks.push(returnBlock(ev)); used.add('ret'); }
     if (ev.type === 'jump' && !used.has('jump')) { blocks.push(jumpBlock(ev)); used.add('jump'); }
   }
-  const vis = visuals(step.trace, blocks.length >= 2 ? 1 : 2);
+  const vis = showVisuals ? visuals(step.trace, blocks.length >= 2 ? 1 : 2) : '';
   if (vis) blocks.push(`<div class="vis-row">${vis}</div>`);
   if (!used.has('trace') && step.trace?.length && blocks.length < 4) blocks.push(traceBlock(step.trace));
   const texts = evs.map(explain).filter(Boolean);

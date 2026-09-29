@@ -72,6 +72,12 @@ function conv(v) {
 // ——— сравнение на числовой прямой ———
 const REL = { '<': 'меньше', '>': 'больше', '<=': 'меньше или равно', '>=': 'больше или равно', '==': 'равно', '!=': 'не равно' };
 function cmp(v) {
+  if (v.op === '==' || v.op === '!=') {
+    const eq = v.a === v.b;
+    const pic = `<div class="eqv"><span class="cv-box"><small>${esc(v.lt)}</small><b>${esc(v.ad)}</b></span><span class="eq-sym ${eq ? 'yes' : 'no'}">${eq ? '=' : '≠'}</span><span class="cv-box"><small>${esc(v.rt)}</small><b>${esc(v.bd)}</b></span><span class="arr">→</span><b class="${v.res ? 'yes' : 'no'}">${v.res ? 'истина (1)' : 'ложь (0)'}</b></div>`;
+    return card(`Проверка на ${v.op === '==' ? 'равенство' : 'неравенство'} ${c(v.op)}`, pic,
+      `${c('==')} — <b>два</b> знака: сравнить и получить 1 или 0; значения не меняются. Один знак ${c('=')} — совсем другое: записать значение в переменную. Частая ошибка — ${c('if (x = 5)')} вместо ${c('if (x == 5)')}.` + (v.op === '!=' ? ` ${c('!=')} — «не равно»: истина, когда значения различаются.` : ''), 'v-eq');
+  }
   const lo = Math.min(v.a, v.b), hi = Math.max(v.a, v.b);
   const span = hi - lo || 1;
   const pos = (x) => (lo === hi ? 50 : 12 + ((x - lo) / span) * 76);
@@ -139,10 +145,47 @@ function index(v) {
   return card(`Индекс ${c(`${v.arr}[${v.idxText}]`)} → элемент №${esc(v.pos)}`, `<div class="ixs">${cells.join('')}</div>`, out ? `<b class="bad">Выход за границы массива!</b> В массиве ${esc(v.len)} элементов, допустимые индексы 0…${esc(v.len - 1)}.` : note, 'v-index');
 }
 
+const COMP = {
+  '+=': 'прибавить к тому, что уже лежит в переменной', '-=': 'вычесть из текущего значения', '*=': 'умножить текущее значение',
+  '/=': 'разделить текущее значение (для целых — нацело)', '%=': 'оставить остаток от деления', '<<=': 'сдвинуть биты влево (умножить на 2ⁿ)',
+  '>>=': 'сдвинуть биты вправо (разделить на 2ⁿ)', '&=': 'побитовое И с текущим значением', '|=': 'побитовое ИЛИ с текущим значением', '^=': 'побитовое исключающее ИЛИ',
+};
 function compound(v) {
   const op = v.op.slice(0, -1);
-  return card(`Составное присваивание ${c(v.op)}`, `<div class="vis-eq">${c(`${v.target} ${v.op} ${v.rhs}`)} &nbsp;⇔&nbsp; ${c(`${v.target} = ${v.target} ${op} ${v.rhs}`)}</div><div class="vis-eq">${esc(v.cur)} ${esc(op)} ${esc(v.rv)} = ${b(v.res)} <span class="arr">→</span> в ${c(v.target)}</div>`,
-    `Берётся текущее значение ${c(v.target)}, к нему применяется операция ${c(op)}, результат записывается обратно в ${c(v.target)}.`, 'v-comp');
+  const up = v.d > 0, same = v.d === 0;
+  const pic = `<div class="cmpd"><span class="cv-box"><small>было</small><b>${esc(v.cur)}</b></span>
+    <span class="cd-op"><code>${esc(v.op)} ${esc(v.rv)}</code><i class="${same ? '' : up ? 'up' : 'down'}"></i></span>
+    <span class="cv-box to"><small>стало</small><b>${esc(v.res)}</b></span>${!same && Number.isFinite(v.d) && (op === '+' || op === '-') ? `<span class="cd-d ${up ? 'up' : 'down'}">${up ? '+' : '−'}${esc(Math.abs(v.d))}</span>` : ''}</div>
+    <div class="vis-eq">${c(`${v.target} ${v.op} ${v.rhs}`)} &nbsp;⇔&nbsp; ${c(`${v.target} = ${v.target} ${op} ${v.rhs}`)}</div>`;
+  return card(`Составное присваивание ${c(v.op)}`, pic,
+    `${c(v.op)} — ${esc(COMP[v.op] || 'операция с текущим значением')}. Сначала берётся старое значение ${c(v.target)} (${esc(v.cur)}), затем ${esc(v.cur)} ${esc(op)} ${esc(v.rv)} = ${b(v.res)}, и результат записывается обратно в ${c(v.target)}.`, 'v-comp');
+}
+
+function assign(v) {
+  const junk = v.old === '?';
+  const pic = `<div class="asg"><span class="cv-box to"><small>${esc(v.target)} · ${esc(v.type)}</small><b>${esc(v.val)}</b>${v.old !== v.val ? `<s class="${junk ? 'junk' : ''}">${junk ? 'мусор' : esc(v.old)}</s>` : ''}</span>
+    <span class="asg-arr">←</span>${v.simple ? '' : `<span class="cv-box"><small>${esc(v.rhs)}</small><b>${esc(v.val)}</b></span>`}</div>`;
+  return card(`Присваивание ${c('=')}`, pic,
+    `Один знак ${c('=')} — не «равно», а «<b>записать</b>»: сначала вычисляется правая часть${v.simple ? '' : ` (${c(v.rhs)} = ${esc(v.val)})`}, потом результат кладётся в ячейку ${c(v.target)}. ${junk ? 'Раньше там был мусор — теперь значение определено.' : v.old === v.val ? 'Значение не изменилось.' : `Старое значение ${esc(v.old)} стирается.`}`, 'v-asg');
+}
+
+function bits(v) {
+  const row = (label, bs, cls = '') => `<div class="bt-row ${cls}"><span class="bt-l">${label}</span><span class="bt-bits">${[...bs].map((x, i) => `${i && i % 4 === 0 ? '<i class="gap"></i>' : ''}<span class="bt ${x === '1' ? 'one' : ''}">${x}</span>`).join('')}</span></div>`;
+  const NAMES = { '&': 'побитовое И: 1, только где обе единицы', '|': 'побитовое ИЛИ: 1, где есть хоть одна единица', '^': 'исключающее ИЛИ: 1, где биты различаются', '<<': `сдвиг влево на ${v.b}: все биты уезжают влево, справа нули — это умножение на 2${sup(v.b)}`, '>>': `сдвиг вправо на ${v.b}: биты уезжают вправо — деление на 2${sup(v.b)} нацело`, '~': 'побитовое НЕ: каждый бит меняется на противоположный' };
+  const rows = v.op === '~' ? row(`${esc(v.lt)} = ${esc(v.a)}`, v.ab) + row(`~ = ${esc(v.r)}`, v.rb, 'res')
+    : v.op === '<<' || v.op === '>>' ? row(`${esc(v.lt)} = ${esc(v.a)}`, v.ab) + row(`${esc(v.op)} ${esc(v.b)} = ${esc(v.r)}`, v.rb, 'res')
+    : row(`${esc(v.lt)} = ${esc(v.a)}`, v.ab) + row(`${esc(v.op)} ${esc(v.rt)} = ${esc(v.b)}`, v.bb) + row(`= ${esc(v.r)}`, v.rb, 'res');
+  return card(`Побитовая операция ${c(v.op)} — ${v.width} бит`, `<div class="bts">${rows}</div>`, esc(NAMES[v.op] || ''), 'v-bits');
+}
+const sup = (n) => String(n).replace(/\d/g, (d) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]);
+
+function notV(v) {
+  const t = v.v !== '0' && v.v !== '0.0';
+  return card(`Логическое НЕ ${c('!')}`, `<div class="lgs"><span class="lg ${t ? 'yes' : 'no'}">${c(v.text)}<small>${esc(v.v)} → ${t ? 'истина' : 'ложь'}</small></span><span class="lg-op">НЕ<small>!</small></span><span class="arr">=</span><b class="${v.r ? 'yes' : 'no'}">${v.r ? 'истина (1)' : 'ложь (0)'}</b></div>`,
+    `${c('!')} переворачивает истинность: любое ненулевое значение — истина, и ${c('!')} даёт 0; ноль — ложь, и ${c('!')} даёт 1. Часто пишут ${c('if (!found)')} вместо ${c('if (found == 0)')}.`, 'v-not');
+}
+function neg(v) {
+  return card('Унарный минус', `<div class="vis-eq">${c('-' + v.text)} &nbsp;→&nbsp; −(${esc(v.v)}) = ${b(v.r)}</div>`, 'Меняет знак числа. Сама переменная при этом не меняется — получается новое значение.', 'v-neg');
 }
 
 function sizeofV(v) {
@@ -157,8 +200,8 @@ function addr(v) {
     'Адрес — номер первого байта переменной в памяти. scanf нужен именно адрес: он говорит функции, куда записать прочитанное значение.', 'v-addr');
 }
 
-const RENDER = { div, fdiv, ascii, conv, cmp, logic, incdec, ternary, fn, index, compound, sizeof: sizeofV, addr };
-const PRIORITY = ['div', 'ascii', 'conv', 'index', 'incdec', 'logic', 'ternary', 'fn', 'fdiv', 'cmp', 'compound', 'sizeof', 'addr'];
+const RENDER = { div, fdiv, ascii, conv, cmp, logic, incdec, ternary, fn, index, compound, assign, bits, not: notV, neg, sizeof: sizeofV, addr };
+const PRIORITY = ['div', 'ascii', 'conv', 'bits', 'index', 'incdec', 'logic', 'not', 'ternary', 'fn', 'fdiv', 'compound', 'cmp', 'assign', 'neg', 'sizeof', 'addr'];
 
 /** До max наглядных картинок для шага (самые содержательные, без повторов типа). */
 export function visuals(trace, max = 2, skip = new Set()) {
