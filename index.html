@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Вселенная Си</title>
+  <meta name="description" content="Визуальная лаборатория языка C: код превращается во вселенную — переменные, лучи ввода-вывода, орбиты циклов. Встроенный компилятор, теория и задачи.">
+  <meta name="theme-color" content="#0a0b09">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230a0b09'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23c8f05a' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23c8f05a'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#/lab">
+      <span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="16" cy="16" r="2.6" fill="currentColor"/><circle cx="26.5" cy="11" r="1.6" fill="currentColor"/></svg></span>
+      <span class="brand-t">Вселенная Си<small>лаборатория языка C</small></span>
+    </a>
+    <nav class="nav">
+      <a href="#/lab" data-nav="lab">Вселенная</a>
+      <a href="#/learn" data-nav="learn">Теория</a>
+      <a href="#/practice" data-nav="practice">Практика</a>
+    </nav>
+    <div class="top-right"><span class="progress-pill" data-progress title="Решено задач"></span></div>
+  </header>
+
+  <main>
+    <!-- ЛАБОРАТОРИЯ -->
+    <section class="view" id="view-lab" data-view="lab">
+      <div class="lab">
+        <div class="pane p-editor">
+          <div class="toolbar">
+            <div class="tb-row">
+              <select class="select" data-examples aria-label="Примеры программ"></select>
+              <button class="btn icon ghost" data-act="reset-code" title="Новая программа"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg></button>
+            </div>
+            <div class="tb-row controls">
+              <button class="btn primary" data-act="run" title="Скомпилировать и запустить с анимацией (Ctrl+Enter)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg><span>Запуск</span></button>
+              <button class="btn" data-act="step" title="Выполнить один шаг"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5l9 7-9 7z"/><path d="M18 5v14"/></svg><span>Шаг</span></button>
+              <button class="btn" data-act="pause" title="Пауза"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg></button>
+              <button class="btn" data-act="stop" title="Остановить"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"/></svg></button>
+              <button class="btn" data-act="instant" title="Выполнить мгновенно, без анимации"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6l7 6-7 6zM13 6l7 6-7 6z"/></svg><span>Мгновенно</span></button>
+              <label class="speed" title="Скорость анимации"><span class="sp-l">медл.</span><input type="range" min="1" max="10" step="1" data-speed aria-label="Скорость"><span class="sp-l">быстр.</span><small data-speed-label></small></label>
+            </div>
+          </div>
+          <div class="editor-host" data-editor></div>
+          <details class="stdin-box">
+            <summary>Входные данные заранее <small>(необязательно)</small></summary>
+            <textarea data-stdin rows="3" spellcheck="false" placeholder="Если оставить пустым, программа попросит ввод в терминале во время работы. Можно вписать значения заранее: например «5 7»."></textarea>
+          </details>
+        </div>
+        <div class="splitter v" data-split="v" aria-hidden="true"></div>
+        <div class="pane p-universe">
+          <canvas data-canvas aria-label="Визуализация выполнения программы"></canvas>
+          <div class="oppanel" data-op hidden></div>
+          <div class="u-controls">
+            <button class="ubtn" data-u="zin" title="Приблизить"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button class="ubtn" data-u="zout" title="Отдалить"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+            <button class="ubtn" data-u="home" title="Показать всю вселенную"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/></svg></button>
+            <button class="ubtn" data-u="follow" title="Камера следует за выполнением"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+            <button class="ubtn" data-u="legend" title="Легенда: что означают объекты"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><path d="M12 17.5v.01"/></svg></button>
+            <button class="ubtn" data-u="full" title="Во весь экран"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+          </div>
+          <div class="u-coords" data-coords></div>
+          <div class="u-legend" data-legend hidden>
+            <button class="in-close" data-close aria-label="Закрыть">×</button>
+            <h4>Как читать картину</h4>
+            <ul>
+              <li><span class="lg-sw core"></span><b>Компьютер</b> — сверху. Слева экран: всё, что вывела программа; <b>↵</b> — символ <code>\n</code> (переход на новую строку). Справа буфер клавиатуры: введённые символы ждут, пока их заберёт scanf.</li>
+              <li><span class="lg-sw region"></span><b>Кадр функции</b> — рамка с кодом функции слева; подсвечена выполняемая строка. Справа от строк if — <b>да/нет</b>, у цикла — <b>×N</b> (номер итерации).</li>
+              <li><span class="lg-sw var"></span><b>Карточка переменной</b> — имя, тип, значение, адрес. Квадратики внизу — сколько байт она занимает. Цвет = тип: <i class="c-int">int</i>, <i class="c-dbl">double</i>, <i class="c-chr">char</i>.</li>
+              <li><span class="lg-sw garbage"></span><b>«? мусор»</b> — переменной не задали значение.</li>
+              <li><span class="lg-sw loop"></span><b>Таблица цикла</b> — значения переменных после каждой итерации (трассировка).</li>
+              <li><span class="lg-sw beam-in"></span><b>Стрелки</b> — указатели: «кто на кого указывает». Пунктир — данные текут при присваивании, вводе и выводе.</li>
+              <li><span class="lg-sw spine"></span><b>Панель «Операция»</b> внизу — разбор шага: строка формата printf (что значит %d, %.2f, \n), какие символы забрал scanf, как по шагам посчитано выражение.</li>
+            </ul>
+            <p class="muted">Перетаскивайте поле, масштаб — колёсиком или двумя пальцами. Нажмите на карточку — появится её паспорт с историей значений.</p>
+          </div>
+          <aside class="inspector" data-inspector hidden></aside>
+          <div class="splash" data-splash>
+            <div class="splash-card">
+              <h2>Память пока пуста</h2>
+              <p>После запуска здесь появятся компьютер с экраном и клавиатурой, кадры функций с их кодом и карточки переменных. Каждый шаг будет разобран в панели «Операция».</p>
+              <ol>
+                <li><b>#include</b> — подключает библиотеку (видно на панели компьютера);</li>
+                <li><b>объявление</b> — в кадре функции появляется карточка: имя, тип, байты, значение;</li>
+                <li><b>scanf</b> — символы из буфера клавиатуры превращаются в значение, <b>printf</b> — формат %d/%f/\n превращается в текст на экране.</li>
+              </ol>
+              <div class="splash-btns">
+                <button class="btn primary" data-act="splash-run">Запустить программу</button>
+                <button class="btn ghost" data-act="splash-close">Осмотреться</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="splitter h" data-split="h" aria-hidden="true"></div>
+        <div class="pane p-console" data-console></div>
+      </div>
+    </section>
+
+    <!-- ТЕОРИЯ -->
+    <section class="view" id="view-learn" data-view="learn" hidden></section>
+
+    <!-- ПРАКТИКА -->
+    <section class="view" id="view-practice" data-view="practice" hidden></section>
+  </main>
+
+  <div class="rotate-hint">Поверните устройство горизонтально или откройте сайт на планшете/ноутбуке — на экране телефона вселенной тесно.</div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
