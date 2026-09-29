@@ -469,4 +469,230 @@ int main(void) {
 }
 `,
   },
+  {
+    id: 'ptr-swap', group: 'Указатели и память', title: 'Указатели: обмен через swap',
+    code: `#include <stdio.h>
+
+void swap(int *a, int *b) {   /* a и b хранят АДРЕСА переменных */
+    int t = *a;               /* *a — значение по адресу a */
+    *a = *b;
+    *b = t;
+}
+
+int main(void) {
+    int x = 3, y = 7;
+    int *p = &x;              /* p указывает на x */
+    printf("x = %d, *p = %d\\n", x, *p);
+    swap(&x, &y);             /* передаём адреса */
+    printf("x = %d, y = %d\\n", x, y);
+    return 0;
+}
+`,
+  },
+  {
+    id: 'ptr-array', group: 'Указатели и память', title: 'Массив и арифметика указателей',
+    code: `#include <stdio.h>
+
+int main(void) {
+    int a[5] = {10, 20, 30, 40, 50};
+    int *p = a;               /* имя массива = адрес первого элемента */
+    int sum = 0;
+    for (int i = 0; i < 5; i++) {
+        sum += *(p + i);      /* то же, что a[i] */
+    }
+    p += 2;                   /* сдвиг на 2 элемента (8 байт) */
+    printf("sum = %d, *p = %d, p[1] = %d\\n", sum, *p, p[1]);
+    return 0;
+}
+`,
+  },
+  {
+    id: 'matrix', group: 'Указатели и память', title: 'Двумерный массив: матрица',
+    code: `#include <stdio.h>
+#define N 3
+
+int main(void) {
+    int m[N][N] = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
+    int t[N][N];
+    for (int i = 0; i < N; i++)
+        for (int j = 0; j < N; j++)
+            t[j][i] = m[i][j];        /* транспонирование */
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++)
+            printf("%3d", t[i][j]);
+        printf("\\n");
+    }
+    return 0;
+}
+`,
+  },
+  {
+    id: 'strings', group: 'Указатели и память', title: 'Строки: массив символов и \\0',
+    stdin: 'Anna\n',
+    code: `#include <stdio.h>
+#include <string.h>
+
+int main(void) {
+    char name[16];
+    char greet[32] = "Hi, ";
+    printf("Имя: ");
+    scanf("%15s", name);          /* имя массива — уже адрес, & не нужен */
+    strcat(greet, name);          /* дописываем в конец */
+    printf("%s! Длина: %lu\\n", greet, strlen(greet));
+    for (int i = 0; name[i] != '\\0'; i++)
+        printf("%c-", name[i]);
+    printf("\\n");
+    return 0;
+}
+`,
+  },
+  {
+    id: 'malloc', group: 'Указатели и память', title: 'Динамический массив: malloc и free',
+    stdin: '5\n',
+    code: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void) {
+    int n;
+    printf("Сколько чисел? ");
+    scanf("%d", &n);
+    int *a = malloc(n * sizeof(int));   /* блок в куче */
+    if (a == NULL) return 1;
+    for (int i = 0; i < n; i++)
+        a[i] = i * i;
+    for (int i = 0; i < n; i++)
+        printf("%d ", a[i]);
+    printf("\\n");
+    free(a);                            /* вернуть память */
+    return 0;
+}
+`,
+  },
+  {
+    id: 'struct', group: 'Структуры и файлы', title: 'Структура: точки на плоскости',
+    code: `#include <stdio.h>
+#include <math.h>
+
+typedef struct {
+    double x, y;
+} Point;
+
+double dist(Point a, Point b) {
+    return sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
+}
+
+int main(void) {
+    Point p = {0, 0};
+    Point q = {.x = 3, .y = 4};
+    Point *ptr = &q;
+    ptr->x += 1;                       /* то же, что (*ptr).x += 1 */
+    printf("dist = %.3f\\n", dist(p, q));
+    return 0;
+}
+`,
+  },
+  {
+    id: 'students', group: 'Структуры и файлы', title: 'Массив структур: средний балл',
+    code: `#include <stdio.h>
+
+struct Student {
+    char name[12];
+    int marks[3];
+};
+
+double avg(const struct Student *s) {
+    int sum = 0;
+    for (int i = 0; i < 3; i++) sum += s->marks[i];
+    return sum / 3.0;
+}
+
+int main(void) {
+    struct Student g[3] = {
+        {"Anna", {5, 4, 5}},
+        {"Oleg", {3, 4, 4}},
+        {"Ivan", {5, 5, 5}},
+    };
+    for (int i = 0; i < 3; i++)
+        printf("%-6s %.2f\\n", g[i].name, avg(&g[i]));
+    return 0;
+}
+`,
+  },
+  {
+    id: 'list', group: 'Структуры и файлы', title: 'Связный список',
+    code: `#include <stdio.h>
+#include <stdlib.h>
+
+typedef struct Node {
+    int value;
+    struct Node *next;          /* указатель на следующий узел */
+} Node;
+
+Node *push(Node *head, int v) {
+    Node *n = malloc(sizeof(Node));
+    n->value = v;
+    n->next = head;
+    return n;
+}
+
+int main(void) {
+    Node *head = NULL;
+    for (int i = 1; i <= 3; i++)
+        head = push(head, i * 10);
+    for (Node *p = head; p != NULL; p = p->next)
+        printf("%d -> ", p->value);
+    printf("NULL\\n");
+    while (head != NULL) {       /* освобождаем узлы */
+        Node *t = head->next;
+        free(head);
+        head = t;
+    }
+    return 0;
+}
+`,
+  },
+  {
+    id: 'file', group: 'Структуры и файлы', title: 'Файлы: запись и чтение',
+    code: `#include <stdio.h>
+
+int main(void) {
+    FILE *f = fopen("squares.txt", "w");
+    if (f == NULL) return 1;
+    for (int i = 1; i <= 4; i++)
+        fprintf(f, "%d %d\\n", i, i * i);
+    fclose(f);
+
+    f = fopen("squares.txt", "r");
+    int a, b, sum = 0;
+    while (fscanf(f, "%d %d", &a, &b) == 2)
+        sum += b;
+    fclose(f);
+    printf("Сумма квадратов: %d\\n", sum);
+    return 0;
+}
+`,
+  },
+  {
+    id: 'enum-macro', group: 'Структуры и файлы', title: 'enum, макросы, static',
+    code: `#include <stdio.h>
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define SQR(x) ((x) * (x))
+
+enum Day { MON = 1, TUE, WED, THU, FRI, SAT, SUN };
+
+int counter(void) {
+    static int calls = 0;       /* сохраняется между вызовами */
+    return ++calls;
+}
+
+int main(void) {
+    enum Day d = FRI;
+    printf("FRI = %d, выходной: %s\\n", d, d >= SAT ? "да" : "нет");
+    printf("MAX = %d, SQR(1+2) = %d\\n", MAX(3, 8), SQR(1 + 2));
+    counter(); counter();
+    printf("вызовов: %d\\n", counter());
+    return 0;
+}
+`,
+  },
 ];

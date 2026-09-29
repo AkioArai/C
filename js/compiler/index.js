@@ -14,9 +14,9 @@ export function compile(source) {
   try {
     const toks = tokenize(source);
     const pp = preprocess(toks, HEADERS);
-    const typeNames = new Set();
-    for (const inc of pp.includes) for (const t of Object.keys(HEADERS[inc.name].types || {})) typeNames.add(t);
-    const prog = parse(pp.tokens, { typeNames, lines });
+    const typedefs = {};
+    for (const inc of pp.includes) Object.assign(typedefs, HEADERS[inc.name].types || {});
+    const prog = parse(pp.tokens, { typedefs, lines });
     result.pp = pp;
     result.program = prog;
     result.diagnostics.push(...prog.warnings);
@@ -38,7 +38,7 @@ export function compile(source) {
 export function runToEnd(source, stdin = '', opts = {}) {
   const c = compile(source);
   if (!c.ok) return { compileError: true, diagnostics: c.diagnostics, output: '' };
-  const it = new Interpreter(c.program, c.pp, { stdin, source, stepLimit: opts.stepLimit ?? 3_000_000 });
+  const it = new Interpreter(c.program, c.pp, { stdin, source, stepLimit: opts.stepLimit ?? 3_000_000, tracing: false, files: opts.files });
   const gen = it.run();
   let error = null;
   try {
@@ -50,5 +50,5 @@ export function runToEnd(source, stdin = '', opts = {}) {
     if (e instanceof RuntimeError) error = e;
     else throw e;
   }
-  return { output: it.output, exitCode: it.exitCode, error, diagnostics: c.diagnostics, steps: it.steps };
+  return { output: it.output, exitCode: it.exitCode, error, diagnostics: c.diagnostics, steps: it.steps, files: it.files };
 }

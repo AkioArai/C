@@ -54,7 +54,7 @@
         <div class="splitter v" data-split="v" aria-hidden="true"></div>
         <div class="pane p-universe">
           <canvas data-canvas aria-label="Визуализация выполнения программы"></canvas>
-          <div class="narration" data-narr hidden></div>
+          <div class="oppanel" data-op hidden></div>
           <div class="u-controls">
             <button class="ubtn" data-u="zin" title="Приблизить"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
             <button class="ubtn" data-u="zout" title="Отдалить"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
@@ -66,29 +66,27 @@
           <div class="u-coords" data-coords></div>
           <div class="u-legend" data-legend hidden>
             <button class="in-close" data-close aria-label="Закрыть">×</button>
-            <h4>Карта вселенной</h4>
+            <h4>Как читать картину</h4>
             <ul>
-              <li><span class="lg-sw core"></span><b>Компьютер (0,0)</b> — выполняет код, через него идёт ввод и вывод.</li>
-              <li><span class="lg-sw law"></span><b>Орбиты</b> — законы-библиотеки (#include). Спутники — их функции.</li>
-              <li><span class="lg-sw star"></span><b>Звёзды</b> — константы #define: неподвижны и неизменны.</li>
-              <li><span class="lg-sw region"></span><b>Туманность</b> — область функции (кадр стека): её переменные живут внутри.</li>
-              <li><span class="lg-sw var"></span><b>Точки</b> — переменные. Цвет = тип: <i class="c-int">int</i>, <i class="c-dbl">double</i>, <i class="c-chr">char</i>.</li>
-              <li><span class="lg-sw garbage"></span><b>«?»</b> — мусор: переменная не инициализирована.</li>
-              <li><span class="lg-sw spine"></span><b>Ось строк</b> — код функции сверху вниз; метка показывает текущую строку.</li>
-              <li><span class="lg-sw loop"></span><b>Дуга</b> — цикл (возврат к началу). <b>Ромб</b> — развилка if/switch.</li>
-              <li><span class="lg-sw beam-in"></span><b>Жёлтый луч</b> — ввод scanf; <b>зелёный</b> — вывод printf; тонкие линии — поток данных при присваивании.</li>
+              <li><span class="lg-sw core"></span><b>Компьютер</b> — сверху. Слева экран: всё, что вывела программа; <b>↵</b> — символ <code>\n</code> (переход на новую строку). Справа буфер клавиатуры: введённые символы ждут, пока их заберёт scanf.</li>
+              <li><span class="lg-sw region"></span><b>Кадр функции</b> — рамка с кодом функции слева; подсвечена выполняемая строка. Справа от строк if — <b>да/нет</b>, у цикла — <b>×N</b> (номер итерации).</li>
+              <li><span class="lg-sw var"></span><b>Карточка переменной</b> — имя, тип, значение, адрес. Квадратики внизу — сколько байт она занимает. Цвет = тип: <i class="c-int">int</i>, <i class="c-dbl">double</i>, <i class="c-chr">char</i>.</li>
+              <li><span class="lg-sw garbage"></span><b>«? мусор»</b> — переменной не задали значение.</li>
+              <li><span class="lg-sw loop"></span><b>Таблица цикла</b> — значения переменных после каждой итерации (трассировка).</li>
+              <li><span class="lg-sw beam-in"></span><b>Стрелки</b> — указатели: «кто на кого указывает». Пунктир — данные текут при присваивании, вводе и выводе.</li>
+              <li><span class="lg-sw spine"></span><b>Панель «Операция»</b> внизу — разбор шага: строка формата printf (что значит %d, %.2f, \n), какие символы забрал scanf, как по шагам посчитано выражение.</li>
             </ul>
-            <p class="muted">Управление: перетаскивайте пространство, масштаб — колёсиком или двумя пальцами. Нажмите на объект — появится его паспорт.</p>
+            <p class="muted">Перетаскивайте поле, масштаб — колёсиком или двумя пальцами. Нажмите на карточку — появится её паспорт с историей значений.</p>
           </div>
           <aside class="inspector" data-inspector hidden></aside>
           <div class="splash" data-splash>
             <div class="splash-card">
-                            <h2>Пустое пространство</h2>
-              <p>Пока программа не запущена, вселенная пуста — как чистая память компьютера. Каждая строка кода будет создавать в ней законы, звёзды и объекты.</p>
+              <h2>Память пока пуста</h2>
+              <p>После запуска здесь появятся компьютер с экраном и клавиатурой, кадры функций с их кодом и карточки переменных. Каждый шаг будет разобран в панели «Операция».</p>
               <ol>
-                <li><b>#include</b> — задаёт законы (орбиты вокруг компьютера);</li>
-                <li><b>объявление переменной</b> — компьютер находит её в пространстве и цепляет лучом;</li>
-                <li><b>scanf</b> — луч с клавиатуры приносит значение, <b>printf</b> — отправляет его на экран.</li>
+                <li><b>#include</b> — подключает библиотеку (видно на панели компьютера);</li>
+                <li><b>объявление</b> — в кадре функции появляется карточка: имя, тип, байты, значение;</li>
+                <li><b>scanf</b> — символы из буфера клавиатуры превращаются в значение, <b>printf</b> — формат %d/%f/\n превращается в текст на экране.</li>
               </ol>
               <div class="splash-btns">
                 <button class="btn primary" data-act="splash-run">Запустить программу</button>

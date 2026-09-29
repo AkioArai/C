@@ -159,51 +159,47 @@ export class ConsolePanel {
   // ——— процессы ———
   renderProcesses(scene, state) {
     const tr = scene.tree();
-    const item = (e, icon, title, sub, desc, extra = '') =>
-      `<div class="pi ${extra}" data-ent="${e.id}" ${e.line ? `data-line="${e.line}"` : ''}>
-        <span class="pi-ic">${icon}</span>
+    const item = (key, title, sub, desc, extra = '', line = 0) =>
+      `<div class="pi ${extra}" data-ent="${key}" ${line ? `data-line="${line}"` : ''}>
         <span class="pi-main"><span class="pi-t">${title}</span>${sub ? `<span class="pi-s">${sub}</span>` : ''}${desc ? `<span class="pi-d">${desc}</span>` : ''}</span>
-        <span class="pi-xy">(${Math.round(e.x)}, ${Math.round(e.y)})</span>
       </div>`;
-    let h = '';
-    const count = tr.laws.length + tr.consts.length + tr.regions.reduce((n, r) => n + 1 + r.vars.length + r.structs.length, 0);
+    const count = tr.frames.length + tr.globals.length + tr.heap.length + tr.files.length + tr.frames.reduce((n, f) => n + f.vars.length, 0);
     this.badge('proc', count || '');
-    if (!count) { this.procEl.innerHTML = '<div class="empty">Пока во вселенной пусто. Процессы появятся после запуска программы.</div>'; return; }
-    h += `<div class="pg"><div class="pg-h">Компьютер <span class="pg-n">${esc(state || '')}</span></div>`;
-    h += item(scene.entities.get('core'), '', 'Компьютер (процессор + терминал)', 'точка отсчёта вселенной', 'Выполняет код строка за строкой; через него идёт весь ввод (scanf) и вывод (printf).');
+    if (!count) { this.procEl.innerHTML = '<div class="empty">Пока ничего не существует. Процессы появятся после запуска программы.</div>'; return; }
+    let h = `<div class="pg"><div class="pg-h">компьютер <span class="pg-n">${esc(state || '')}</span></div>`;
+    h += item('computer', 'экран и клавиатура', `библиотеки: ${tr.headers.map(x => esc(x.name)).join(', ') || 'нет'}`, tr.defines.length ? '#define: ' + tr.defines.map(d => esc(d.name)).join(', ') : '');
     h += '</div>';
-    if (tr.laws.length) {
-      h += `<div class="pg"><div class="pg-h">Законы вселенной <span class="pg-n">${tr.laws.length}</span></div>`;
-      for (const l of tr.laws) h += item(l, '', esc(l.name), esc(l.title), esc(l.funcs.slice(0, 6).join(', ') + (l.funcs.length > 6 ? '…' : '')));
+    const varItem = (o) => {
+      const c0 = o.cells[0];
+      const v = o.shape === 'scalar' ? (c0?.init ? (c0.ptr !== undefined && c0.desc ? '→ ' + c0.desc : c0.display) : '?')
+        : o.shape === 'array' ? `[${o.cells.slice(0, 8).map(c => (c.init ? String(c.display).split(' ')[0] : '?')).join(', ')}${o.cells.length > 8 ? ', …' : ''}]` : '{…}';
+      return item('obj:' + o.id, `${esc(o.name)} = <b class="v">${esc(v)}</b>`, `${esc(o.typeName)} · ${o.size} Б · 0x${o.addr.toString(16)}${o.line ? ' · строка ' + o.line : ''}`,
+        o.garbage ? '<b class="bad">мусор — не инициализирована</b>' : o.freed ? '<b class="bad">освобождён</b>' : '', 'sub', o.line);
+    };
+    if (tr.globals.length) {
+      h += `<div class="pg"><div class="pg-h">глобальные <span class="pg-n">${tr.globals.length}</span></div>`;
+      for (const o of tr.globals) h += varItem(o);
       h += '</div>';
     }
-    if (tr.consts.length) {
-      h += `<div class="pg"><div class="pg-h">Константы #define <span class="pg-n">${tr.consts.length}</span></div>`;
-      for (const c of tr.consts) h += item(c, '', `${esc(c.name)} = ${esc(c.text)}`, `строка ${c.line}`, 'подставляется в код до компиляции');
+    for (const { fr, vars, loops } of tr.frames) {
+      const active = scene.current === fr.id;
+      h += `<div class="pg ${active ? 'active' : ''}"><div class="pg-h">${esc(fr.func)}() ${active ? '<span class="live">выполняется</span>' : fr.ended ? '<span class="pg-n">завершена</span>' : '<span class="pg-n">ждёт возврата</span>'}</div>`;
+      h += item('frame:' + fr.id, `кадр ${esc(fr.func)}()`, `глубина ${fr.depth} · строка ${fr.curLine}`, fr.args?.length ? 'параметры: ' + esc(fr.args.map(a => `${a.name}=${a.display}`).join(', ')) : '', '', fr.span.start);
+      for (const lp of loops) {
+        h += item(`loop:${fr.id}:${lp.nodeId}`, `${lp.kind === 'do' ? 'do-while' : lp.kind} (${esc(lp.text)})`,
+          `строки ${lp.line}–${lp.endLine} · ${lp.active ? `<span class="live">итерация ${lp.iter}</span>` : `итераций: ${lp.iters ?? lp.iter}`}`, '', 'sub', lp.line);
+      }
+      for (const o of vars) h += varItem(o);
       h += '</div>';
     }
-    for (const { region, vars, structs } of tr.regions) {
-      const active = scene.current === region.id;
-      h += `<div class="pg ${active ? 'active' : ''}"><div class="pg-h">${esc(region.name)} ${active ? '<span class="live">выполняется</span>' : region.id === 'global' ? '' : '<span class="pg-n">ждёт возврата вызова</span>'}</div>`;
-      h += item(region, '', esc(region.name), region.id === 'global' ? 'глобальные переменные' : `кадр стека · глубина ${region.depth} · сейчас строка ${region.probeLine}`,
-        region.args?.length ? 'параметры: ' + esc(region.args.map(a => `${a.name}=${a.display}`).join(', ')) : '', 'region');
-      for (const s of structs) {
-        if (s.kind === 'loop') {
-          const st = s.active ? `<span class="live">итерация ${s.iter}</span>` : `завершён: ${s.iterDone ?? s.iter} итер.`;
-          h += item(s, '', `${s.loopKind === 'do' ? 'do-while' : s.loopKind} (${esc(s.text)})`, `строки ${s.line}–${s.endLine} · ${st}`,
-            `повторяет строки ${s.line}–${s.endLine}, пока условие ${esc(s.text)} истинно`, 'sub');
-        } else {
-          const v = s.lastValue === undefined ? '' : s.isSwitch ? ` = ${esc(s.switchValue)}` : s.lastValue ? ' → <b class="ok">истина</b>' : ' → <b class="bad">ложь</b>';
-          h += item(s, s.isSwitch ? '' : '', `${s.isSwitch ? esc(s.text) : 'if (' + esc(s.text) + ')'}${v}`, `строка ${s.line} · проверено раз: ${s.hits}`,
-            s.isSwitch ? 'выбирает ветку case по значению' : 'развилка: выбирает, какой код выполнить', 'sub');
-        }
-      }
-      for (const v of vars) {
-        const val = v.isArray ? `[${(v.elems || []).slice(0, 8).map(x => String(x).split(' ')[0]).join(', ')}${v.len > 8 ? ', …' : ''}]` : v.display;
-        h += item(v, v.isArray ? '' : v.isParam ? '' : '', `${esc(v.name)} = <b class="v">${esc(val)}</b>`,
-          `${esc(v.typeName)} · ${v.size} Б · адрес 0x${v.addr.toString(16)} · объявлена в строке ${v.line} · изменений: ${v.history.length - 1}`,
-          v.garbage ? '<b class="bad">содержит мусор — не инициализирована!</b>' : esc(typeInfo(v.typeName)), 'sub');
-      }
+    if (tr.heap.length) {
+      h += `<div class="pg"><div class="pg-h">куча <span class="pg-n">${tr.heap.length}</span></div>`;
+      for (const o of tr.heap) h += varItem(o);
+      h += '</div>';
+    }
+    if (tr.files.length) {
+      h += `<div class="pg"><div class="pg-h">файлы <span class="pg-n">${tr.files.length}</span></div>`;
+      for (const f of tr.files) h += item('files', esc(f.name), esc(f.state || ''), esc((f.text || '').slice(0, 60).replace(/\n/g, '↵')), 'sub');
       h += '</div>';
     }
     this.procEl.innerHTML = h;

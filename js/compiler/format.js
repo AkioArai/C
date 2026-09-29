@@ -134,17 +134,27 @@ export function decodeBytes(bytes) {
 export const encodeUtf8 = (str) => [...new TextEncoder().encode(str)];
 
 // ——— разбор спецификаторов ———
-const SPEC_RE = /%([-+ #0]*)(\*|\d+)?(?:\.(\*|\d*))?(hh|h|ll|l|L|z|j|t)?([diuoxXfFeEgGcspn%])?/y;
+const SPEC_RE = /%([-+ #0]*)(\*|\d+)?(?:\.(\*|\d*))?(hh|h|ll|l|L|z|j|t)?([diuoxXfFeEgGaAcspn%])?/y;
+const SCAN_RE = /%(\*)?(\d+)?(hh|h|ll|l|L|z|j|t)?([diuoxXfFeEgGaAcspn%]|\[\^?\]?[^\]]*\])?/y;
 
-/** Разбирает строку формата на куски: текст и спецификаторы. */
-export function parseFormat(fmt) {
+/** Разбирает строку формата на куски: текст и спецификаторы. scanf=true — синтаксис scanf. */
+export function parseFormat(fmt, scanf = false) {
   const parts = [];
   let i = 0, lit = '';
   while (i < fmt.length) {
     if (fmt[i] !== '%') { lit += fmt[i++]; continue; }
+    if (lit) { parts.push({ lit, at: i - lit.length }); lit = ''; }
+    if (scanf) {
+      SCAN_RE.lastIndex = i;
+      const m = SCAN_RE.exec(fmt);
+      if (!m[4]) { parts.push({ bad: true, text: m[0] || '%', at: i }); i += Math.max(1, m[0].length); continue; }
+      const conv = m[4][0] === '[' ? '[' : m[4];
+      parts.push({ spec: true, text: m[0], at: i, suppress: !!m[1], width: m[2], len: m[3] || '', conv, set: conv === '[' ? m[4] : null, flags: '' });
+      i += m[0].length;
+      continue;
+    }
     SPEC_RE.lastIndex = i;
     const m = SPEC_RE.exec(fmt);
-    if (lit) { parts.push({ lit }); lit = ''; }
     if (!m[5]) {
       parts.push({ bad: true, text: m[0] || '%', at: i });
       i += Math.max(1, m[0].length);
@@ -156,7 +166,7 @@ export function parseFormat(fmt) {
     });
     i += m[0].length;
   }
-  if (lit) parts.push({ lit });
+  if (lit) parts.push({ lit, at: i - lit.length });
   return parts;
 }
 
@@ -165,13 +175,47 @@ export function printfExpect(p) {
   switch (p.conv) {
     case 'd': case 'i': case 'u': case 'o': case 'x': case 'X': case 'c':
       return { cat: 'int', len: p.conv === 'c' ? '' : p.len };
-    case 'f': case 'F': case 'e': case 'E': case 'g': case 'G':
+    case 'f': case 'F': case 'e': case 'E': case 'g': case 'G': case 'a': case 'A':
       return { cat: 'float', len: p.len };
     case 's': return { cat: 'str' };
     case 'p': return { cat: 'ptr' };
     case 'n': return { cat: 'ptr' };
     default: return null;
   }
+}
+
+/** Человеческое описание спецификатора — для визуализации. */
+export function describeSpec(p, scanf = false) {
+  if (p.conv === '%') return 'знак %';
+  const lenName = { l: p.conv && 'fFeEgG'.includes(p.conv) ? 'double' : 'long', ll: 'long long', h: 'short', hh: 'char', z: 'size_t', L: 'long double' }[p.len];
+  let base;
+  switch (p.conv) {
+    case 'd': case 'i': base = 'целое число'; break;
+    case 'u': base = 'целое без знака'; break;
+    case 'o': base = 'восьмеричное'; break;
+    case 'x': case 'X': base = 'шестнадцатеричное'; break;
+    case 'f': case 'F': base = scanf ? (p.len === 'l' ? 'дробное → double' : 'дробное → float') : 'дробное число'; break;
+    case 'e': case 'E': base = scanf ? 'дробное' : 'дробное, форма 1.2e+03'; break;
+    case 'g': case 'G': base = scanf ? 'дробное' : 'дробное, короткая форма'; break;
+    case 'c': base = 'один символ'; break;
+    case 's': base = scanf ? 'слово до пробела' : 'строка'; break;
+    case 'p': base = 'адрес'; break;
+    case '[': base = 'символы из набора'; break;
+    case 'n': base = 'сколько символов уже'; break;
+    default: base = p.conv;
+  }
+  const extra = [];
+  if (lenName && !scanf && !(p.len === 'l' && 'fFeEgG'.includes(p.conv))) extra.push(lenName);
+  if (lenName && scanf && !'fFeEgG'.includes(p.conv)) extra.push(lenName);
+  if (p.width && p.width !== '*') extra.push(scanf ? `не больше ${p.width} симв.` : `ширина ${p.width}`);
+  if (p.width === '*') extra.push('ширина из аргумента');
+  if (p.prec !== undefined && p.prec !== '*' && 'fFeEgG'.includes(p.conv)) extra.push(`${p.prec || 0} знак(а) после точки`);
+  if (p.prec !== undefined && p.conv === 's') extra.push(`не больше ${p.prec || 0} симв.`);
+  if (p.flags?.includes('-')) extra.push('влево');
+  if (p.flags?.includes('0')) extra.push('с нулями');
+  if (p.flags?.includes('+')) extra.push('со знаком +');
+  if (scanf && p.suppress) extra.push('пропустить');
+  return extra.length ? `${base}, ${extra.join(', ')}` : base;
 }
 
 function pad(s, flags, width, numeric) {
@@ -186,26 +230,32 @@ function pad(s, flags, width, numeric) {
 
 /**
  * Форматирует вывод printf.
- * args: [{t, v}] — типизированные значения. ctx.readString(ptr) -> байты.
- * Возвращает { text (string), issues: [] }.
+ * args: [{t, v}] — типизированные значения (указатели — числа-адреса). ctx.readString(addr) -> байты.
+ * Возвращает { bytes, issues, pieces } — pieces описывают каждый кусок формата для визуализации.
  */
 export function formatPrintf(fmtBytes, args, ctx = {}) {
-  const fmt = String.fromCharCode(...fmtBytes.map(b => b)); // побайтово (latin1)
+  const fmt = String.fromCharCode(...fmtBytes);
   const parts = parseFormat(fmt);
   const outBytes = [];
   const issues = [];
+  const pieces = [];
   const dec = ctx.decimalComma ? ',' : '.';
   let ai = 0;
   const nextArg = () => {
-    if (ai >= args.length) { issues.push('missing'); return { t: null, v: 0, missing: true }; }
-    return args[ai++];
+    if (ai >= args.length) { issues.push('missing'); return { t: null, v: 0, missing: true, idx: ai++ }; }
+    return { ...args[ai], idx: ai++ };
   };
   const pushStr = (s) => { for (let k = 0; k < s.length; k++) outBytes.push(s.charCodeAt(k) & 0xff); };
 
   for (const p of parts) {
-    if (p.lit !== undefined) { pushStr(p.lit); continue; }
-    if (p.bad) { pushStr(p.text); issues.push('bad'); continue; }
-    if (p.conv === '%') { pushStr('%'); continue; }
+    const from = outBytes.length;
+    if (p.lit !== undefined) {
+      pushStr(p.lit);
+      pieces.push({ kind: 'lit', src: p.lit, bytes: outBytes.slice(from) });
+      continue;
+    }
+    if (p.bad) { pushStr(p.text); issues.push('bad'); pieces.push({ kind: 'lit', src: p.text, bytes: outBytes.slice(from), bad: true }); continue; }
+    if (p.conv === '%') { pushStr('%'); pieces.push({ kind: 'spec', src: '%%', desc: 'знак %', bytes: [37] }); continue; }
     let width = p.width === '*' ? Number(toNum(nextArg().v)) : p.width !== undefined ? +p.width : undefined;
     let flags = p.flags;
     if (width !== undefined && width < 0) { flags += '-'; width = -width; }
@@ -216,7 +266,7 @@ export function formatPrintf(fmtBytes, args, ctx = {}) {
     let s;
     if ('diuoxX'.includes(conv)) {
       let big = toBig(a.v);
-      const bits = p.len === 'l' || p.len === 'll' || p.len === 'z' || p.len === 'j' ? 64 : p.len === 'h' ? 16 : p.len === 'hh' ? 8 : 32;
+      const bits = p.len === 'l' || p.len === 'll' || p.len === 'z' || p.len === 'j' || p.len === 't' ? 64 : p.len === 'h' ? 16 : p.len === 'hh' ? 8 : 32;
       const signed = conv === 'd' || conv === 'i';
       big = signed ? BigInt.asIntN(bits, big) : BigInt.asUintN(bits, big);
       const neg = big < 0n;
@@ -224,16 +274,16 @@ export function formatPrintf(fmtBytes, args, ctx = {}) {
       if (conv === 'X') digits = digits.toUpperCase();
       if (prec !== undefined) { if (prec === 0 && big === 0n) digits = ''; digits = digits.padStart(prec, '0'); }
       if (flags.includes('#')) { if (conv === 'o' && digits[0] !== '0') digits = '0' + digits; if ('xX'.includes(conv) && big !== 0n) digits = (conv === 'x' ? '0x' : '0X') + digits; }
-      let sign = neg ? '-' : signed && flags.includes('+') ? '+' : signed && flags.includes(' ') ? ' ' : '';
+      const sign = neg ? '-' : signed && flags.includes('+') ? '+' : signed && flags.includes(' ') ? ' ' : '';
       s = pad(sign + digits, prec !== undefined ? flags.replace('0', '') : flags, width, true);
-    } else if ('fFeEgG'.includes(conv)) {
+    } else if ('fFeEgGaA'.includes(conv)) {
       const x = typeof a.v === 'bigint' ? Number(a.v) : typeof a.v === 'number' ? a.v : 0;
       const pr = prec === undefined ? 6 : prec;
       const upper = conv === conv.toUpperCase();
       let body;
       if (!Number.isFinite(x)) body = special(x, upper).replace(/^-/, '');
       else if ('fF'.includes(conv)) { body = fixedDigits(x, pr); if (pr === 0 && flags.includes('#')) body += '.'; }
-      else if ('eE'.includes(conv)) body = expStr(x, pr, upper, flags.includes('#'));
+      else if ('eEaA'.includes(conv)) body = expStr(x, pr, upper, flags.includes('#'));
       else body = gStr(x, pr, upper, flags.includes('#'));
       if (dec !== '.') body = body.replace('.', dec);
       f64.setFloat64(0, x);
@@ -244,11 +294,10 @@ export function formatPrintf(fmtBytes, args, ctx = {}) {
       const b = Number(BigInt.asUintN(8, toBig(a.v)));
       const padded = pad('\u0001', flags.replace('0', ''), width, false);
       for (const ch of padded) outBytes.push(ch === '\u0001' ? b : 32);
-      continue;
     } else if (conv === 's') {
       let bytes;
-      if (a.v && typeof a.v === 'object' && ctx.readString) bytes = ctx.readString(a.v);
-      else if (a.v === null || (a.v && a.v.isNull)) bytes = [...'(null)'].map(c => c.charCodeAt(0));
+      if (typeof a.v === 'number' && a.v !== 0 && ctx.readString) bytes = ctx.readString(a.v, prec);
+      else if (a.v === 0) bytes = [...'(null)'].map(c => c.charCodeAt(0));
       else { issues.push('s-not-string'); bytes = [...'(?)'].map(c => c.charCodeAt(0)); }
       if (prec !== undefined) bytes = bytes.slice(0, prec);
       const w = width ?? 0;
@@ -256,24 +305,23 @@ export function formatPrintf(fmtBytes, args, ctx = {}) {
       if (!flags.includes('-')) for (let k = 0; k < fill; k++) outBytes.push(32);
       outBytes.push(...bytes);
       if (flags.includes('-')) for (let k = 0; k < fill; k++) outBytes.push(32);
-      continue;
     } else if (conv === 'p') {
-      const addr = a.v && typeof a.v === 'object' ? a.v.addr ?? 0 : Number(a.v || 0);
+      const addr = Number(a.v || 0);
       s = pad(addr ? '0x' + addr.toString(16) : '(nil)', flags, width, false);
     } else if (conv === 'n') {
-      continue;
+      ctx.storeCount?.(a.v, outBytes.length);
     }
-    pushStr(s);
+    if (s !== undefined) pushStr(s);
+    pieces.push({ kind: 'spec', src: p.text, desc: describeSpec(p), argIndex: a.idx, missing: a.missing, bytes: outBytes.slice(from) });
   }
   if (ai < args.length) issues.push('extra');
-  return { bytes: outBytes, issues };
+  return { bytes: outBytes, issues, pieces };
 }
 
 function toNum(v) { return typeof v === 'bigint' ? Number(v) : typeof v === 'number' ? v : 0; }
 function toBig(v) {
   if (typeof v === 'bigint') return v;
   if (typeof v === 'number') return Number.isFinite(v) ? BigInt(Math.trunc(v)) : 0n;
-  if (v && typeof v === 'object') return BigInt(v.addr ?? 0);
   return 0n;
 }
 
@@ -282,50 +330,86 @@ export class NeedInput extends Error {}
 
 const WS = (c) => c === ' ' || c === '\n' || c === '\t' || c === '\r' || c === '\v' || c === '\f';
 
+function scanSet(set) {
+  let body = set.slice(1, -1);
+  let neg = false;
+  if (body[0] === '^') { neg = true; body = body.slice(1); }
+  const chars = new Set();
+  for (let k = 0; k < body.length; k++) {
+    if (body[k + 1] === '-' && body[k + 2] !== undefined && k + 2 < body.length) {
+      for (let c = body.charCodeAt(k); c <= body.charCodeAt(k + 2); c++) chars.add(String.fromCharCode(c));
+      k += 2;
+    } else chars.add(body[k]);
+  }
+  return (ch) => chars.has(ch) !== neg;
+}
+
 /**
  * Выполняет scanf по строке формата над буфером ввода.
  * input: { text, pos, eof }.
  * Если данных не хватает и eof=false — бросает NeedInput (позиция не меняется).
- * Возвращает { count, items: [{conv, len, value, suppressed, text}], pos, eofHit }.
+ * Возвращает { count, items, pos, eofHit, pieces } — pieces для визуализации (какие символы что прочитало).
  */
 export function runScanf(fmt, input, opts = {}) {
-  const parts = parseFormat(fmt);
+  const parts = parseFormat(fmt, true);
   const text = input.text;
   let pos = input.pos;
   const items = [];
+  const pieces = [];
   let count = 0;
   let failedEarly = false;
   const dec = opts.decimalComma;
 
   const need = () => { if (!input.eof) throw new NeedInput(); };
-  const at = () => { if (pos >= text.length) need(); return text[pos]; };
   const skipWs = () => { for (;;) { if (pos >= text.length) { need(); return false; } if (!WS(text[pos])) return true; pos++; } };
 
   outer:
   for (const p of parts) {
     if (p.lit !== undefined) {
       for (const ch of p.lit) {
-        if (WS(ch)) { skipWs(); continue; }
+        const st = pos;
+        if (WS(ch)) { skipWs(); pieces.push({ kind: 'ws', src: ' ', from: st, to: pos }); continue; }
         if (pos >= text.length) { need(); failedEarly = count === 0; break outer; }
-        if (text[pos] !== ch) break outer;
+        if (text[pos] !== ch) { pieces.push({ kind: 'lit', src: ch, from: pos, to: pos, fail: true }); break outer; }
         pos++;
+        pieces.push({ kind: 'lit', src: ch, from: st, to: pos });
       }
       continue;
     }
     if (p.bad) break;
-    if (p.conv === '%') { if (!skipWs()) { failedEarly = count === 0; break; } if (text[pos] !== '%') break; pos++; continue; }
-    const suppressed = p.flags === '' && p.width === '*' ? true : p.text.startsWith('%*');
-    const maxW = p.width && p.width !== '*' ? +p.width : Infinity;
+    const piece = { kind: 'spec', src: p.text, desc: describeSpec(p, true), suppressed: p.suppress };
+    if (p.conv === '%') { const st = pos; if (!skipWs()) { failedEarly = count === 0; break; } if (text[pos] !== '%') break; pos++; pieces.push({ ...piece, from: st, to: pos }); continue; }
+    const suppressed = p.suppress;
+    const maxW = p.width ? +p.width : Infinity;
     const conv = p.conv;
+    const wsFrom = pos;
+    if (conv === 'n') { items.push({ conv, len: p.len, value: BigInt(pos - input.pos), suppressed, text: '' }); pieces.push({ ...piece, from: pos, to: pos }); continue; }
     if (conv === 'c') {
-      const w = p.width && p.width !== '*' ? +p.width : 1;
+      const w = p.width ? +p.width : 1;
       let s = '';
+      const st = pos;
       for (let k = 0; k < w; k++) {
         if (pos >= text.length) { need(); break; }
         s += text[pos++];
       }
       if (s.length === 0) { failedEarly = count === 0; break; }
       items.push({ conv, len: p.len, value: s, suppressed, text: s });
+      pieces.push({ ...piece, from: st, to: pos, skipTo: st });
+      if (!suppressed) count++;
+      continue;
+    }
+    if (conv === '[') {
+      const test = scanSet(p.set);
+      let tok = '';
+      const st = pos;
+      while (tok.length < maxW) {
+        if (pos >= text.length) { if (input.eof) break; need(); }
+        if (!test(text[pos])) break;
+        tok += text[pos++];
+      }
+      if (!tok) { if (pos >= text.length) failedEarly = count === 0; break; }
+      items.push({ conv: 's', len: p.len, value: tok, suppressed, text: tok });
+      pieces.push({ ...piece, from: st, to: pos, skipTo: st });
       if (!suppressed) count++;
       continue;
     }
@@ -334,37 +418,36 @@ export function runScanf(fmt, input, opts = {}) {
     let tok = '';
     const take = () => { tok += text[pos++]; };
     const peekc = () => (pos < text.length ? text[pos] : (need(), undefined));
-    if ('diuoxX'.includes(conv)) {
-      let base = conv === 'o' ? 8 : 'xX'.includes(conv) ? 16 : 10;
+    const nx = () => (pos < text.length ? text[pos] : (input.eof ? undefined : (need(), undefined)));
+    if ('diuoxXp'.includes(conv)) {
+      let base = conv === 'o' ? 8 : 'xXp'.includes(conv) ? 16 : 10;
       let c = peekc();
-      if ((c === '+' || c === '-') && tok.length < maxW) { take(); c = peekc(); }
-      if (conv === 'i' && c === '0' && tok.length < maxW) {
-        take(); c = peekc();
-        if ((c === 'x' || c === 'X') && tok.length < maxW) { take(); base = 16; } else base = 8;
+      if ((c === '+' || c === '-') && tok.length < maxW) { take(); c = nx(); }
+      if ((conv === 'i' || base === 16) && c === '0' && tok.length < maxW) {
+        take(); c = nx();
+        if ((c === 'x' || c === 'X') && tok.length < maxW) { take(); base = 16; c = nx(); } else if (conv === 'i') base = 8;
       }
       const digitRe = base === 16 ? /[0-9a-fA-F]/ : base === 8 ? /[0-7]/ : /[0-9]/;
-      while (tok.length < maxW && c !== undefined && digitRe.test(c)) { take(); c = pos < text.length ? text[pos] : (input.eof ? undefined : (need(), undefined)); }
+      while (tok.length < maxW && c !== undefined && digitRe.test(c)) { take(); c = nx(); }
       const clean = tok.replace(/^[+-]/, '').replace(/^0[xX]/, '');
-      if (!/[0-9a-fA-F]/.test(clean) && !(conv === 'i' && tok.replace(/^[+-]/, '') === '0')) { pos = st; break; }
-      let big = BigInt((tok[0] === '-' ? '-' : '') + (base === 16 ? '0x' : base === 8 ? '0o' : '') + (clean || '0'));
+      if (!/[0-9a-fA-F]/.test(clean) && !(tok.replace(/^[+-]/, '') === '0')) { pieces.push({ ...piece, from: st, to: pos, fail: true, skipTo: wsFrom }); pos = st; break; }
+      const big = BigInt((tok[0] === '-' ? '-' : '') + (base === 16 ? '0x' : base === 8 ? '0o' : '') + (clean || '0'));
       items.push({ conv, len: p.len, value: big, suppressed, text: tok });
-      if (!suppressed) count++;
-    } else if ('fFeEgG'.includes(conv)) {
+    } else if ('fFeEgGaA'.includes(conv)) {
       let c = peekc();
       const isD = (ch) => ch !== undefined && /[0-9]/.test(ch);
-      const nx = () => (pos < text.length ? text[pos] : (input.eof ? undefined : (need(), undefined)));
       if (c === '+' || c === '-') { take(); c = nx(); }
       if (c && /[iInN]/.test(c)) {
         const rest = text.slice(pos, pos + 8).toLowerCase();
         if (rest.startsWith('infinity')) { pos += 8; tok += 'Infinity'; }
         else if (rest.startsWith('inf')) { pos += 3; tok += 'Infinity'; }
         else if (rest.startsWith('nan')) { pos += 3; tok = 'NaN'; }
-        else { pos = st; break; }
+        else { pieces.push({ ...piece, from: st, to: pos, fail: true, skipTo: wsFrom }); pos = st; break; }
       } else {
         let digits = 0;
         while (tok.length < maxW && isD(c)) { take(); digits++; c = nx(); }
         if (tok.length < maxW && (c === '.' || (dec && c === ','))) { pos++; tok += '.'; c = nx(); while (tok.length < maxW && isD(c)) { take(); digits++; c = nx(); } }
-        if (digits === 0) { pos = st; break; }
+        if (digits === 0) { pieces.push({ ...piece, from: st, to: pos, fail: true, skipTo: wsFrom }); pos = st; break; }
         if (tok.length < maxW && (c === 'e' || c === 'E')) {
           const save = pos, saveTok = tok;
           take(); c = nx();
@@ -374,13 +457,17 @@ export function runScanf(fmt, input, opts = {}) {
         }
       }
       items.push({ conv, len: p.len, value: Number(tok), suppressed, text: tok });
-      if (!suppressed) count++;
     } else if (conv === 's') {
-      while (pos < text.length && !WS(text[pos]) && tok.length < maxW) take();
+      while (tok.length < maxW) {
+        if (pos >= text.length) { if (input.eof) break; need(); }
+        if (WS(text[pos])) break;
+        take();
+      }
       items.push({ conv, len: p.len, value: tok, suppressed, text: tok });
-      if (!suppressed) count++;
     } else break;
+    pieces.push({ ...piece, from: st, to: pos, skipTo: wsFrom });
+    if (!suppressed) count++;
   }
   const eofHit = failedEarly && count === 0 && pos >= text.length;
-  return { count: eofHit ? -1 : count, items, pos, eofHit };
+  return { count: eofHit ? -1 : count, items, pos, eofHit, pieces };
 }
