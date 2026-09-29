@@ -32,6 +32,12 @@ export class Lab {
       onEOF: () => this.submitEOF(),
       onJump: (line, col) => this.editor.flash(line, col),
       onEntity: (id) => this.focusEntity(id),
+      onSize: (mode) => {
+        const lab = this.el('.lab');
+        if (mode === 'max') { lab.style.setProperty('--con-h', '72%'); lab.style.setProperty('--con-h-p', '50%'); lab.style.setProperty('--uni-p', '28%'); }
+        else { lab.style.setProperty('--con-h', store.get('lab.conH', '36%')); lab.style.removeProperty('--con-h-p'); lab.style.removeProperty('--uni-p'); }
+        setTimeout(() => this.renderer.resize(), 30);
+      },
     });
     this.scene = new Scene();
     this.renderer = new Renderer(this.el('[data-canvas]'), this.scene, {
