@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Вселенная Си</title>
+  <meta name="description" content="Визуальная лаборатория языка C: код превращается во вселенную — переменные, лучи ввода-вывода, орбиты циклов. Встроенный компилятор, теория и задачи.">
+  <meta name="theme-color" content="#060913">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23060913'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%234fd1ff' stroke-width='3' stroke-dasharray='6 4'/%3E%3Ctext x='32' y='41' font-family='monospace' font-size='24' font-weight='bold' text-anchor='middle' fill='%23b18cff'%3EC%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#/lab">
+      <span class="logo" aria-hidden="true"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="5 4"/><circle cx="20" cy="20" r="6" fill="currentColor"/><circle cx="35" cy="14" r="2.5" fill="#b18cff"/></svg></span>
+      <span class="brand-t">Вселенная&nbsp;Си<small>визуальная лаборатория языка C</small></span>
+    </a>
+    <nav class="nav">
+      <a href="#/lab" data-nav="lab">🌌 <span>Вселенная</span></a>
+      <a href="#/learn" data-nav="learn">📖 <span>Теория</span></a>
+      <a href="#/practice" data-nav="practice">🧩 <span>Практика</span></a>
+    </nav>
+    <div class="top-right"><span class="progress-pill" data-progress title="Решено задач"></span></div>
+  </header>
+
+  <main>
+    <!-- ЛАБОРАТОРИЯ -->
+    <section class="view" id="view-lab" data-view="lab">
+      <div class="lab">
+        <div class="pane p-editor">
+          <div class="toolbar">
+            <div class="tb-row">
+              <select class="select" data-examples aria-label="Примеры программ"></select>
+              <button class="btn icon ghost" data-act="reset-code" title="Новая программа">📄</button>
+            </div>
+            <div class="tb-row controls">
+              <button class="btn primary" data-act="run" title="Скомпилировать и запустить с анимацией (Ctrl+Enter)">▶ <span>Запуск</span></button>
+              <button class="btn" data-act="step" title="Выполнить один шаг">⏭ <span>Шаг</span></button>
+              <button class="btn" data-act="pause" title="Пауза">❚❚</button>
+              <button class="btn" data-act="stop" title="Остановить">■</button>
+              <button class="btn" data-act="instant" title="Выполнить мгновенно, без анимации">⚡ <span>Мгновенно</span></button>
+              <label class="speed" title="Скорость анимации">🐢<input type="range" min="1" max="10" step="1" data-speed aria-label="Скорость">🐇<small data-speed-label></small></label>
+            </div>
+          </div>
+          <div class="editor-host" data-editor></div>
+          <details class="stdin-box">
+            <summary>⌨ Входные данные заранее <small>(необязательно)</small></summary>
+            <textarea data-stdin rows="3" spellcheck="false" placeholder="Если оставить пустым, программа попросит ввод в терминале во время работы. Можно вписать значения заранее: например «5 7»."></textarea>
+          </details>
+        </div>
+        <div class="splitter v" data-split="v" aria-hidden="true"></div>
+        <div class="pane p-universe">
+          <canvas data-canvas aria-label="Визуализация выполнения программы"></canvas>
+          <div class="narration" data-narr hidden></div>
+          <div class="u-controls">
+            <button class="ubtn" data-u="zin" title="Приблизить">＋</button>
+            <button class="ubtn" data-u="zout" title="Отдалить">－</button>
+            <button class="ubtn" data-u="home" title="Показать всю вселенную">⌂</button>
+            <button class="ubtn" data-u="follow" title="Камера следует за выполнением">🎯</button>
+            <button class="ubtn" data-u="legend" title="Легенда: что означают объекты">?</button>
+            <button class="ubtn" data-u="full" title="Во весь экран">⛶</button>
+          </div>
+          <div class="u-coords" data-coords></div>
+          <div class="u-legend" data-legend hidden>
+            <button class="in-close" data-close aria-label="Закрыть">✕</button>
+            <h4>Карта вселенной</h4>
+            <ul>
+              <li><span class="lg-sw core"></span><b>Компьютер (0,0)</b> — выполняет код, через него идёт ввод и вывод.</li>
+              <li><span class="lg-sw law"></span><b>Орбиты</b> — законы-библиотеки (#include). Спутники — их функции.</li>
+              <li><span class="lg-sw star"></span><b>Звёзды</b> — константы #define: неподвижны и неизменны.</li>
+              <li><span class="lg-sw region"></span><b>Туманность</b> — область функции (кадр стека): её переменные живут внутри.</li>
+              <li><span class="lg-sw var"></span><b>Светящиеся шары</b> — переменные. Цвет = тип: <i style="color:#4fd1ff">int</i>, <i style="color:#b18cff">double</i>, <i style="color:#ffd166">char</i>.</li>
+              <li><span class="lg-sw garbage"></span><b>Красное «?»</b> — мусор: переменная не инициализирована.</li>
+              <li><span class="lg-sw spine"></span><b>Ось строк</b> — код функции сверху вниз; зонд ● показывает текущую строку.</li>
+              <li><span class="lg-sw loop"></span><b>Дуга</b> — цикл (возврат к началу). <b>Ромб</b> — развилка if/switch.</li>
+              <li><span class="lg-sw beam-in"></span><b>Оранжевый луч</b> — ввод scanf; <span class="lg-sw beam-out"></span><b>зелёный</b> — вывод printf; цветной — поток данных при присваивании.</li>
+            </ul>
+            <p class="muted">Управление: перетаскивайте пространство, масштаб — колёсиком или двумя пальцами. Нажмите на объект — появится его паспорт.</p>
+          </div>
+          <aside class="inspector" data-inspector hidden></aside>
+          <div class="splash" data-splash>
+            <div class="splash-card">
+              <div class="splash-ic">✦</div>
+              <h2>Пустое пространство</h2>
+              <p>Пока программа не запущена, вселенная пуста — как чистая память компьютера. Каждая строка кода будет создавать в ней законы, звёзды и объекты.</p>
+              <ol>
+                <li><b>#include</b> — задаёт законы (орбиты вокруг компьютера);</li>
+                <li><b>объявление переменной</b> — компьютер находит её в пространстве и цепляет лучом;</li>
+                <li><b>scanf</b> — луч с клавиатуры приносит значение, <b>printf</b> — отправляет его на экран.</li>
+              </ol>
+              <div class="splash-btns">
+                <button class="btn primary" data-act="splash-run">▶ Запустить программу</button>
+                <button class="btn ghost" data-act="splash-close">Осмотреться</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="splitter h" data-split="h" aria-hidden="true"></div>
+        <div class="pane p-console" data-console></div>
+      </div>
+    </section>
+
+    <!-- ТЕОРИЯ -->
+    <section class="view" id="view-learn" data-view="learn" hidden></section>
+
+    <!-- ПРАКТИКА -->
+    <section class="view" id="view-practice" data-view="practice" hidden></section>
+  </main>
+
+  <div class="rotate-hint">Поверните устройство горизонтально или откройте сайт на планшете/ноутбуке — на экране телефона вселенной тесно.</div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
