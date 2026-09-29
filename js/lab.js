@@ -95,6 +95,20 @@ export class Lab {
     b('pause', () => this.pause());
     b('stop', () => this.stop());
     b('instant', () => this.run('instant'));
+    // перемотка по шагам
+    const tl = this.el('[data-timeline]');
+    tl.addEventListener('input', () => { this.el('[data-stepno]').textContent = `шаг ${tl.value} из ${this.maxStep || 0}`; });
+    tl.addEventListener('change', () => this.gotoStep(+tl.value));
+    // горячие клавиши (как в отладчиках)
+    document.addEventListener('keydown', (e) => {
+      if (this.root.hidden || document.querySelector('.tour:not([hidden])')) return;
+      const k = e.key;
+      if (k === 'F5' && !e.shiftKey) { e.preventDefault(); if (this.state === 'running') this.pause(); else if (this.state === 'paused') this.resume(); else this.run('anim'); }
+      else if (k === 'F5' && e.shiftKey) { e.preventDefault(); this.stop(); }
+      else if (k === 'F10' && e.shiftKey) { e.preventDefault(); this.stepBack(); }
+      else if (k === 'F10') { e.preventDefault(); this.stepOnce(); }
+      else if (k === 'F8') { e.preventDefault(); this.run('instant'); }
+    });
     const sp = this.el('[data-speed]');
     sp.value = this.speed;
     sp.addEventListener('input', () => { this.speed = +sp.value; store.set('speed', this.speed); this.updateSpeedLabel(); });
@@ -210,6 +224,7 @@ export class Lab {
     this.el('[data-act="instant"]').disabled = s === 'input';
     this.el('[data-act="step"]').disabled = s === 'running' || s === 'input';
     this.updateBack();
+    this.updateTimeline();
     this.editor.setReadOnly(busy);
     const labels = {
       idle: ['', 'готов'], running: ['run', 'выполняется'], paused: ['pause', 'пауза'], input: ['input', 'ждёт ввода'],
@@ -268,6 +283,7 @@ export class Lab {
     this.interp = new Interpreter(c.program, c.pp, { ...this.runOpts(), tracing: mode !== 'instant' });
     this.gen = this.interp.run();
     this.stepNo = 0;
+    this.maxStep = 0;
     this.inputLog = [];
     this.mode = mode;
     // камера следует за выполнением, только если пользователь это не выключил
@@ -291,6 +307,7 @@ export class Lab {
         if (!this.advance(true)) break;
       }
       this.refreshProcesses(true);
+      this.updateTimeline();
       if (this.state === 'running') this.rafId = requestAnimationFrame(() => this.loop());
       return;
     }
@@ -311,9 +328,29 @@ export class Lab {
    *  и прокрутить до предыдущего шага, подставляя тот же ввод с клавиатуры. */
   updateBack() { const b = this.el('[data-act="back"]'); if (b) b.disabled = !this.canStepBack(); }
   canStepBack() { return !!this.runCompile && this.stepNo > 1 && ['paused', 'input', 'done', 'error'].includes(this.state); }
-  stepBack() {
+  /** Перейти к шагу n: назад — тихим перезапуском, вперёд — быстрым выполнением. */
+  gotoStep(n) {
+    if (!this.runCompile || !n) return;
+    if (n < this.stepNo) { this.stepBack(n); return; }
+    if (n > this.stepNo && this.state === 'paused' && this.gen) {
+      while (this.stepNo < n - 1 && this.advance(true)) { /* вперёд без анимации */ }
+      if (this.state === 'paused' && this.gen && this.stepNo < n) this.advance(false);
+      this.refreshProcesses(true);
+    }
+    this.updateTimeline();
+  }
+  updateTimeline() {
+    const tl = this.el('[data-timeline]');
+    if (!tl) return;
+    tl.max = this.maxStep || 0;
+    tl.value = this.stepNo || 0;
+    tl.disabled = !this.runCompile || this.state === 'running' || this.state === 'idle' || this.state === 'cerror';
+    tl.style.setProperty('--p', this.maxStep ? ((this.stepNo || 0) / this.maxStep) * 100 + '%' : '0%');
+    this.el('[data-stepno]').textContent = this.runCompile && this.stepNo ? `шаг ${this.stepNo}${this.maxStep > this.stepNo ? ' из ' + this.maxStep : ''}` : '—';
+  }
+  stepBack(to) {
     if (!this.canStepBack()) return;
-    const target = this.stepNo - 1;
+    const target = Math.max(1, to ?? this.stepNo - 1);
     const inputs = (this.inputLog || []).slice();
     const c = this.runCompile;
     clearTimeout(this.timer); cancelAnimationFrame(this.rafId);
@@ -376,6 +413,7 @@ export class Lab {
     if (r.done) { this.finish(); return false; }
     const step = r.value;
     this.stepNo++;
+    if (this.stepNo > (this.maxStep || 0)) this.maxStep = this.stepNo;
     const dur = fast ? 0 : Math.min(950, SPEEDS[this.speed - 1] * 0.85);
     const logFull = this.console.logCount >= 2500;
     for (const ev of step.events) {
@@ -390,6 +428,7 @@ export class Lab {
     this.lastStep = step;
     if (!fast) {
       this.updateBack();
+      this.updateTimeline();
       this.editor.setExecLine(step.line, step.kind === 'input' ? 'input' : '');
       this.showStep(step);
       this.refreshProcesses();
@@ -523,7 +562,9 @@ export class Lab {
   }
   syncInsets() {
     const h = this.op.hidden ? 0 : this.op.getBoundingClientRect().height + 16;
-    this.renderer.setInsets({ bottom: h, top: 0 });
+    const pl = this.el('[data-player]');
+    const top = pl ? pl.getBoundingClientRect().height + 20 : 0;
+    this.renderer.setInsets({ bottom: h, top });
   }
 
   refreshProcesses(force) {

@@ -53,7 +53,7 @@ export class Scene {
     this.headers = [];
     this.defines = [];
     this.files = new Map();
-    this.screen = { lines: [''], ended: [], lastAt: 0, fresh: 0 };
+    this.screen = { lines: [''], ended: [], lastAt: 0, fresh: 0, starts: [0], total: 0 };
     this.inputBuf = { text: '', consumedAt: 0, recent: '' };
     this.waitingInput = false;
     this.selected = null;
@@ -109,15 +109,24 @@ export class Scene {
   }
 
   // ——— экран ———
-  printText(text, fresh = true) {
+  printText(text, fresh = true, dur = 0) {
     const scr = this.screen;
+    scr.starts ||= [0];
+    scr.total ||= 0;
+    const from = scr.total;
     for (const ch of text) {
-      if (ch === '\n') { scr.ended[scr.lines.length - 1] = true; scr.lines.push(''); }
-      else if (ch === '\r') continue;
+      if (ch === '\r') continue;
+      scr.total++;
+      if (ch === '\n') { scr.ended[scr.lines.length - 1] = true; scr.lines.push(''); scr.starts.push(scr.total); }
       else scr.lines[scr.lines.length - 1] += ch;
     }
-    if (scr.lines.length > 400) { scr.lines.splice(0, scr.lines.length - 300); scr.ended.splice(0, scr.ended.length - 300); }
-    if (fresh) { scr.lastAt = this.now; scr.fresh = text; }
+    if (scr.lines.length > 400) { const k = scr.lines.length - 300; scr.lines.splice(0, k); scr.ended.splice(0, k); scr.starts.splice(0, k); }
+    if (fresh) {
+      scr.lastAt = this.now; scr.fresh = text;
+      // печатная машинка: новые символы появляются по одному
+      scr.typeFrom = from; scr.typeTo = scr.total; scr.typeAt = this.now;
+      scr.typeDur = dur ? Math.min(dur * 0.9, 30 + (scr.total - from) * 28) : 0;
+    }
   }
 
   // ——— применение событий ———
@@ -201,7 +210,7 @@ export class Scene {
         break;
       case 'output': {
         if (ev.stream === 'stdout') {
-          this.printText(ev.text);
+          this.printText(ev.text, true, dur);
           const srcs = [...new Map((ev.sources || []).filter(s => this.objects.has(s.objId)).map(s => [s.objId, s])).values()];
           for (const s of srcs.slice(0, 4)) this.anim({ type: 'beam', from: { obj: s.objId }, to: { screen: true }, color: '#8fd46a', dur, label: s.display != null ? String(s.display) : undefined });
         } else if (ev.stream === 'stderr') {

@@ -103,8 +103,8 @@ function logic(v) {
 // ——— ++ / -- ———
 function incdec(v) {
   const sign = v.op === '++' ? '+' : '−';
-  const s1 = `<span class="st" style="--i:0"><small>${v.prefix ? '1. сначала' : '1. выражение даёт'}</small>${v.prefix ? `${c(v.name)} = ${esc(v.old)} ${sign} ${esc(v.step)} = ${b(v.now)}` : `старое значение ${b(v.old)}`}</span>`;
-  const s2 = `<span class="st" style="--i:1"><small>${v.prefix ? '2. выражение даёт' : '2. затем'}</small>${v.prefix ? `новое значение ${b(v.now)}` : `${c(v.name)} = ${esc(v.old)} ${sign} ${esc(v.step)} = ${b(v.now)}`}</span>`;
+  const s1 = `<span class="st" style="--i:0"><small>${v.prefix ? '1. сначала' : '1. выражение даёт'}</small><span>${v.prefix ? `${c(v.name)} = ${esc(v.old)} ${sign} ${esc(v.step)} = ${b(v.now)}` : `старое значение ${b(v.old)}`}</span></span>`;
+  const s2 = `<span class="st" style="--i:1"><small>${v.prefix ? '2. выражение даёт' : '2. затем'}</small><span>${v.prefix ? `новое значение ${b(v.now)}` : `${c(v.name)} = ${esc(v.old)} ${sign} ${esc(v.step)} = ${b(v.now)}`}</span></span>`;
   const note = (v.prefix ? `Префиксная форма ${c(v.op + v.name)}: сначала изменить, потом использовать.` : `Постфиксная форма ${c(v.name + v.op)}: сначала использовать старое значение, потом изменить.`)
     + ' Если выражение стоит отдельной строкой (как в for), разницы нет.' + (v.ptr ? ` Для указателя шаг — размер элемента: ${esc(v.step)} байт.` : '');
   return card(`${c(v.prefix ? v.op + v.name : v.name + v.op)} — ${v.op === '++' ? 'увеличение' : 'уменьшение'} на 1`, `<div class="steps">${s1}<span class="arr">→</span>${s2}</div>`, note, 'v-inc');

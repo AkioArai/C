@@ -907,3 +907,106 @@ pre.code-sch { margin: 10px 0 14px; padding: 12px 16px; border-radius: 6px; back
 .u-tip b.bad { color: var(--red); }
 .u-tip code { font: 11.5px var(--mono); background: rgba(255, 255, 255, .06); border-radius: 3px; padding: 0 4px; color: var(--text); }
 .ut-k { margin-top: 5px; font-size: 10.5px; color: var(--muted); }
+
+/* ================================================================
+   РЕДИЗАЙН 2: боковая панель разделов, пульт выполнения, строка файла
+   ================================================================ */
+:root { --rail-w: 64px; --accent-ink: #11140a; }
+body { display: grid; grid-template-columns: var(--rail-w) 1fr; }
+main { height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+
+/* боковая панель разделов (как в VS Code / Figma / Replit) */
+.rail {
+  height: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 12px 0 14px; background: var(--bg); border-right: 1px solid var(--line); z-index: 10;
+}
+.rail-logo { width: 32px; height: 32px; color: var(--accent); margin-bottom: 14px; display: grid; place-items: center; }
+.rail-logo svg { width: 24px; height: 24px; }
+.rail-i {
+  position: relative; width: 52px; padding: 7px 0 5px; border-radius: 10px; border: 0; background: transparent;
+  display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer;
+  color: var(--muted); text-decoration: none; font: 500 10px var(--sans); letter-spacing: .1px;
+  transition: color .15s, background .15s;
+}
+.rail-i .ic { width: 20px; height: 20px; stroke-width: 1.4; }
+.rail-i:hover { color: var(--text); background: var(--panel2); }
+.rail-i.active { color: var(--accent); background: rgba(200, 240, 90, .08); }
+.rail-i.active::before { content: ''; position: absolute; left: -6px; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--accent); }
+.rail-sp { flex: 1; }
+.rail-badge { position: absolute; top: 3px; right: 6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font: 600 9.5px var(--mono); font-style: normal; display: grid; place-items: center; }
+.rail-badge:empty { display: none; }
+.rail .watermark { writing-mode: vertical-rl; transform: rotate(180deg); margin: 14px 0 0; font-size: 9px; letter-spacing: 3px; color: rgba(230, 233, 223, .11); }
+
+/* строка файла над редактором */
+.ed-head { display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 10px 0 0; border-bottom: 1px solid var(--line); flex: none; }
+.file-tab { display: inline-flex; align-items: center; gap: 7px; height: 100%; padding: 0 14px; font: 12.5px var(--mono); color: var(--text); border-right: 1px solid var(--line); box-shadow: inset 0 -2px 0 var(--accent); }
+.file-tab .ic { width: 14px; height: 14px; color: var(--accent); }
+.ex-select { flex: 1; height: 30px; background: transparent; border-color: transparent; color: var(--text2); }
+.ex-select:hover { background: var(--panel); }
+
+/* пульт выполнения поверх поля памяти */
+.player {
+  position: absolute; top: 12px; left: 12px; z-index: 6;
+  display: flex; align-items: center; gap: 2px; padding: 5px 8px 5px 5px; max-width: calc(100% - 84px); overflow: hidden;
+  background: rgba(16, 18, 16, .92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--line2); border-radius: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+}
+.pl-run {
+  display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 16px 0 12px; border: 0; border-radius: 10px;
+  background: var(--accent); color: var(--accent-ink); font: 600 13px var(--sans); cursor: pointer; white-space: nowrap; transition: background .12s, opacity .15s;
+}
+.pl-run .ic { fill: currentColor; stroke: none; }
+.pl-run:hover:not(:disabled) { background: #d6f77a; }
+.pl-run:disabled { opacity: .35; cursor: default; }
+.pl-b { width: 34px; height: 34px; border: 0; border-radius: 9px; background: transparent; color: var(--text2); display: grid; place-items: center; cursor: pointer; transition: background .12s, color .12s; }
+.pl-b:hover:not(:disabled) { background: var(--panel3); color: var(--text); }
+.pl-b:disabled { opacity: .3; cursor: default; }
+.pl-b .ic { width: 17px; height: 17px; }
+.pl-sep { width: 1px; height: 20px; background: var(--line2); margin: 0 6px; flex: none; }
+.pl-time { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pl-time input { width: 150px; }
+.pl-no { font: 11px var(--mono); color: var(--muted); min-width: 64px; white-space: nowrap; }
+.pl-speed { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; color: var(--muted); }
+.pl-speed input { width: 64px; }
+.pl-speed small { font: 10.5px var(--mono); color: var(--text2); min-width: 54px; }
+/* тонкие ползунки */
+.player input[type=range] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px; background: var(--line2); outline: none; cursor: pointer; accent-color: var(--accent); }
+.player input[data-timeline] { background: linear-gradient(90deg, var(--accent) var(--p, 0%), var(--line2) var(--p, 0%)); }
+.player input[type=range]:disabled { opacity: .35; cursor: default; }
+.player input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--text); border: 0; }
+.player input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: var(--text); border: 0; }
+.lab[data-state] .player { transition: border-color .2s; }
+[data-state="running"] .player { border-color: rgba(200, 240, 90, .35); }
+[data-state="input"] .player { border-color: rgba(233, 216, 92, .45); }
+[data-state="error"] .player, [data-state="cerror"] .player { border-color: rgba(224, 112, 95, .45); }
+/* масштаб справа: без рамок */
+.u-controls { top: 12px; right: 12px; background: rgba(16, 18, 16, .92); border: 1px solid var(--line2); border-radius: 12px; padding: 4px; gap: 2px; }
+.ubtn { background: transparent; }
+
+/* горячие клавиши */
+.keys { position: fixed; inset: 0; z-index: 90; background: rgba(4, 5, 4, .6); display: grid; place-items: center; }
+.keys-card { width: min(460px, calc(100% - 32px)); background: var(--panel); border: 1px solid var(--line2); border-radius: 12px; padding: 14px 18px 16px; box-shadow: 0 20px 50px rgba(0, 0, 0, .5); }
+.keys-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.keys table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.keys td { padding: 6px 0; border-bottom: 1px solid var(--line); color: var(--text2); }
+.keys td:first-child { white-space: nowrap; padding-right: 16px; color: var(--text); }
+.keys kbd, .ac-key { font: 11px var(--mono); border: 1px solid var(--line2); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--bg); }
+
+/* планшет вертикально и узкие экраны: разделы — нижняя панель вкладок */
+@media (max-width: 900px), (orientation: portrait) and (max-width: 1100px) {
+  body { grid-template-columns: 1fr; grid-template-rows: 1fr 58px; }
+  main { grid-row: 1; }
+  .rail { grid-row: 2; flex-direction: row; justify-content: space-around; height: 58px; padding: 0 8px env(safe-area-inset-bottom); border-right: 0; border-top: 1px solid var(--line); }
+  .rail-logo, .rail .watermark, .rail-sp { display: none; }
+  .rail-i { width: auto; flex: 1; max-width: 110px; }
+  .rail-i.active::before { left: 30%; right: 30%; top: -1px; bottom: auto; width: auto; height: 2px; }
+  .player { max-width: calc(100% - 70px); left: 12px; transform: none; }
+  .pl-time input { width: 90px; }
+  .pl-speed small, .pl-no { display: none; }
+}
+@media (max-width: 1450px) { .pl-speed small { display: none; } }
+@media (max-width: 1250px) {
+  .pl-run span { display: none; }
+  .pl-run { padding: 0 11px; }
+  .pl-speed small { display: none; }
+}

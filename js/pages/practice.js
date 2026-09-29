@@ -28,7 +28,7 @@ export function updateProgressPill() {
   const solved = store.get('practice.solved', {});
   const n = TASKS.filter(t => solved[t.id]).length;
   const el = document.querySelector('[data-progress]');
-  if (el) el.textContent = n ? `решено ${n} из ${TASKS.length}` : '';
+  if (el) { el.textContent = n ? String(n) : ''; el.title = `Решено задач: ${n} из ${TASKS.length}`; }
 }
 
 export class PracticePage {

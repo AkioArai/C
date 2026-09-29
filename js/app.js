@@ -42,6 +42,10 @@ const tour = new Tour({
     lab.splash.hidden = true;
   },
 });
+const keys = document.querySelector('[data-keysdlg]');
+document.querySelector('[data-keys]').addEventListener('click', () => { keys.hidden = false; });
+keys.addEventListener('click', (e) => { if (e.target === keys || e.target.closest('[data-close]')) keys.hidden = true; });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') keys.hidden = true; });
 document.querySelector('[data-tour]').addEventListener('click', () => setTimeout(() => tour.start(), 60));
 if (!Tour.seen() && (location.hash || '#/lab').startsWith('#/lab')) setTimeout(() => tour.start(), 700);
 window.__app = { get lab() { return lab; } };

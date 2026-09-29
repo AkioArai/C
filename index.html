@@ -13,38 +13,26 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <header class="top">
-    <a class="brand" href="#/lab">
-      <span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="16" cy="16" r="2.6" fill="currentColor"/><circle cx="26.5" cy="11" r="1.6" fill="currentColor"/></svg></span>
-      <span class="brand-t sr-only">Вселенная Си</span>
-    </a>
-    <nav class="nav">
-      <a href="#/lab" data-nav="lab">Вселенная</a>
-      <a href="#/learn" data-nav="learn">Теория</a>
-      <a href="#/practice" data-nav="practice">Практика</a>
-    </nav>
-    <div class="top-right"><span class="watermark" aria-hidden="true">Вселенная Си</span><button class="btn ghost small" data-tour title="Короткое обучение: где что находится">Обучение</button><span class="progress-pill" data-progress title="Решено задач"></span></div>
-  </header>
+  <nav class="rail" aria-label="Разделы">
+    <a class="rail-logo" href="#/lab" title="Вселенная Си"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="16" cy="16" r="2.6" fill="currentColor"/><circle cx="26.5" cy="11" r="1.7" fill="currentColor"/></svg><span class="sr-only">Вселенная Си</span></a>
+    <a href="#/lab" data-nav="lab" class="rail-i" title="Лаборатория: код и его выполнение"><svg class="ic" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 4l-3 16"/></svg><span>Код</span></a>
+    <a href="#/learn" data-nav="learn" class="rail-i" title="Теория по методичкам"><svg class="ic" viewBox="0 0 24 24"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg><span>Теория</span></a>
+    <a href="#/practice" data-nav="practice" class="rail-i" title="Задачи с автопроверкой"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6" fill="currentColor"/></svg><span>Задачи</span><em class="rail-badge" data-progress title="Решено задач"></em></a>
+    <div class="rail-sp"></div>
+    <button class="rail-i" data-keys title="Горячие клавиши"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg><span>Клавиши</span></button>
+    <button class="rail-i" data-tour title="Короткое обучение: где что находится"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><path d="M12 17.5v.01"/></svg><span>Обучение</span></button>
+    <span class="watermark" aria-hidden="true">Вселенная Си</span>
+  </nav>
 
   <main>
     <!-- ЛАБОРАТОРИЯ -->
     <section class="view" id="view-lab" data-view="lab">
       <div class="lab">
         <div class="pane p-editor">
-          <div class="toolbar">
-            <div class="tb-row">
-              <select class="select" data-examples aria-label="Примеры программ"></select>
-              <button class="btn icon ghost" data-act="reset-code" title="Новая программа"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg></button>
-            </div>
-            <div class="tb-row controls">
-              <button class="btn primary" data-act="run" title="Скомпилировать и запустить с анимацией (Ctrl+Enter)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg><span>Запуск</span></button>
-              <button class="btn icon" data-act="back" title="Шаг назад (программа перезапускается и доходит до предыдущего шага)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5l-9 7 9 7z"/><path d="M6 5v14"/></svg></button>
-              <button class="btn" data-act="step" title="Выполнить один шаг"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5l9 7-9 7z"/><path d="M18 5v14"/></svg><span>Шаг</span></button>
-              <button class="btn" data-act="pause" title="Пауза"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg></button>
-              <button class="btn" data-act="stop" title="Остановить"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"/></svg></button>
-              <button class="btn" data-act="instant" title="Выполнить мгновенно, без анимации"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6l7 6-7 6zM13 6l7 6-7 6z"/></svg><span>Мгновенно</span></button>
-              <label class="speed" title="Скорость анимации"><span class="sp-l">медл.</span><input type="range" min="1" max="10" step="1" data-speed aria-label="Скорость"><span class="sp-l">быстр.</span><small data-speed-label></small></label>
-            </div>
+          <div class="ed-head">
+            <span class="file-tab"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>main.c</span>
+            <select class="select ex-select" data-examples aria-label="Примеры программ"></select>
+            <button class="btn icon ghost" data-act="reset-code" title="Новая пустая программа"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
           </div>
           <div class="editor-host" data-editor></div>
           <details class="stdin-box">
@@ -55,6 +43,21 @@
         <div class="splitter v" data-split="v" aria-hidden="true"></div>
         <div class="pane p-universe">
           <canvas data-canvas aria-label="Визуализация выполнения программы"></canvas>
+          <div class="player" data-player role="toolbar" aria-label="Выполнение программы">
+            <button class="pl-run" data-act="run" title="Запуск с анимацией (F5, Ctrl+Enter)"></button>
+            <span class="pl-sep"></span>
+            <button class="pl-b" data-act="back" title="Шаг назад (Shift+F10)"><svg class="ic" viewBox="0 0 24 24"><path d="M18 5l-9 7 9 7z"/><path d="M6 5v14"/></svg></button>
+            <button class="pl-b" data-act="step" title="Один шаг (F10)"><svg class="ic" viewBox="0 0 24 24"><path d="M6 5l9 7-9 7z"/><path d="M18 5v14"/></svg></button>
+            <button class="pl-b" data-act="pause" title="Пауза (F5)"><svg class="ic" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg></button>
+            <button class="pl-b" data-act="instant" title="Выполнить мгновенно (F8)"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6l7 6-7 6zM13 6l7 6-7 6z"/></svg></button>
+            <button class="pl-b" data-act="stop" title="Остановить (Shift+F5)"><svg class="ic" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg></button>
+            <span class="pl-sep"></span>
+            <div class="pl-time" title="Перемотка: перетащите, чтобы вернуться к любому пройденному шагу">
+              <input type="range" min="0" max="0" value="0" step="1" data-timeline aria-label="Перемотка по шагам">
+              <span class="pl-no" data-stepno>—</span>
+            </div>
+            <label class="pl-speed" title="Скорость анимации"><svg class="ic" viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/></svg><input type="range" min="1" max="10" step="1" data-speed aria-label="Скорость"><small data-speed-label></small></label>
+          </div>
           <div class="oppanel" data-op hidden></div>
           <div class="u-tip" data-utip hidden></div>
           <div class="u-controls">
@@ -70,15 +73,15 @@
             <button class="in-close" data-close aria-label="Закрыть">×</button>
             <h4>Как читать картину</h4>
             <ul>
-              <li><span class="lg-sw core"></span><b>Компьютер</b> — сверху. Слева экран: всё, что вывела программа; <b>↵</b> — символ <code>\n</code> (переход на новую строку). Справа буфер клавиатуры: введённые символы ждут, пока их заберёт scanf.</li>
-              <li><span class="lg-sw region"></span><b>Кадр функции</b> — рамка с кодом функции слева; подсвечена выполняемая строка. Справа от строк if — <b>да/нет</b>, у цикла — <b>×N</b> (номер итерации).</li>
-              <li><span class="lg-sw var"></span><b>Карточка переменной</b> — имя, тип, значение, адрес. Квадратики внизу — сколько байт она занимает. Цвет = тип: <i class="c-int">int</i>, <i class="c-dbl">double</i>, <i class="c-chr">char</i>.</li>
-              <li><span class="lg-sw garbage"></span><b>«? мусор»</b> — переменной не задали значение.</li>
-              <li><span class="lg-sw loop"></span><b>Таблица цикла</b> — значения переменных после каждой итерации (трассировка).</li>
-              <li><span class="lg-sw beam-in"></span><b>Стрелки</b> — указатели: «кто на кого указывает». Пунктир — данные текут при присваивании, вводе и выводе.</li>
-              <li><span class="lg-sw spine"></span><b>Панель «Операция»</b> внизу — разбор шага: строка формата printf (что значит %d, %.2f, \n), какие символы забрал scanf, как по шагам посчитано выражение.</li>
+              <li><span class="lg-sw core"></span><b>Компьютер</b> — сверху. Экран: всё, что вывела программа; <b>↵</b> — перевод строки <code>\n</code>. Буфер клавиатуры: введённые символы ждут, пока их заберёт scanf.</li>
+              <li><span class="lg-sw region"></span><b>Кадр функции</b> — рамка с кодом функции; подсвечена выполняемая строка. Справа от if — <b>да/нет</b>, у цикла — <b>×N</b>.</li>
+              <li><span class="lg-sw var"></span><b>Карточка переменной</b> — имя, тип и размер справа, значение крупно. Цвет — тип: <i class="c-int">int</i>, <i class="c-dbl">double</i>, <i class="c-chr">char</i>.</li>
+              <li><span class="lg-sw garbage"></span><b>Красная штриховка</b> — «мусор»: значение ещё не задано.</li>
+              <li><span class="lg-sw loop"></span><b>Таблица цикла</b> — значения переменных после каждой итерации.</li>
+              <li><span class="lg-sw beam-in"></span><b>Стрелки и лучи</b> — указатели и движение данных; по лучу летит само значение.</li>
+              <li><span class="lg-sw spine"></span><b>Панель «Операция»</b> — разбор шага картинками: формат printf, буфер scanf, деление, сравнение, логика, индексы…</li>
             </ul>
-            <p class="muted">Перетаскивайте поле, масштаб — колёсиком или двумя пальцами. Нажмите на карточку — появится её паспорт с историей значений.</p>
+            <p class="muted">Наведите мышь на любой элемент — появится подсказка. Нажмите на карточку — её паспорт с историей значений.</p>
           </div>
           <aside class="inspector" data-inspector hidden></aside>
           <div class="splash" data-splash>
@@ -109,6 +112,23 @@
     <section class="view" id="view-practice" data-view="practice" hidden></section>
   </main>
 
+  <div class="keys" data-keysdlg hidden>
+    <div class="keys-card" role="dialog" aria-label="Горячие клавиши">
+      <div class="keys-h"><b>Горячие клавиши</b><button class="in-close" data-close aria-label="Закрыть">×</button></div>
+      <table>
+        <tr><td><kbd>F5</kbd> или <kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>Запуск / пауза / продолжить</td></tr>
+        <tr><td><kbd>F10</kbd></td><td>Один шаг</td></tr>
+        <tr><td><kbd>Shift</kbd>+<kbd>F10</kbd></td><td>Шаг назад</td></tr>
+        <tr><td><kbd>F8</kbd></td><td>Выполнить мгновенно</td></tr>
+        <tr><td><kbd>Shift</kbd>+<kbd>F5</kbd></td><td>Остановить</td></tr>
+        <tr><td><kbd>→</kbd></td><td>Принять подсказку при наборе</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>/</kbd></td><td>Закомментировать строки</td></tr>
+        <tr><td><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>Отступ / убрать отступ</td></tr>
+        <tr><td><kbd>Ctrl</kbd> + колесо</td><td>Размер текста в терминале</td></tr>
+        <tr><td>Номер строки</td><td>Точка останова</td></tr>
+      </table>
+    </div>
+  </div>
   <div class="rotate-hint">Поверните устройство горизонтально или откройте сайт на планшете/ноутбуке — на экране телефона вселенной тесно.</div>
   <script type="module" src="js/app.js"></script>
 </body>

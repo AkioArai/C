@@ -325,18 +325,26 @@ export class Renderer {
     const n = r.screenLines;
     const first = Math.max(0, scr.lines.length - n);
     const fresh = this.flashA(scr.lastAt, 1200);
+    // печатная машинка: сколько символов уже «напечатано»
+    const tp = scr.typeDur ? clamp((this.t - scr.typeAt) / scr.typeDur, 0, 1) : 1;
+    const visible = tp < 1 ? Math.floor(scr.typeFrom + (scr.typeTo - scr.typeFrom) * tp) : Infinity;
     for (let i = 0; i < n && first + i < scr.lines.length; i++) {
       const li = first + i;
       const ly = sy + 32 + i * 20;
-      const line = scr.lines[li];
+      const start = scr.starts?.[li] ?? 0;
+      if (start > visible) break;
+      const full = scr.lines[li];
+      const line = visible === Infinity ? full : full.slice(0, Math.max(0, visible - start));
+      const typing = line.length < full.length || (visible !== Infinity && start + full.length + 1 > visible);
       this.font(13);
       const shown = this.fit(line, sw - 60);
       const w = this.text(shown, sx + 12, ly, { size: 13, color: C.text });
-      const isLast = li === scr.lines.length - 1;
-      if (scr.ended[li]) this.text('↵', sx + 16 + w, ly, { size: 12, color: alpha(C.accent, 0.55) });
+      const isLast = li === scr.lines.length - 1 || typing;
+      if (scr.ended[li] && !typing) this.text('↵', sx + 16 + w, ly, { size: 12, color: alpha(C.accent, 0.55) });
       if (isLast) {
-        const blink = Math.floor(this.t / 530) % 2 === 0;
+        const blink = typing || Math.floor(this.t / 530) % 2 === 0;
         if (blink || sc.waitingInput) this.rect(sx + 14 + w, ly - 8, 8, 16, { fill: sc.waitingInput ? C.yellow : alpha(C.accent, 0.8), r: 1 });
+        if (typing) break;
       }
     }
     if (fresh > 0 && scr.fresh) {
@@ -458,6 +466,12 @@ export class Renderer {
       this.font(10.5);
       const tagW = tag ? this.ctx.measureText(tag).width + 10 : 0;
       this.text(src.trimEnd(), x + gutter + 4, ly + G.lineH / 2, { size: 11.5, color: cur ? C.text : fr.visited.has(ln) ? C.text2 : C.muted, maxW: w - gutter - 10 - tagW });
+      // вспышка строки: условие проверено — зелёным (истина) или красным (ложь)
+      const fsrc = lp ? (lp.lastCond !== undefined ? { at: lp.at, col: lp.lastCond ? C.green : C.red } : null) : s ? { at: s.at, col: tagColor } : null;
+      if (fsrc) {
+        const cf = this.flashA(fsrc.at, 900);
+        if (cf > 0) this.rect(x + 1, ly, w - 2, G.lineH, { fill: alpha(fsrc.col, 0.16 * cf), r: 2 });
+      }
       if (tag) {
         const fl = this.flashA(s?.at ?? lp?.at, 700);
         this.rect(x + w - tagW - 4, ly + 3, tagW, G.lineH - 6, { fill: alpha(tagColor, 0.1 + fl * 0.25), r: 3 });
