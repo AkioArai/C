@@ -3,17 +3,18 @@
 import { HEADERS } from '../compiler/stdlib.js';
 
 export const TYPE_COLORS = {
-  int: '#4fd1ff', 'unsigned int': '#4fd1ff', short: '#4fd1ff', 'unsigned short': '#4fd1ff',
-  long: '#3aa0ff', 'unsigned long': '#3aa0ff', 'long long': '#3aa0ff', 'unsigned long long': '#3aa0ff',
-  char: '#ffd166', 'unsigned char': '#ffd166', 'signed char': '#ffd166',
-  float: '#c49bff', double: '#b18cff', 'long double': '#b18cff',
-  bool: '#7ee787',
+  int: '#c8f05a', 'unsigned int': '#c8f05a', short: '#c8f05a', 'unsigned short': '#c8f05a',
+  long: '#8fd46a', 'unsigned long': '#8fd46a', 'long long': '#8fd46a', 'unsigned long long': '#8fd46a',
+  char: '#e3b36b', 'unsigned char': '#e3b36b', 'signed char': '#e3b36b',
+  float: '#e9d85c', double: '#e9d85c', 'long double': '#e9d85c',
+  bool: '#a9d6a0',
 };
+const LAW_COLORS = ['#8fd46a', '#c8f05a', '#e9d85c', '#a9b89a', '#d6c27a'];
 export const colorForType = (t) => {
-  if (!t) return '#9fb3c8';
+  if (!t) return '#b3b8a9';
   if (t.includes('[')) return colorForType(t.replace(/\[.*$/, ''));
-  if (t.includes('*')) return '#ff9ecd';
-  return TYPE_COLORS[t] || '#9fb3c8';
+  if (t.includes('*')) return '#b3b8a9';
+  return TYPE_COLORS[t] || '#b3b8a9';
 };
 
 function hash(str) {
@@ -215,13 +216,13 @@ export class Scene {
         const i = this.lawCount++;
         const law = {
           kind: 'law', id: 'law:' + ev.header, name: '<' + ev.header + '>', header: ev.header, title: h.title, law: h.law,
-          color: h.color, radius: 120 + i * 40, angle: -Math.PI / 2 + i * 0.9, funcs: Object.keys(h.funcs), consts: Object.keys(h.consts),
+          color: LAW_COLORS[i % LAW_COLORS.length], radius: 120 + i * 40, angle: -Math.PI / 2 + i * 0.9, funcs: Object.keys(h.funcs), consts: Object.keys(h.consts),
           line: ev.line, born: now,
         };
         law.x = Math.cos(law.angle) * law.radius;
         law.y = Math.sin(law.angle) * law.radius;
         this.entities.set(law.id, law);
-        this.anim({ type: 'ring', at: { x: 0, y: 0 }, r0: 60, r1: law.radius, color: h.color, dur: dur * 1.2 });
+        this.anim({ type: 'ring', at: { x: 0, y: 0 }, r0: 60, r1: law.radius, color: law.color, dur: dur * 1.2 });
         break;
       }
       case 'define': {
@@ -230,7 +231,7 @@ export class Scene {
         const R = 560 + Math.floor(i / 7) * 90;
         const st = { kind: 'const', id: 'def:' + ev.name, name: ev.name, text: ev.text, x: Math.cos(a) * R - 380, y: Math.sin(a) * R * 0.55 - 250, line: ev.line, born: now };
         this.entities.set(st.id, st);
-        this.anim({ type: 'beam', from: 'core', to: st.id, color: '#ffe08a', dur, label: ev.text });
+        this.anim({ type: 'beam', from: 'core', to: st.id, color: '#e9d85c', dur, label: ev.text });
         break;
       }
       case 'frame-enter': {
@@ -238,9 +239,9 @@ export class Scene {
         const region = this.newRegion(ev.frame, { args: ev.args, ret: ev.ret, callLine: ev.callLine });
         this.frameStack.push(ev.frame.id);
         this.focus = region.id;
-        if (parent) this.anim({ type: 'beam', from: 'probe:' + parent, to: region.id, color: '#c49bff', dur: dur * 1.2, label: ev.frame.func + '(' + ev.args.map(a => a.display).join(', ') + ')' });
-        else this.anim({ type: 'beam', from: 'core', to: region.id, color: '#c49bff', dur: dur * 1.2, label: 'main()' });
-        this.anim({ type: 'ring', at: region.id, r0: 20, r1: region.r, color: '#c49bff', dur: dur * 1.4 });
+        if (parent) this.anim({ type: 'beam', from: 'probe:' + parent, to: region.id, color: '#b3b8a9', dur: dur * 1.2, label: ev.frame.func + '(' + ev.args.map(a => a.display).join(', ') + ')' });
+        else this.anim({ type: 'beam', from: 'core', to: region.id, color: '#b3b8a9', dur: dur * 1.2, label: 'main()' });
+        this.anim({ type: 'ring', at: region.id, r0: 20, r1: region.r, color: '#b3b8a9', dur: dur * 1.4 });
         break;
       }
       case 'frame-exit': {
@@ -255,7 +256,7 @@ export class Scene {
           region.ret = ev.ret;
           this.slots[region.slot] = null;
           for (const e of this.entities.values()) if (e.regionId === region.id && !e.dying) e.dying = now + dur;
-          if (parent && ev.ret != null) this.anim({ type: 'beam', from: region.id, to: 'probe:' + parent, color: '#7ee787', dur, label: ev.ret });
+          if (parent && ev.ret != null) this.anim({ type: 'beam', from: region.id, to: 'probe:' + parent, color: '#8fd46a', dur, label: ev.ret });
         }
         this.focus = parent;
         break;
@@ -274,7 +275,7 @@ export class Scene {
         this.entities.set(v.id, v);
         const done = () => { v.shown = v.display; v.flash = this.now; };
         if (ev.via === 'param') this.anim({ type: 'beam', from: 'probe:' + region.id, to: v.id, color: v.color, dur: dur * 0.7, onDone: done });
-        else this.anim({ type: 'beam', from: 'core', to: v.id, color: '#7fe3ff', dur, width: 1.4, label: c.init ? c.display : null, onDone: done, detect: true });
+        else this.anim({ type: 'beam', from: 'core', to: v.id, color: '#c8f05a', dur, width: 1.4, label: c.init ? c.display : null, onDone: done, detect: true });
         break;
       }
       case 'write': {
@@ -296,7 +297,7 @@ export class Scene {
         if (v.history.length > 60) v.history.splice(1, v.history.length - 60);
         if (ev.via === 'scanf') {
           this.coreFlash = now;
-          this.anim({ type: 'beam', from: 'core', to: v.id, color: '#ffb86b', dur, width: 2.2, label: ev.inputText ?? ev.display, onDone: done });
+          this.anim({ type: 'beam', from: 'core', to: v.id, color: '#e9d85c', dur, width: 2.2, label: ev.inputText ?? ev.display, onDone: done });
         } else {
           const srcs = (ev.sources || []).filter(s => s.id !== ev.id && this.entities.has(s.id));
           const uniq = [...new Map(srcs.map(s => [s.id, s])).values()];
@@ -312,7 +313,7 @@ export class Scene {
       }
       case 'uninit': {
         const v = this.entities.get(ev.id);
-        if (v) { v.garbage = true; if (ev.elemIndex === undefined) { v.display = ev.display; v.shown = ev.display; } this.anim({ type: 'ring', at: v.id, r0: 10, r1: 70, color: '#ff6b81', dur }); }
+        if (v) { v.garbage = true; if (ev.elemIndex === undefined) { v.display = ev.display; v.shown = ev.display; } this.anim({ type: 'ring', at: v.id, r0: 10, r1: 70, color: '#e0705f', dur }); }
         break;
       }
       case 'scope-exit':
@@ -323,8 +324,8 @@ export class Scene {
         this.screenBuf = ((this.screenBuf || '') + ev.text).slice(-400);
         this.screenLines = this.screenBuf.split('\n').filter((l, i, a) => l || i === a.length - 1).slice(-3);
         const srcs = [...new Map((ev.sources || []).filter(s => this.entities.has(s.id)).map(s => [s.id, s])).values()];
-        if (srcs.length) srcs.forEach(s => this.anim({ type: 'beam', from: s.id, to: 'core', color: '#7ee787', dur, label: s.display }));
-        else this.anim({ type: 'beam', from: 'probe:' + this.current, to: 'core', color: '#7ee787', dur, label: ev.text.replace(/\n/g, '⏎').slice(0, 24) });
+        if (srcs.length) srcs.forEach(s => this.anim({ type: 'beam', from: s.id, to: 'core', color: '#8fd46a', dur, label: s.display }));
+        else this.anim({ type: 'beam', from: 'probe:' + this.current, to: 'core', color: '#8fd46a', dur, label: ev.text.replace(/\n/g, '⏎').slice(0, 24) });
         this.anim({ type: 'screen', text: ev.text, dur: dur * 2.2, delay: dur * 0.8 });
         break;
       }
@@ -344,15 +345,15 @@ export class Scene {
         s.flash = now;
         s.text = ev.text;
         if (kind === 'loop') { s.iterDone = ev.iter; if (!ev.value) s.active = false; }
-        this.anim({ type: 'ring', at: s.id, r0: 8, r1: 46, color: ev.value ? '#7ee787' : '#ff6b81', dur: dur * 0.9 });
-        for (const r of ev.reads || []) if (this.entities.has(r.id)) this.anim({ type: 'beam', from: r.id, to: s.id, color: '#8fa3ff', dur: dur * 0.8, width: 0.8 });
+        this.anim({ type: 'ring', at: s.id, r0: 8, r1: 46, color: ev.value ? '#8fd46a' : '#e0705f', dur: dur * 0.9 });
+        for (const r of ev.reads || []) if (this.entities.has(r.id)) this.anim({ type: 'beam', from: r.id, to: s.id, color: '#767d6c', dur: dur * 0.8, width: 0.8 });
         break;
       }
       case 'switch': {
         const s = this.structure(ev.nodeId, 'branch', { line: ev.line, text: 'switch (' + ev.text + ')', isSwitch: true });
         if (!s) break;
         s.lastValue = true; s.hits++; s.flash = now; s.switchValue = ev.display;
-        for (const r of ev.reads || []) if (this.entities.has(r.id)) this.anim({ type: 'beam', from: r.id, to: s.id, color: '#8fa3ff', dur: dur * 0.8, width: 0.8 });
+        for (const r of ev.reads || []) if (this.entities.has(r.id)) this.anim({ type: 'beam', from: r.id, to: s.id, color: '#767d6c', dur: dur * 0.8, width: 0.8 });
         break;
       }
       case 'loop-enter': {

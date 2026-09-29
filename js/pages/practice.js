@@ -28,7 +28,7 @@ export function updateProgressPill() {
   const solved = store.get('practice.solved', {});
   const n = TASKS.filter(t => solved[t.id]).length;
   const el = document.querySelector('[data-progress]');
-  if (el) el.textContent = n ? `🏆 решено ${n} из ${TASKS.length}` : '';
+  if (el) el.textContent = n ? `решено ${n} из ${TASKS.length}` : '';
 }
 
 export class PracticePage {
@@ -49,9 +49,9 @@ export class PracticePage {
             </div>
             <div class="prac-filters" data-flevel>
               <button class="chip" data-l="all">Любая</button>
-              <button class="chip" data-l="easy">🟢 Лёгкие</button>
-              <button class="chip" data-l="hard">🟠 Сложные</button>
-              <button class="chip" data-l="extreme">🔴 Экстрим</button>
+              <button class="chip" data-l="easy">Лёгкие</button>
+              <button class="chip" data-l="hard">Сложные</button>
+              <button class="chip" data-l="extreme">Экстрим</button>
             </div>
           </div>
           <div class="task-list" data-list></div>
@@ -72,7 +72,7 @@ export class PracticePage {
     const items = TASKS.filter(t => (this.topic === 'all' || String(t.topic) === this.topic) && (this.level === 'all' || t.level === this.level));
     this.list.innerHTML = items.map(t => `
       <a class="task-item ${this.current?.id === t.id ? 'active' : ''}" href="#/practice/${t.id}">
-        <div class="tt">${esc(t.title)} ${solved[t.id] ? '<span class="solved-mark">✔</span>' : ''}</div>
+        <div class="tt">${esc(t.title)} ${solved[t.id] ? '<span class="solved-mark">решено</span>' : ''}</div>
         <div class="tm"><span class="lvl lvl-${t.level}">${LEVELS[t.level].name}</span><span>Тема ${t.topic}</span></div>
       </a>`).join('') || '<div class="empty">Нет задач с такими фильтрами.</div>';
   }
@@ -93,9 +93,9 @@ export class PracticePage {
       <p>Задачи составлены по темам методических указаний и имеют математический уклон. Каждое решение автоматически проверяется встроенным компилятором на наборе тестов — как в настоящих системах проверки.</p>
       <div class="stats">
         <div class="stat"><b>${stat(() => true)}</b><span>решено всего</span></div>
-        <div class="stat"><b>${stat(t => t.level === 'easy')}</b><span>🟢 лёгкие</span></div>
-        <div class="stat"><b>${stat(t => t.level === 'hard')}</b><span>🟠 сложные</span></div>
-        <div class="stat"><b>${stat(t => t.level === 'extreme')}</b><span>🔴 экстрим</span></div>
+        <div class="stat"><b>${stat(t => t.level === 'easy')}</b><span>лёгкие</span></div>
+        <div class="stat"><b>${stat(t => t.level === 'hard')}</b><span>сложные</span></div>
+        <div class="stat"><b>${stat(t => t.level === 'extreme')}</b><span>экстрим</span></div>
       </div>
       <h2>По темам</h2>
       <ul>${Object.entries(TASK_TOPICS).map(([k, v]) => `<li>${v} — решено ${stat(t => String(t.topic) === k)}</li>`).join('')}</ul>
@@ -103,12 +103,12 @@ export class PracticePage {
       <ol>
         <li>Выберите задачу слева и прочитайте условие и примеры.</li>
         <li>Напишите решение в редакторе. Ошибки подсвечиваются сразу.</li>
-        <li><b>✓ Проверить</b> — программа запускается на всех тестах. Для каждого теста видно: вход, ожидаемый ответ и ваш вывод.</li>
-        <li><b>🌌 Во вселенной</b> — открыть решение в лаборатории и посмотреть пошагово, что происходит, на входных данных первого примера.</li>
+        <li><b>Проверить</b> — программа запускается на всех тестах. Для каждого теста видно: вход, ожидаемый ответ и ваш вывод.</li>
+        <li><b>Во вселенной</b> — открыть решение в лаборатории и посмотреть пошагово, что происходит, на входных данных первого примера.</li>
         <li>Застряли? Откройте подсказки по одной. Эталонное решение тоже есть, но попробуйте сначала сами!</li>
       </ol>
-      <div class="callout"><div class="ct">🎯 Уровни</div><p>🟢 <b>Лёгкая</b> — прямое применение темы. 🟠 <b>Сложная</b> — нужно подумать над условием и граничными случаями. 🔴 <b>Экстрим</b> — несколько идей сразу, переполнения, вложенные циклы, точность вычислений.</p></div>
-      <p><a class="btn primary" href="#/practice/${TASKS[0].id}">Начать с первой задачи →</a></p>
+      <div class="callout"><div class="ct">Уровни</div><p><b>Лёгкая</b> — прямое применение темы. <b>Сложная</b> — нужно подумать над условием и граничными случаями. <b>Экстрим</b> — несколько идей сразу, переполнения, вложенные циклы, точность вычислений.</p></div>
+      <p><a class="btn primary" href="#/practice/${TASKS[0].id}">Начать с первой задачи</a></p>
     </article></div>`;
   }
 
@@ -121,21 +121,21 @@ export class PracticePage {
         <div class="task-desc"><article class="article">
           <div class="kicker">${TASK_TOPICS[t.topic]}</div>
           <h1>${esc(t.title)}</h1>
-          <p><span class="lvl lvl-${t.level}">${LEVELS[t.level].icon} ${LEVELS[t.level].name}</span> ${solved[t.id] ? '<span class="ok"> · ✔ решено</span>' : ''}</p>
+          <p><span class="lvl lvl-${t.level}">${LEVELS[t.level].name}</span> ${solved[t.id] ? '<span class="ok"> · решено</span>' : ''}</p>
           ${t.text}
           <h3>Входные данные</h3><p>${t.input}</p>
           <h3>Выходные данные</h3><p>${t.output}</p>
           <h3>Пример${samples.length > 1 ? 'ы' : ''}</h3>
           ${samples.map(inp => `<div class="samples"><div><div class="sh">ввод</div><pre>${esc(inp || '(нет)')}</pre></div><div><div class="sh">вывод</div><pre>${esc(expectedFor(t, inp))}</pre></div></div>`).join('')}
-          <p class="muted">🧪 Тестов: ${t.tests.length}. ${CHECK_NOTES[mode]}</p>
+          <p class="muted">Тестов: ${t.tests.length}. ${CHECK_NOTES[mode]}</p>
           <div data-hints></div>
-          <p><button class="btn small" data-act="hint">💡 Подсказка</button> <button class="btn small ghost" data-act="solution">👁 Эталонное решение</button></p>
+          <p><button class="btn small" data-act="hint">Подсказка</button> <button class="btn small ghost" data-act="solution">Эталонное решение</button></p>
           <div data-solution></div>
         </article></div>
         <div class="task-work">
           <div class="toolbar">
-            <button class="btn success" data-act="check">✓ Проверить</button>
-            <button class="btn" data-act="visual" title="Открыть в лаборатории с входными данными первого примера">🌌 <span>Во вселенной</span></button>
+            <button class="btn success" data-act="check">Проверить</button>
+            <button class="btn" data-act="visual" title="Открыть в лаборатории с входными данными первого примера"><span>Во вселенной</span></button>
             <button class="btn ghost" data-act="reset" title="Вернуть шаблон">⟲ <span>Сброс</span></button>
             <span class="muted" style="margin-left:auto;font-size:12px" data-diag-sum></span>
           </div>
@@ -157,13 +157,13 @@ export class PracticePage {
     q('[data-act="reset"]').addEventListener('click', () => { if (confirm('Вернуть шаблон? Текущий код будет удалён.')) { this.editor.value = STARTER; store.set(key, STARTER); } });
     q('[data-act="hint"]').addEventListener('click', (e) => {
       if (this.hintN >= t.hints.length) return;
-      q('[data-hints]').insertAdjacentHTML('beforeend', `<div class="hint-box">💡 <b>Подсказка ${this.hintN + 1}.</b> ${esc(t.hints[this.hintN])}</div>`);
+      q('[data-hints]').insertAdjacentHTML('beforeend', `<div class="hint-box"><b>Подсказка ${this.hintN + 1}.</b> ${esc(t.hints[this.hintN])}</div>`);
       this.hintN++;
-      if (this.hintN >= t.hints.length) { e.target.disabled = true; e.target.textContent = '💡 Подсказки закончились'; }
+      if (this.hintN >= t.hints.length) { e.target.disabled = true; e.target.textContent = 'Подсказки закончились'; }
     });
     q('[data-act="solution"]').addEventListener('click', (e) => {
       if (!confirm('Показать эталонное решение? Лучше сначала попробовать самостоятельно и воспользоваться подсказками.')) return;
-      q('[data-solution]').innerHTML = `<div class="codebox"><div class="codebox-head"><span class="t">Эталонное решение</span><button class="btn small" data-act="sol-lab">🌌 Во вселенной</button></div><pre>${esc(t.solution)}</pre></div>`;
+      q('[data-solution]').innerHTML = `<div class="codebox"><div class="codebox-head"><span class="t">Эталонное решение</span><button class="btn small" data-act="sol-lab">Во вселенной</button></div><pre>${esc(t.solution)}</pre></div>`;
       q('[data-act="sol-lab"]').addEventListener('click', () => this.opts.openInLab(t.solution, samples[0] ? samples[0] + '\n' : '', t.title + ' (эталон)'));
       e.target.disabled = true;
     });
@@ -176,7 +176,7 @@ export class PracticePage {
       this.editor.setDiagnostics(c.diagnostics);
       const e = c.diagnostics.filter(d => d.severity === 'error').length, w = c.diagnostics.length - e;
       const el = this.main.querySelector('[data-diag-sum]');
-      if (el) el.innerHTML = e ? `<span class="bad">✖ ошибок: ${e}</span>` : w ? `⚠ замечаний: ${w}` : '<span class="ok">✔ без ошибок</span>';
+      if (el) el.innerHTML = e ? `<span class="bad">ошибок: ${e}</span>` : w ? `замечаний: ${w}` : '<span class="ok">без ошибок</span>';
     };
     if (now) f(); else this._lc = setTimeout(f, 450);
   }
@@ -187,14 +187,14 @@ export class PracticePage {
     const c = compile(this.editor.value);
     this.editor.setDiagnostics(c.diagnostics);
     if (!c.ok) {
-      res.innerHTML = `<div class="res-sum bad">✖ Ошибка компиляции — решение не запускалось</div>` +
-        c.errors.map(d => `<div class="res-diag">${esc(formatDiag(d, c.lines).join('\n'))}${d.hint ? '\n💡 ' + esc(d.hint) : ''}</div>`).join('');
+      res.innerHTML = `<div class="res-sum bad">Ошибка компиляции — решение не запускалось</div>` +
+        c.errors.map(d => `<div class="res-diag">${esc(formatDiag(d, c.lines).join('\n'))}${d.hint ? '\n' + esc(d.hint) : ''}</div>`).join('');
       return;
     }
     btn.disabled = true;
     const mode = t.check || 'tail';
     const results = [];
-    res.innerHTML = '<div class="res-sum">⏳ Проверяем…</div>';
+    res.innerHTML = '<div class="res-sum">Проверяем…</div>';
     for (let i = 0; i < t.tests.length; i++) {
       await new Promise(r => setTimeout(r, 0));
       const input = t.tests[i];
@@ -203,7 +203,7 @@ export class PracticePage {
       try { r = runProgram(c, input + '\n'); } catch (e) { r = { output: '', error: { message: String(e.message || e) } }; }
       const pass = !r.error && compareOutput(r.output, exp, mode);
       results.push({ input, exp, got: r.output, error: r.error, pass });
-      res.querySelector('.res-sum').textContent = `⏳ Тест ${i + 1} из ${t.tests.length}…`;
+      res.querySelector('.res-sum').textContent = `Тест ${i + 1} из ${t.tests.length}…`;
     }
     btn.disabled = false;
     const passed = results.filter(r => r.pass).length;
@@ -216,15 +216,15 @@ export class PracticePage {
       this.renderList();
     }
     const firstFail = results.findIndex(r => !r.pass);
-    res.innerHTML = `<div class="res-sum ${all ? 'ok' : 'bad'}">${all ? '🎉 Все тесты пройдены! Задача решена.' : `✖ Пройдено ${passed} из ${results.length} тестов`}</div>` +
+    res.innerHTML = `<div class="res-sum ${all ? 'ok' : 'bad'}">${all ? 'Все тесты пройдены! Задача решена.' : `Пройдено ${passed} из ${results.length} тестов`}</div>` +
       results.map((r, i) => `<details class="res-test ${r.pass ? 'pass' : 'fail'}" ${i === firstFail ? 'open' : ''}>
-        <summary>${r.pass ? '✔' : '✖'} Тест ${i + 1}${r.error ? ' — ошибка выполнения' : r.pass ? '' : ' — неверный ответ'}</summary>
+        <summary>${r.pass ? '' : ''} Тест ${i + 1}${r.error ? ' — ошибка выполнения' : r.pass ? '' : ' — неверный ответ'}</summary>
         <div class="res-grid">
           <div><span>Ввод</span><pre>${esc(r.input || '(нет)')}</pre></div>
           <div><span>Ожидалось</span><pre>${esc(r.exp)}</pre></div>
-          <div><span>Ваш вывод</span><pre>${esc(r.got)}${r.error ? `\n<span class="bad">💥 ${esc(r.error.message)} (строка ${r.error.line})</span>` : ''}</pre></div>
+          <div><span>Ваш вывод</span><pre>${esc(r.got)}${r.error ? `\n<span class="bad">${esc(r.error.message)} (строка ${r.error.line})</span>` : ''}</pre></div>
         </div>
       </details>`).join('') +
-      (!all ? `<p class="muted" style="font-size:12.5px;margin:6px 2px">Совет: нажмите «🌌 Во вселенной» и выполните программу пошагово на этом входе, чтобы увидеть, где значения расходятся с ожидаемыми.</p>` : '');
+      (!all ? `<p class="muted" style="font-size:12.5px;margin:6px 2px">Совет: нажмите «Во вселенной» и выполните программу пошагово на этом входе, чтобы увидеть, где значения расходятся с ожидаемыми.</p>` : '');
   }
 }

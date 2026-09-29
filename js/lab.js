@@ -8,6 +8,7 @@ import { explain, esc, typeInfo, plural } from './universe/explain.js';
 import { EXAMPLES } from './content/examples.js';
 import { store } from './store.js';
 
+const PLAY = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>';
 const SPEEDS = [2200, 1500, 1050, 750, 520, 340, 200, 110, 50, 16];
 const PRIORITY = { warn: 6, io: 5, write: 4, flow: 3, var: 2, law: 1 };
 
@@ -54,7 +55,7 @@ export class Lab {
     this.setState('idle');
     this.onCodeChange(true);
     this.console.line('<span class="muted">Вселенная Си · встроенный компилятор-интерпретатор C (стандарт C99/C11, модель gcc x86-64).</span>');
-    this.console.line('<span class="muted">Нажмите <b>▶ Запуск</b> (или Ctrl+Enter), чтобы скомпилировать и выполнить программу.</span>');
+    this.console.line('<span class="muted">Нажмите <b>Запуск</b> (или Ctrl+Enter), чтобы скомпилировать и выполнить программу.</span>');
   }
 
   // ——— загрузка кода извне (теория/практика) ———
@@ -66,7 +67,7 @@ export class Lab {
     store.set('lab.stdin', stdin);
     this.onCodeChange(true);
     this.console.clear();
-    this.console.line(`<span class="muted">Загружена программа${title ? ' «' + esc(title) + '»' : ''}. Нажмите ▶ Запуск.</span>`);
+    this.console.line(`<span class="muted">Загружена программа${title ? ' «' + esc(title) + '»' : ''}. Нажмите «Запуск».</span>`);
     this.el('[data-examples]').value = '';
     this.scene.reset();
     this.splash.hidden = false;
@@ -104,7 +105,7 @@ export class Lab {
     const sel = this.el('[data-examples]');
     const groups = {};
     for (const ex of EXAMPLES) (groups[ex.group] ||= []).push(ex);
-    sel.innerHTML = '<option value="">📂 Примеры программ…</option>' + Object.entries(groups).map(([g, list]) =>
+    sel.innerHTML = '<option value="">Примеры программ…</option>' + Object.entries(groups).map(([g, list]) =>
       `<optgroup label="${esc(g)}">${list.map(e => `<option value="${e.id}">${esc(e.title)}</option>`).join('')}</optgroup>`).join('');
   }
 
@@ -185,7 +186,7 @@ export class Lab {
     this.state = s;
     this.root.dataset.state = s;
     const runBtn = this.el('[data-act="run"]');
-    runBtn.innerHTML = s === 'paused' ? '▶ <span>Продолжить</span>' : '▶ <span>Запуск</span>';
+    runBtn.innerHTML = s === 'paused' ? `${PLAY}<span>Продолжить</span>` : `${PLAY}<span>Запуск</span>`;
     const busy = s === 'running' || s === 'input' || s === 'paused';
     this.el('[data-act="pause"]').disabled = s !== 'running';
     this.el('[data-act="stop"]').disabled = !busy;
@@ -194,8 +195,8 @@ export class Lab {
     this.el('[data-act="step"]').disabled = s === 'running' || s === 'input';
     this.editor.setReadOnly(busy);
     const labels = {
-      idle: ['', 'готов'], running: ['run', '● выполняется'], paused: ['pause', '❚❚ пауза'], input: ['input', '⌨ ждёт ввода'],
-      done: ['ok', '✔ завершено'], error: ['err', '✖ ошибка'], cerror: ['err', '✖ ошибка компиляции'],
+      idle: ['', 'готов'], running: ['run', 'выполняется'], paused: ['pause', 'пауза'], input: ['input', 'ждёт ввода'],
+      done: ['ok', 'завершено'], error: ['err', 'ошибка'], cerror: ['err', 'ошибка компиляции'],
     };
     const [cls, txt] = labels[s] || ['', s];
     this.console.status(txt, cls);
@@ -217,16 +218,16 @@ export class Lab {
     const errs = c.diagnostics.filter(d => d.severity === 'error').length;
     const warns = c.diagnostics.filter(d => d.severity === 'warning').length;
     if (!c.ok) {
-      this.console.line(`✖ Компиляция не удалась: ${errs} ${plural(errs, 'ошибка', 'ошибки', 'ошибок')}${warns ? `, ${warns} ${plural(warns, 'предупреждение', 'предупреждения', 'предупреждений')}` : ''}. Исправьте ошибки (они подсвечены в коде) и запустите снова.`, 'fail');
+      this.console.line(`Компиляция не удалась: ${errs} ${plural(errs, 'ошибка', 'ошибки', 'ошибок')}${warns ? `, ${warns} ${plural(warns, 'предупреждение', 'предупреждения', 'предупреждений')}` : ''}. Исправьте ошибки (они подсвечены в коде) и запустите снова.`, 'fail');
       this.setState('cerror');
       this.console.show('term');
       this.scene.reset();
       const first = c.errors[0];
-      this.narrate([{ icon: '🛑', kind: 'warn', html: `<b>Вселенная не может родиться:</b> компилятор нашёл ошибку в строке ${first.line}: ${esc(first.message)}.${first.hint ? `<div class="hint">💡 ${esc(first.hint)}</div>` : ''}` }], first.line);
+      this.narrate([{ icon: '', kind: 'warn', html: `<b>Вселенная не может родиться:</b> компилятор нашёл ошибку в строке ${first.line}: ${esc(first.message)}.${first.hint ? `<div class="hint">${esc(first.hint)}</div>` : ''}` }], first.line);
       this.editor.flash(first.line);
       return null;
     }
-    this.console.line(`✔ Компиляция успешна${warns ? ` · предупреждений: ${warns} (см. вкладку «Проблемы»)` : ''}`, 'okl');
+    this.console.line(`Компиляция успешна${warns ? ` · предупреждений: ${warns} (см. вкладку «Проблемы»)` : ''}`, 'okl');
     this.console.line(`<span class="prompt">$</span> ./main${this.stdinEl.value.trim() ? ' &lt; input.txt' : ''}`, 'cmd');
     return c;
   }
@@ -291,7 +292,7 @@ export class Lab {
     this.gen = null;
     this.console.askInput(false);
     this.editor.setExecLine(0);
-    if (!silent && (was === 'running' || was === 'paused' || was === 'input')) this.console.line('⏹ Выполнение остановлено пользователем.', 'warnl');
+    if (!silent && (was === 'running' || was === 'paused' || was === 'input')) this.console.line('Выполнение остановлено пользователем.', 'warnl');
     this.setState('idle');
   }
 
@@ -333,7 +334,7 @@ export class Lab {
       this.editor.setExecLine(step.line, 'input');
       this.setState('input');
       this.console.askInput(true);
-      this.narrate([{ icon: '⏳', kind: 'io', html: '<b>Программа ждёт ввода.</b> scanf остановил вселенную: введите значение в терминале внизу и нажмите Enter. Компьютер поймает его лучом и доставит в переменную.' }], step.line);
+      this.narrate([{ icon: '', kind: 'io', html: '<b>Программа ждёт ввода.</b> scanf остановил вселенную: введите значение в терминале внизу и нажмите Enter. Компьютер поймает его лучом и доставит в переменную.' }], step.line);
       this.refreshProcesses(true);
       return false;
     }
@@ -342,7 +343,7 @@ export class Lab {
       this.setState('paused');
       clearTimeout(this.timer);
       this.editor.setExecLine(step.line);
-      this.narrate([{ icon: '🔴', kind: 'flow', html: `Точка останова в строке ${step.line}. Изучите вселенную и нажмите «Шаг» или «Продолжить».` }], step.line);
+      this.narrate([{ icon: '', kind: 'flow', html: `Точка останова в строке ${step.line}. Изучите вселенную и нажмите «Шаг» или «Продолжить».` }], step.line);
       this.refreshProcesses(true);
       return false;
     }
@@ -353,10 +354,10 @@ export class Lab {
     switch (ev.type) {
       case 'output': this.console.stdout(ev.text); break;
       case 'input': if (!this.interp?.interactive && ev.text) this.console.stdout(ev.text.replace(/⏎/g, '\n'), 'si file'); break;
-      case 'runtime-warning': this.console.line(`⚠ ${esc(ev.message)}${ev.line ? ` <a class="lnk" data-line="${ev.line}">[строка ${ev.line}]</a>` : ''}${ev.hint ? `<div class="dg-hint">💡 ${esc(ev.hint)}</div>` : ''}`, 'warnl'); break;
-      case 'uninit': this.console.line(`⚠ чтение неинициализированной переменной <b>${esc(ev.name)}</b> — в ней мусор ${esc(ev.display)} <a class="lnk" data-line="${ev.line}">[строка ${ev.line}]</a><div class="dg-hint">💡 Присвойте переменной начальное значение перед использованием.</div>`, 'warnl'); break;
-      case 'locale': this.console.line(`🌐 setlocale: ${ev.comma ? 'русская локаль — дробная часть через запятую' : 'локаль C'}`, 'muted'); break;
-      case 'note': this.console.line('ℹ ' + esc(ev.text), 'muted'); break;
+      case 'runtime-warning': this.console.line(`${esc(ev.message)}${ev.line ? ` <a class="lnk" data-line="${ev.line}">[строка ${ev.line}]</a>` : ''}${ev.hint ? `<div class="dg-hint">${esc(ev.hint)}</div>` : ''}`, 'warnl'); break;
+      case 'uninit': this.console.line(`чтение неинициализированной переменной <b>${esc(ev.name)}</b> — в ней мусор ${esc(ev.display)} <a class="lnk" data-line="${ev.line}">[строка ${ev.line}]</a><div class="dg-hint">Присвойте переменной начальное значение перед использованием.</div>`, 'warnl'); break;
+      case 'locale': this.console.line(`setlocale: ${ev.comma ? 'русская локаль — дробная часть через запятую' : 'локаль C'}`, 'muted'); break;
+      case 'note': this.console.line('' + esc(ev.text), 'muted'); break;
     }
   }
 
@@ -383,14 +384,14 @@ export class Lab {
     const code = this.interp?.exitCode ?? 0;
     this.gen = null;
     this.console.askInput(false);
-    this.console.line(`${code === 0 ? '✔' : '⚠'} Программа завершилась с кодом ${code} · шагов: ${this.stepNo.toLocaleString('ru')}`, code === 0 ? 'okl' : 'warnl');
+    this.console.line(`${code === 0 ? '' : ''} Программа завершилась с кодом ${code} · шагов: ${this.stepNo.toLocaleString('ru')}`, code === 0 ? 'okl' : 'warnl');
     this.editor.setExecLine(0);
     this.setState('done');
     this.refreshProcesses(true);
     const mainRegion = [...this.scene.entities.values()].find(e => e.kind === 'region' && e.func === 'main');
     if (mainRegion && this.renderer.follow) this.renderer.target = this.renderer.frameFor(mainRegion);
-    if (this.mode === 'instant') this.narrate([{ icon: '⚡', kind: 'flow', html: `Программа выполнена мгновенно за ${this.stepNo.toLocaleString('ru')} шагов. Итоговое состояние вселенной — перед вами; подробная хроника — во вкладке «Логи».` }], 0);
-    else this.narrate([{ icon: '✅', kind: 'flow', html: `Программа завершилась с кодом <b>${code}</b>. Нажмите на любой объект, чтобы узнать его историю.` }], 0);
+    if (this.mode === 'instant') this.narrate([{ icon: '', kind: 'flow', html: `Программа выполнена мгновенно за ${this.stepNo.toLocaleString('ru')} шагов. Итоговое состояние вселенной — перед вами; подробная хроника — во вкладке «Логи».` }], 0);
+    else this.narrate([{ icon: '', kind: 'flow', html: `Программа завершилась с кодом <b>${code}</b>. Нажмите на любой объект, чтобы узнать его историю.` }], 0);
   }
 
   onRuntimeError(e) {
@@ -398,17 +399,17 @@ export class Lab {
     this.console.askInput(false);
     if (!(e instanceof RuntimeError)) {
       console.error(e);
-      this.console.line(`✖ Внутренняя ошибка вселенной: ${esc(e.message)}`, 'fail');
+      this.console.line(`Внутренняя ошибка вселенной: ${esc(e.message)}`, 'fail');
       this.setState('error');
       return;
     }
-    this.console.line(`✖ Ошибка выполнения в строке ${e.line}: ${esc(e.message)} <a class="lnk" data-line="${e.line}">[перейти]</a>${e.hint ? `<div class="dg-hint">💡 ${esc(e.hint)}</div>` : ''}`, 'fail');
+    this.console.line(`Ошибка выполнения в строке ${e.line}: ${esc(e.message)} <a class="lnk" data-line="${e.line}">[перейти]</a>${e.hint ? `<div class="dg-hint">${esc(e.hint)}</div>` : ''}`, 'fail');
     this.console.line(`Программа аварийно завершена · шагов: ${this.stepNo.toLocaleString('ru')}`, 'muted');
-    this.console.log({ step: this.stepNo, line: e.line, icon: '💥', html: `<b>Ошибка выполнения:</b> ${esc(e.message)}${e.hint ? `<div class="hint">💡 ${esc(e.hint)}</div>` : ''}`, kind: 'warn' });
+    this.console.log({ step: this.stepNo, line: e.line, icon: '', html: `<b>Ошибка выполнения:</b> ${esc(e.message)}${e.hint ? `<div class="hint">${esc(e.hint)}</div>` : ''}`, kind: 'warn' });
     this.editor.setExecLine(e.line, 'error');
     this.setState('error');
     this.console.show('term');
-    this.narrate([{ icon: '💥', kind: 'warn', html: `<b>Катастрофа во вселенной (строка ${e.line}):</b> ${esc(e.message)}${e.hint ? `<div class="hint">💡 ${esc(e.hint)}</div>` : ''}` }], e.line);
+    this.narrate([{ icon: '', kind: 'warn', html: `<b>Катастрофа во вселенной (строка ${e.line}):</b> ${esc(e.message)}${e.hint ? `<div class="hint">${esc(e.hint)}</div>` : ''}` }], e.line);
     this.refreshProcesses(true);
   }
 
@@ -419,7 +420,7 @@ export class Lab {
     const more = entries.length - top.length;
     this.narr.innerHTML = `
       <div class="nr-head" title="Свернуть/развернуть"><span>Шаг ${this.stepNo || 0}</span>${line ? `<span class="nr-line" data-line="${line}">строка ${line}</span>` : ''}<span class="nr-more">${more > 0 ? `+${more} в логах · ` : ''}<span class="nr-tg"></span></span></div>
-      ${top.map(x => `<div class="nr-item k-${x.kind}"><span class="nr-ic">${x.icon}</span><span>${x.html}</span></div>`).join('')}`;
+      ${top.map(x => `<div class="nr-item k-${x.kind}"><span class="kind-dot"></span><span>${x.html}</span></div>`).join('')}`;
     this.narr.hidden = false;
     this.narr.querySelector('.nr-line')?.addEventListener('click', (e) => { e.stopPropagation(); this.editor.flash(line); });
   }
@@ -445,9 +446,9 @@ export class Lab {
     if (!e) { if (!quiet) this.inspector.hidden = true; return; }
     const row = (k, v) => `<div class="in-row"><span>${k}</span><b>${v}</b></div>`;
     const coord = `(${Math.round(e.x)}, ${Math.round(e.y)})`;
-    let h = `<button class="in-close" data-close aria-label="Закрыть">✕</button>`;
+    let h = `<button class="in-close" data-close aria-label="Закрыть"></button>`;
     if (e.kind === 'var') {
-      h += `<div class="in-kind" style="color:${e.color}">${e.isArray ? '🧱 Массив' : e.isParam ? '📥 Параметр функции' : '🔹 Переменная'}</div>
+      h += `<div class="in-kind">${e.isArray ? 'Массив' : e.isParam ? 'Параметр функции' : 'Переменная'}</div>
         <div class="in-title">${esc(e.name)}</div>
         <div class="in-desc">${esc(typeInfo(e.typeName))}</div>
         ${row('Тип', esc(e.typeName))}
@@ -457,12 +458,12 @@ export class Lab {
         ${row('Где живёт', esc(this.scene.entities.get(e.regionId)?.name || ''))}
         ${row('Координаты', coord)}
         ${row('Объявлена', `<a class="lnk" data-line="${e.line}">строка ${e.line}</a>`)}
-        ${e.garbage ? '<div class="in-warn">⚠ Значение не было задано — это «мусор» из памяти.</div>' : ''}
+        ${e.garbage ? '<div class="in-warn">Значение не было задано — это «мусор» из памяти.</div>' : ''}
         <div class="in-sub">История значений</div>
         <div class="in-hist">${e.history.slice(-14).map((h, i) => `<div data-line="${h.line}"><span>стр. ${h.line}</span><span>${{ decl: 'объявление', param: 'параметр', assign: 'присваивание', compound: 'составное присв.', inc: 'инкремент/декремент', scanf: 'ввод scanf', global: 'глобальная' }[h.how] || h.how}</span><b>${esc(h.display)}</b></div>`).join('')}</div>`;
     } else if (e.kind === 'law') {
       const hd = HEADERS[e.header];
-      h += `<div class="in-kind" style="color:${e.color}">⚖️ Закон вселенной (библиотека)</div>
+      h += `<div class="in-kind">Закон вселенной (библиотека)</div>
         <div class="in-title">${esc(e.name)}</div>
         <div class="in-desc">${esc(hd.law)}</div>
         ${row('Подключён', `<a class="lnk" data-line="${e.line}">строка ${e.line}</a>`)}
@@ -471,13 +472,13 @@ export class Lab {
         <div class="in-fns">${Object.entries(hd.funcs).map(([n, f]) => `<div><code>${n}</code> — ${esc(f.desc)}</div>`).join('') || '<div>—</div>'}</div>
         ${Object.keys(hd.consts).length ? `<div class="in-sub">Константы</div><div class="in-fns">${Object.entries(hd.consts).map(([n, c]) => `<div><code>${n}</code> — ${esc(c.desc)}</div>`).join('')}</div>` : ''}`;
     } else if (e.kind === 'const') {
-      h += `<div class="in-kind" style="color:#ffd166">⭐ Символическая константа</div>
+      h += `<div class="in-kind">Символическая константа</div>
         <div class="in-title">${esc(e.name)} = ${esc(e.text)}</div>
         <div class="in-desc">Создана директивой #define. Препроцессор заменяет имя ${esc(e.name)} на текст «${esc(e.text)}» во всём коде ещё до компиляции. Поэтому изменить её во время работы программы нельзя.</div>
         ${row('Определена', `<a class="lnk" data-line="${e.line}">строка ${e.line}</a>`)}
         ${row('Координаты', coord)}`;
     } else if (e.kind === 'region') {
-      h += `<div class="in-kind" style="color:#b9adff">🌌 Область функции (кадр стека)</div>
+      h += `<div class="in-kind">Область функции (кадр стека)</div>
         <div class="in-title">${esc(e.name)}</div>
         <div class="in-desc">${e.id === 'global' ? 'Глобальные переменные видны во всех функциях и живут всё время работы программы.' : 'Каждый вызов функции создаёт свою область памяти: параметры и локальные переменные. После return область исчезает.'}</div>
         ${e.id !== 'global' ? row('Глубина вызова', e.depth) : ''}
@@ -488,7 +489,7 @@ export class Lab {
         ${e.ret != null ? row('Возвращает', esc(e.ret)) : ''}
         <div class="in-desc small">Слева — ось строк кода: светящийся зонд показывает, какая строка выполняется. Дуги — циклы, ромбы — развилки if/switch.</div>`;
     } else if (e.kind === 'loop') {
-      h += `<div class="in-kind" style="color:#4fd1ff">🌀 Цикл ${e.loopKind === 'do' ? 'do-while' : e.loopKind}</div>
+      h += `<div class="in-kind">Цикл ${e.loopKind === 'do' ? 'do-while' : e.loopKind}</div>
         <div class="in-title">${esc(e.head || e.text)}</div>
         <div class="in-desc">Повторяет строки ${e.line}–${e.endLine}, пока условие <code>${esc(e.text)}</code> истинно. Дуга на оси кода показывает возврат к началу цикла.</div>
         ${row('Состояние', e.active ? `выполняется, итерация ${e.iter}` : `завершён (${e.exitReason === 'break' ? 'break' : 'условие ложно'})`)}
@@ -499,7 +500,7 @@ export class Lab {
         ${row('Строки', `<a class="lnk" data-line="${e.line}">${e.line}–${e.endLine}</a>`)}
         ${row('Координаты', coord)}`;
     } else if (e.kind === 'branch') {
-      h += `<div class="in-kind" style="color:${e.lastValue ? '#7ee787' : '#ff6b81'}">${e.isSwitch ? '🎛 Множественный выбор' : '🔀 Развилка if'}</div>
+      h += `<div class="in-kind">${e.isSwitch ? 'Множественный выбор' : 'Развилка if'}</div>
         <div class="in-title">${esc(e.isSwitch ? e.text : 'if (' + e.text + ')')}</div>
         <div class="in-desc">${e.isSwitch ? 'switch сравнивает значение с метками case и переходит к совпавшей.' : 'Условие вычисляется: не ноль — истина (ветка if), ноль — ложь (ветка else).'}</div>
         ${row('Последний результат', e.isSwitch ? esc(e.switchValue) : e.lastValue ? '<span class="ok">истина</span>' : '<span class="bad">ложь</span>')}
@@ -507,9 +508,9 @@ export class Lab {
         ${row('Строка', `<a class="lnk" data-line="${e.line}">${e.line}</a>`)}
         ${row('Координаты', coord)}`;
     } else if (e.kind === 'core') {
-      h += `<div class="in-kind" style="color:#4fd1ff">🖥 Компьютер</div>
+      h += `<div class="in-kind">Компьютер</div>
         <div class="in-title">Центр вселенной (0, 0)</div>
-        <div class="in-desc">Процессор выполняет программу строка за строкой. Лучи от компьютера — это «обнаружение» переменных, ввод с клавиатуры (scanf, оранжевые) и вывод на экран (printf, зелёные). Вокруг — орбиты подключённых библиотек-законов.</div>
+        <div class="in-desc">Процессор выполняет программу строка за строкой. Лучи от компьютера — это «обнаружение» переменных, ввод с клавиатуры (scanf, жёлтые) и вывод на экран (printf, зелёные). Вокруг — орбиты подключённых библиотек-законов.</div>
         ${row('Состояние', { idle: 'готов', running: 'выполняет', paused: 'пауза', input: 'ждёт ввода', done: 'завершил', error: 'авария', cerror: 'ошибка компиляции' }[this.state])}
         ${row('Шагов выполнено', this.stepNo || 0)}
         ${this.scene.locale === 'ru' ? row('Локаль', 'русская (запятая)') : ''}`;

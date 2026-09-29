@@ -21,7 +21,7 @@ export class LearnPage {
       if (!list.length) continue;
       h += `<h3>${t.title}</h3>`;
       for (const l of list)
-        h += `<a href="#/learn/${l.id}" class="${l.id === active ? 'active' : ''}"><span class="num">${l.num}</span><span>${l.title}</span>${read[l.id] ? '<span class="done">✓</span>' : ''}</a>`;
+        h += `<a href="#/learn/${l.id}" class="${l.id === active ? 'active' : ''}"><span class="num">${l.num}</span><span>${l.title}</span>${read[l.id] ? '<span class="done"></span>' : ''}</a>`;
     }
     this.side.innerHTML = h;
   }
@@ -38,10 +38,10 @@ export class LearnPage {
     const topic = TOPICS.find(t => t.id === lesson.topic);
     let html = lesson.html.replace(/<div data-snip="(\d+)"><\/div>/g, (_, n) => {
       const s = SNIPPETS[+n];
-      return `<div class="codebox"><div class="codebox-head"><span>📄</span><span class="t">${s.title}</span>${s.stdin ? `<span class="muted">· ввод: ${s.stdin.replace(/\n/g, ' ⏎ ').replace(/</g, '&lt;')}</span>` : ''}<button class="btn small primary" data-run="${n}">▶ Во вселенной</button><button class="btn small ghost" data-copy="${n}" title="Копировать код">Копировать</button></div><pre>${highlight(s.code)}</pre></div>`;
+      return `<div class="codebox"><div class="codebox-head"><span class="t">${s.title}</span>${s.stdin ? `<span class="muted">· ввод: ${s.stdin.replace(/\n/g, ' ⏎ ').replace(/</g, '&lt;')}</span>` : ''}<button class="btn small primary" data-run="${n}">▶ Во вселенной</button><button class="btn small ghost" data-copy="${n}" title="Копировать код">Копировать</button></div><pre>${highlight(s.code)}</pre></div>`;
     });
     const quiz = lesson.quiz?.length ? `
-      <div class="quiz"><h4>🧠 Проверь себя</h4>
+      <div class="quiz"><h4>Проверь себя</h4>
       ${lesson.quiz.map((q, qi) => `<div class="q" data-q="${qi}"><div class="q-t">${qi + 1}. ${q.q}</div><div class="q-opts">${q.opts.map((o, oi) => `<button class="q-opt" data-opt="${oi}">${o}</button>`).join('')}</div><div class="q-ex" hidden></div></div>`).join('')}
       </div>` : '';
     this.content.innerHTML = `<article class="article">
@@ -64,7 +64,7 @@ export class LearnPage {
     const cp = e.target.closest('[data-copy]');
     if (cp) {
       const s = SNIPPETS[+cp.dataset.copy];
-      navigator.clipboard?.writeText(s.code).then(() => { cp.textContent = '✓ Скопировано'; setTimeout(() => (cp.textContent = 'Копировать'), 1400); }).catch(() => {});
+      navigator.clipboard?.writeText(s.code).then(() => { cp.textContent = 'Скопировано'; setTimeout(() => (cp.textContent = 'Копировать'), 1400); }).catch(() => {});
       return;
     }
     const opt = e.target.closest('[data-opt]');
@@ -76,7 +76,7 @@ export class LearnPage {
       if (oi !== q.a) opt.classList.add('wrong');
       const ex = qEl.querySelector('.q-ex');
       ex.hidden = false;
-      ex.innerHTML = (oi === q.a ? '✅ Верно! ' : '❌ Не совсем. ') + q.ex;
+      ex.innerHTML = (oi === q.a ? 'Верно. ' : 'Не совсем. ') + q.ex;
     }
   }
 }

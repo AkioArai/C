@@ -3,9 +3,9 @@
 // tests/tasks.mjs сверяет эталонные решения с настоящим gcc.
 
 export const LEVELS = {
-  easy: { name: 'Лёгкая', icon: '🟢' },
-  hard: { name: 'Сложная', icon: '🟠' },
-  extreme: { name: 'Экстрим', icon: '🔴' },
+  easy: { name: 'Лёгкая', icon: '' },
+  hard: { name: 'Сложная', icon: '' },
+  extreme: { name: 'Экстрим', icon: '' },
 };
 
 export const TASK_TOPICS = {

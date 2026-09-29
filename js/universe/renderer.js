@@ -7,6 +7,13 @@ const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
 const SANS = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 
+// Палитра холста (совпадает с css/style.css)
+const C = {
+  bg: '#0a0b09', grid: 'rgba(200,220,170,0.035)', axis: 'rgba(200,240,90,0.09)',
+  line2: '#262a22', line3: '#3a4034', faint: '#4b5145', muted: '#767d6c',
+  text: '#e6e9df', text2: '#b3b8a9', accent: '#c8f05a', yellow: '#e9d85c', green: '#8fd46a', red: '#e0705f',
+};
+
 function alpha(hex, a) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
@@ -38,7 +45,7 @@ export class Renderer {
   makeStars() {
     const r = (() => { let s = 7; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
     this.stars = [0.08, 0.2, 0.42].map((par, li) =>
-      Array.from({ length: 170 }, () => ({ x: r() * 2400, y: r() * 2400, s: (0.4 + r() * 1.2) * (li + 1) * 0.55, tw: r() * TAU, par, hue: r() })));
+      Array.from({ length: 70 }, () => ({ x: r() * 2400, y: r() * 2400, s: li === 2 ? 1.5 : 1, tw: r() * TAU, par, hue: r() })));
   }
 
   resize() {
@@ -208,10 +215,7 @@ export class Renderer {
   draw() {
     const { ctx, W, H } = this;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    const g = ctx.createRadialGradient(W * 0.5, H * 0.45, 0, W * 0.5, H * 0.5, Math.max(W, H) * 0.8);
-    g.addColorStop(0, '#0b1024');
-    g.addColorStop(1, '#03050c');
-    ctx.fillStyle = g;
+    ctx.fillStyle = C.bg;
     ctx.fillRect(0, 0, W, H);
     this.drawStars();
     this.drawGrid();
@@ -232,6 +236,9 @@ export class Renderer {
     ctx.restore();
   }
 
+  /** Толщина линии в экранных пикселях независимо от масштаба. */
+  px(n) { return n / this.cam.zoom; }
+
   fadeOf(e) {
     const t = this.t;
     let a = clamp((t - (e.born ?? 0)) / 400, 0, 1);
@@ -246,9 +253,8 @@ export class Renderer {
         const par = s.par;
         let x = (s.x - this.cam.x * par * this.cam.zoom * 2) % 2400; if (x < 0) x += 2400;
         let y = (s.y - this.cam.y * par * this.cam.zoom * 2) % 2400; if (y < 0) y += 2400;
-        if (x > W + 4 || y > H + 4) continue;
-        const tw = 0.55 + 0.45 * Math.sin(this.t * 0.0012 + s.tw);
-        ctx.fillStyle = s.hue > 0.85 ? `rgba(180,160,255,${0.7 * tw})` : s.hue > 0.7 ? `rgba(140,220,255,${0.7 * tw})` : `rgba(230,236,255,${0.65 * tw})`;
+        if (x > W + 2 || y > H + 2) continue;
+        ctx.fillStyle = `rgba(210,220,190,${0.12 + s.hue * 0.18})`;
         ctx.fillRect(x, y, s.s, s.s);
       }
     }
@@ -258,21 +264,23 @@ export class Renderer {
     const { ctx, W, H } = this;
     const z = this.cam.zoom;
     let step = 100;
-    while (step * z < 60) step *= 2;
-    while (step * z > 180) step /= 2;
+    while (step * z < 70) step *= 2;
+    while (step * z > 200) step /= 2;
     const tl = this.toWorld(0, 0), br = this.toWorld(W, H);
     ctx.lineWidth = 1;
     ctx.font = `10px ${MONO}`;
-    ctx.fillStyle = 'rgba(120,150,200,0.35)';
+    ctx.fillStyle = C.faint;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
     for (let x = Math.floor(tl.x / step) * step; x <= br.x; x += step) {
       const sx = Math.round(this.toScreen(x, 0).x) + 0.5;
-      ctx.strokeStyle = x === 0 ? 'rgba(120,170,255,0.18)' : 'rgba(90,120,180,0.06)';
+      ctx.strokeStyle = x === 0 ? C.axis : C.grid;
       ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, H); ctx.stroke();
       ctx.fillText(String(Math.round(x)), sx + 3, H - 6);
     }
     for (let y = Math.floor(tl.y / step) * step; y <= br.y; y += step) {
       const sy = Math.round(this.toScreen(0, y).y) + 0.5;
-      ctx.strokeStyle = y === 0 ? 'rgba(120,170,255,0.18)' : 'rgba(90,120,180,0.06)';
+      ctx.strokeStyle = y === 0 ? C.axis : C.grid;
       ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke();
       ctx.fillText(String(Math.round(y)), 4, sy - 3);
     }
@@ -285,17 +293,17 @@ export class Renderer {
     const screenPx = px * z;
     if (screenPx < (opts.min ?? 4.5)) return;
     let size = px;
-    if (screenPx > 26) size = 26 / z;
-    else if (screenPx < 12) size = Math.min(px * 1.9, 12 / z); // мелкий текст подтягиваем до читаемого
-    ctx.font = `${opts.weight || 500} ${size}px ${opts.mono ? MONO : SANS}`;
+    if (screenPx > 22) size = 22 / z;
+    else if (screenPx < 11.5) size = Math.min(px * 1.9, 11.5 / z); // мелкий текст подтягиваем до читаемого
+    ctx.font = `${Math.min(opts.weight || 400, 500)} ${size}px ${opts.mono ? MONO : SANS}`;
     ctx.textAlign = opts.align || 'center';
     ctx.textBaseline = opts.base || 'middle';
-    if (opts.bg) {
+    if (opts.bg || opts.border) {
       const w = ctx.measureText(str).width + size * 0.9;
-      const h = size * 1.55;
+      const h = size * 1.6;
       const bx = opts.align === 'left' ? x - size * 0.45 : opts.align === 'right' ? x - w + size * 0.45 : x - w / 2;
-      ctx.fillStyle = opts.bg;
-      roundRect(ctx, bx, y - h / 2, w, h, h * 0.3);
+      roundRect(ctx, bx, y - h / 2, w, h, 3 / z);
+      ctx.fillStyle = opts.bg || C.bg;
       ctx.fill();
       if (opts.border) { ctx.strokeStyle = opts.border; ctx.lineWidth = 1 / z; ctx.stroke(); }
     }
@@ -303,50 +311,48 @@ export class Renderer {
     ctx.fillText(str, x, y + size * 0.04);
   }
 
-  glow(x, y, r, color, a = 1) {
+  ring(x, y, r, color, w = 1) {
     const ctx = this.ctx;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, alpha(color, 0.55 * a));
-    g.addColorStop(0.4, alpha(color, 0.18 * a));
-    g.addColorStop(1, alpha(color, 0));
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = this.px(w);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
   }
 
   drawCore() {
     const ctx = this.ctx, sc = this.scene, t = this.t, z = this.cam.zoom;
     const flash = clamp(1 - (t - sc.coreFlash) / 700, 0, 1);
     const waiting = sc.waitingInput;
-    this.glow(0, 0, 150 + flash * 60, waiting ? '#ffb86b' : '#4fd1ff', 0.7 + flash * 0.5);
-    // монитор
-    const w = 120, h = 82;
-    ctx.fillStyle = '#0d1426';
-    ctx.strokeStyle = waiting ? '#ffb86b' : '#6fe0ff';
-    ctx.lineWidth = 2.5;
-    roundRect(ctx, -w / 2, -h / 2 - 8, w, h, 10); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#050a14';
-    roundRect(ctx, -w / 2 + 8, -h / 2, w - 16, h - 16, 5); ctx.fill();
-    ctx.fillStyle = '#6fe0ff';
-    ctx.fillRect(-10, h / 2 - 8, 20, 12);
-    roundRect(ctx, -30, h / 2 + 3, 60, 7, 3); ctx.fill();
+    const col = waiting ? C.yellow : C.text2;
+    if (flash > 0) this.ring(0, 0, 80 + (1 - flash) * 40, alpha(waiting ? C.yellow : C.accent, flash * 0.5), 1);
+    // монитор: тонкий контур
+    const w = 116, h = 78;
+    ctx.fillStyle = C.bg;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = this.px(1.2);
+    roundRect(ctx, -w / 2, -h / 2 - 8, w, h, 6); ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, h / 2 - 8); ctx.lineTo(0, h / 2 + 6);
+    ctx.moveTo(-24, h / 2 + 6); ctx.lineTo(24, h / 2 + 6);
+    ctx.stroke();
     // экран
-    const blink = Math.floor(t / 500) % 2 === 0;
+    const blink = Math.floor(t / 530) % 2 === 0;
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.font = `600 11px ${MONO}`;
+    ctx.font = `400 11px ${MONO}`;
     const lines = sc.screenLines || [];
+    const x0 = -w / 2 + 12, y0 = -h / 2 + 2;
     if (waiting) {
-      ctx.fillStyle = '#ffb86b';
-      ctx.fillText('scanf ждёт', -w / 2 + 14, -h / 2 + 6);
-      ctx.fillText('ввода' + (blink ? '█' : ''), -w / 2 + 14, -h / 2 + 22);
+      ctx.fillStyle = C.yellow;
+      ctx.fillText('scanf: ввод', x0, y0);
+      ctx.fillText('> ' + (blink ? '_' : ''), x0, y0 + 16);
     } else if (lines.length) {
-      ctx.fillStyle = '#9ef0b0';
-      lines.slice(-3).forEach((l, i) => ctx.fillText(l.slice(0, 13), -w / 2 + 14, -h / 2 + 5 + i * 15));
+      ctx.fillStyle = C.accent;
+      lines.slice(-3).forEach((l, i) => ctx.fillText(l.slice(0, 13), x0, y0 + i * 15));
     } else {
-      ctx.fillStyle = '#6fe0ff';
-      ctx.fillText('>' + (blink ? '_' : ''), -w / 2 + 14, -h / 2 + 6);
+      ctx.fillStyle = C.accent;
+      ctx.fillText('>' + (blink ? '_' : ''), x0, y0);
     }
-    this.text('КОМПЬЮТЕР · (0, 0)', 0, h / 2 + 30, 13, 'rgba(160,220,255,0.85)', { weight: 700 });
-    if (z > 0.5) this.text('терминал: ввод ⌨ / вывод 🖥', 0, h / 2 + 48, 10, 'rgba(160,190,230,0.55)');
+    this.text('компьютер  (0, 0)', 0, h / 2 + 26, 12, C.text2, { mono: true });
+    if (z > 0.5) this.text('ввод / вывод', 0, h / 2 + 42, 10, C.muted);
   }
 
   drawLaw(e) {
@@ -354,86 +360,79 @@ export class Renderer {
     const sel = this.scene.selected === e.id || this.hover === e.id;
     ctx.save();
     ctx.globalAlpha = a;
-    ctx.strokeStyle = alpha(e.color, sel ? 0.8 : 0.4);
-    ctx.lineWidth = (sel ? 2.4 : 1.3);
-    ctx.setLineDash([10, 8]);
-    ctx.lineDashOffset = -t * 0.01;
+    ctx.strokeStyle = alpha(e.color, sel ? 0.8 : 0.35);
+    ctx.lineWidth = this.px(1);
+    ctx.setLineDash([this.px(3), this.px(6)]);
     ctx.beginPath(); ctx.arc(0, 0, e.radius, 0, TAU); ctx.stroke();
     ctx.setLineDash([]);
     // спутники-функции
     const n = e.funcs.length;
     e.funcs.forEach((fn, i) => {
-      const ang = e.angle + 0.35 + (i / Math.max(n, 1)) * TAU * 0.85 + t * 0.00004 * (1 + (i % 3));
+      const ang = e.angle + 0.35 + (i / Math.max(n, 1)) * TAU * 0.85 + t * 0.00003 * (1 + (i % 3));
       const x = Math.cos(ang) * e.radius, y = Math.sin(ang) * e.radius;
       ctx.fillStyle = e.color;
-      ctx.beginPath(); ctx.arc(x, y, 4, 0, TAU); ctx.fill();
-      if (this.cam.zoom > 0.75) this.text(fn, x, y - 12, 9, alpha(e.color, 0.85), { mono: true });
+      ctx.beginPath(); ctx.arc(x, y, this.px(2), 0, TAU); ctx.fill();
+      if (this.cam.zoom > 0.75) this.text(fn, x, y - 10, 9, alpha(e.color, 0.7), { mono: true });
     });
-    this.text(`${e.name}`, e.x, e.y, 13, e.color, { mono: true, weight: 700, bg: 'rgba(5,10,20,0.85)', border: alpha(e.color, 0.5) });
+    this.text(e.name, e.x, e.y, 12, e.color, { mono: true, border: alpha(e.color, sel ? 0.8 : 0.35) });
     ctx.restore();
   }
 
   drawConst(e) {
-    const ctx = this.ctx, t = this.t, a = this.fadeOf(e);
+    const ctx = this.ctx, a = this.fadeOf(e);
     const sel = this.scene.selected === e.id || this.hover === e.id;
     ctx.save();
     ctx.globalAlpha = a;
-    this.glow(e.x, e.y, 46, '#ffd166', 0.8 + 0.2 * Math.sin(t * 0.003));
-    ctx.fillStyle = '#ffe9a8';
-    star(ctx, e.x, e.y, 5, sel ? 15 : 12, 5);
-    ctx.fill();
-    this.text(`${e.name} = ${e.text}`, e.x, e.y + 26, 12, '#ffe08a', { mono: true, weight: 600, bg: 'rgba(20,16,4,0.7)' });
-    if (this.cam.zoom > 0.6) this.text('#define · константа', e.x, e.y - 24, 9, 'rgba(255,224,138,0.6)');
+    ctx.fillStyle = C.yellow;
+    ctx.beginPath(); ctx.arc(e.x, e.y, this.px(3), 0, TAU); ctx.fill();
+    this.ring(e.x, e.y, this.px(sel ? 10 : 7), alpha(C.yellow, 0.4), 1);
+    this.text(`${e.name} = ${e.text}`, e.x, e.y + 22, 12, C.yellow, { mono: true });
+    if (this.cam.zoom > 0.6) this.text('#define', e.x, e.y - 18, 9, C.muted, { mono: true });
     ctx.restore();
   }
 
   drawRegion(r) {
-    const ctx = this.ctx, t = this.t, a = this.fadeOf(r);
+    const ctx = this.ctx, a = this.fadeOf(r);
     const sel = this.scene.selected === r.id;
     const active = this.scene.current === r.id;
     ctx.save();
     ctx.globalAlpha = a;
-    const col = r.id === 'global' ? '#7ee787' : '#8b7bff';
-    const g = ctx.createRadialGradient(r.x, r.y, r.r * 0.1, r.x, r.y, r.r);
-    g.addColorStop(0, alpha(col, 0.13));
-    g.addColorStop(0.7, alpha(col, 0.06));
-    g.addColorStop(1, alpha(col, 0));
-    ctx.fillStyle = g;
+    ctx.fillStyle = active ? 'rgba(200,240,90,0.018)' : 'rgba(200,240,90,0.008)';
     ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, TAU); ctx.fill();
-    ctx.strokeStyle = alpha(col, active ? 0.65 : sel ? 0.8 : 0.28);
-    ctx.lineWidth = active ? 2 : 1.2;
-    ctx.setLineDash([4, 10]);
+    ctx.strokeStyle = sel ? C.text2 : active ? C.line3 : C.line2;
+    ctx.lineWidth = this.px(1);
+    ctx.setLineDash([this.px(2), this.px(5)]);
     ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, TAU); ctx.stroke();
     ctx.setLineDash([]);
     // заголовок
-    this.text(r.name, r.x, r.y - r.r - 22, 22, active ? '#d8d0ff' : '#a99cff', { mono: true, weight: 700 });
-    const sub = r.id === 'global' ? 'видна всем функциям' : `кадр стека · глубина ${r.depth} · центр (${Math.round(r.x)}, ${Math.round(r.y)})`;
-    this.text(sub, r.x, r.y - r.r - 2, 10, 'rgba(180,170,255,0.6)');
-    if (r.ret != null && r.dying) this.text(`вернула ${r.ret}`, r.x, r.y + r.r + 18, 14, '#7ee787', { mono: true, weight: 700 });
+    this.text(r.name, r.x, r.y - r.r - 22, 18, active ? C.text : C.text2, { mono: true, weight: 500 });
+    const sub = r.id === 'global' ? 'видна всем функциям' : `кадр стека · глубина ${r.depth} · (${Math.round(r.x)}, ${Math.round(r.y)})`;
+    this.text(sub, r.x, r.y - r.r - 4, 10, C.muted);
+    if (r.ret != null && r.dying) this.text(`вернула ${r.ret}`, r.x, r.y + r.r + 18, 13, C.green, { mono: true });
     // ось кода (строки)
     if (r.id !== 'global') {
       const sx = this.scene.spineX(r);
       const y0 = this.scene.lineY(r, r.span.start), y1 = this.scene.lineY(r, r.span.end);
-      ctx.strokeStyle = 'rgba(150,170,230,0.25)';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = C.line3;
+      ctx.lineWidth = this.px(1);
       ctx.beginPath(); ctx.moveTo(sx, y0); ctx.lineTo(sx, y1); ctx.stroke();
       const n = r.span.end - r.span.start;
       const every = Math.max(1, Math.ceil(n / (this.cam.zoom > 0.9 ? 40 : this.cam.zoom > 0.5 ? 16 : 6)));
+      ctx.fillStyle = C.line3;
       for (let ln = r.span.start; ln <= r.span.end; ln += every) {
         const y = this.scene.lineY(r, ln);
-        ctx.fillStyle = 'rgba(150,170,230,0.35)';
-        ctx.fillRect(sx - 4, y - 0.5, 8, 1);
-        this.text(String(ln), sx + 8, y, 8, 'rgba(150,170,230,0.45)', { align: 'left', mono: true, min: 6 });
+        ctx.fillRect(sx - this.px(3), y - this.px(0.5), this.px(6), this.px(1));
+        this.text(String(ln), sx + 8, y, 8, C.faint, { align: 'left', mono: true, min: 6 });
       }
-      this.text('строки кода', sx, y0 - 14, 9, 'rgba(150,170,230,0.5)');
-      // зонд выполнения
+      this.text('строки кода', sx, y0 - 14, 9, C.muted);
+      // метка выполнения
       const py = this.scene.lineY(r, r.probeLine);
       r.probeY = r.probeY == null ? py : r.probeY + (py - r.probeY) * 0.25;
       if (active || r.dying) {
-        this.glow(sx, r.probeY, 36, '#4fd1ff', 1);
-        ctx.fillStyle = '#bff3ff';
-        ctx.beginPath(); ctx.arc(sx, r.probeY, 6, 0, TAU); ctx.fill();
-        this.text(`▶ строка ${r.probeLine}`, sx + 14, r.probeY - 15, 13, '#9fe8ff', { align: 'left', mono: true, weight: 700 });
+        ctx.fillStyle = C.accent;
+        ctx.beginPath(); ctx.arc(sx, r.probeY, this.px(3.5), 0, TAU); ctx.fill();
+        this.ring(sx, r.probeY, this.px(8), alpha(C.accent, 0.45), 1);
+        this.text(`строка ${r.probeLine}`, sx + 14, r.probeY - 14, 12, C.accent, { align: 'left', mono: true });
       }
     }
     ctx.restore();
@@ -453,36 +452,33 @@ export class Renderer {
     if (s.kind === 'loop') {
       const y1 = Math.max(this.scene.lineY(region, s.endLine), y0 + 18);
       const bulge = 38 + (s.nest || 0) * 20;
-      const col = s.active ? '#4fd1ff' : '#6f86b8';
-      ctx.strokeStyle = alpha(col, s.active ? 0.9 : 0.5);
-      ctx.lineWidth = sel ? 3.5 : 2.2;
-      if (s.active) { ctx.setLineDash([7, 6]); ctx.lineDashOffset = t * 0.03; }
+      const col = s.active ? C.accent : C.muted;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = this.px(sel ? 1.8 : 1.1);
+      if (s.active) { ctx.setLineDash([this.px(4), this.px(4)]); ctx.lineDashOffset = -t * 0.02; }
       ctx.beginPath();
-      ctx.moveTo(sx - 4, y1);
-      ctx.bezierCurveTo(sx - bulge * 1.4, y1, sx - bulge * 1.4, y0, sx - 4, y0);
+      ctx.moveTo(sx - 3, y1);
+      ctx.bezierCurveTo(sx - bulge * 1.4, y1, sx - bulge * 1.4, y0, sx - 3, y0);
       ctx.stroke();
       ctx.setLineDash([]);
-      // стрелка к началу цикла
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.moveTo(sx - 2, y0); ctx.lineTo(sx - 12, y0 - 6); ctx.lineTo(sx - 12, y0 + 6); ctx.fill();
-      this.glow(sx, y0, 24 + flash * 30, s.lastValue === false ? '#ff6b81' : '#4fd1ff', 0.4 + flash);
-      ctx.fillStyle = '#0a1224'; ctx.strokeStyle = col; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(sx, y0, 10, 0, TAU); ctx.fill(); ctx.stroke();
-      const spin = s.active ? t * 0.006 : 0;
-      ctx.strokeStyle = '#bff3ff';
-      ctx.beginPath(); ctx.arc(sx, y0, 6, spin, spin + 4.4); ctx.stroke();
-      const label = `${s.loopKind === 'do' ? 'do-while' : s.loopKind} · ${s.active ? 'итерация ' + s.iter : 'завершён (' + (s.iterDone ?? s.iter) + ')'}`;
-      this.text(label, sx - bulge - 8, (y0 + y1) / 2, 13, s.active ? '#bff3ff' : '#8ea4cf', { align: 'right', mono: true, weight: 700, bg: 'rgba(5,10,22,0.8)' });
-      if (this.cam.zoom > 0.4) this.text(s.text, sx - bulge - 8, (y0 + y1) / 2 + 19, 11, 'rgba(170,200,240,0.7)', { align: 'right', mono: true });
+      // наконечник к началу цикла
+      ctx.beginPath(); ctx.moveTo(sx - 10, y0 - 4); ctx.lineTo(sx - 3, y0); ctx.lineTo(sx - 10, y0 + 4); ctx.stroke();
+      ctx.fillStyle = C.bg;
+      ctx.beginPath(); ctx.arc(sx, y0, 6, 0, TAU); ctx.fill();
+      this.ring(sx, y0, 6, s.lastValue === false ? C.red : col, 1.1);
+      if (flash > 0) this.ring(sx, y0, 6 + (1 - flash) * 18, alpha(s.lastValue === false ? C.red : C.accent, flash * 0.6), 1);
+      const label = `${s.loopKind === 'do' ? 'do-while' : s.loopKind} · ${s.active ? 'итерация ' + s.iter : 'завершён, ' + (s.iterDone ?? s.iter)}`;
+      this.text(label, sx - bulge - 8, (y0 + y1) / 2, 12, s.active ? C.accent : C.text2, { align: 'right', mono: true, bg: C.bg });
+      if (this.cam.zoom > 0.4) this.text(s.text, sx - bulge - 8, (y0 + y1) / 2 + 17, 10, C.muted, { align: 'right', mono: true });
     } else {
       const val = s.lastValue;
-      const col = val === undefined ? '#8ea4cf' : val ? '#7ee787' : '#ff6b81';
-      this.glow(sx, y0, 22 + flash * 30, col, 0.4 + flash);
-      ctx.fillStyle = '#0a1224'; ctx.strokeStyle = col; ctx.lineWidth = sel ? 3 : 2;
-      ctx.beginPath(); ctx.moveTo(sx, y0 - 12); ctx.lineTo(sx + 12, y0); ctx.lineTo(sx, y0 + 12); ctx.lineTo(sx - 12, y0); ctx.closePath();
+      const col = val === undefined ? C.muted : val ? C.green : C.red;
+      ctx.fillStyle = C.bg; ctx.strokeStyle = col; ctx.lineWidth = this.px(sel ? 1.8 : 1.1);
+      ctx.beginPath(); ctx.moveTo(sx, y0 - 8); ctx.lineTo(sx + 8, y0); ctx.lineTo(sx, y0 + 8); ctx.lineTo(sx - 8, y0); ctx.closePath();
       ctx.fill(); ctx.stroke();
+      if (flash > 0) this.ring(sx, y0, 8 + (1 - flash) * 18, alpha(col, flash * 0.6), 1);
       const txt = s.isSwitch ? `${s.text} = ${s.switchValue}` : `if (${s.text}) → ${val ? 'истина' : 'ложь'}`;
-      this.text(txt, sx - 20, y0, 13, col, { align: 'right', mono: true, weight: 700, bg: 'rgba(5,10,22,0.8)' });
+      this.text(txt, sx - 16, y0, 12, col, { align: 'right', mono: true, bg: C.bg });
     }
     ctx.restore();
   }
@@ -492,51 +488,50 @@ export class Renderer {
     if (a <= 0) return;
     const sel = this.scene.selected === v.id || this.hover === v.id;
     const flash = clamp(1 - (t - (v.flash || 0)) / 800, 0, 1);
-    const floatY = Math.sin(t * 0.0015 + v.x * 0.01) * 3;
-    const x = v.x, y = v.y + floatY;
+    const x = v.x, y = v.y;
     ctx.save();
     ctx.globalAlpha = a;
-    const col = v.garbage ? '#ff6b81' : v.color;
+    const col = v.garbage ? C.red : v.color;
     if (v.isArray) {
-      const n = Math.min(v.len, 12), cw = 36, x0 = x - (n * cw) / 2;
-      this.glow(x, y, 60 + n * 10 + flash * 30, col, 0.35 + flash * 0.6);
-      this.text(`${v.name}[${v.len}]`, x, y - 30, 15, col, { mono: true, weight: 800 });
+      const n = Math.min(v.len, 12), cw = 34, x0 = x - (n * cw) / 2;
+      this.text(`${v.name}[${v.len}]`, x, y - 28, 14, C.text, { mono: true, weight: 500 });
       for (let i = 0; i < n; i++) {
         const cx = x0 + i * cw;
         const fl = v.flashIdx === i ? flash : 0;
-        ctx.fillStyle = fl ? alpha(col, 0.25 + fl * 0.4) : 'rgba(10,18,36,0.9)';
-        ctx.strokeStyle = alpha(col, sel ? 1 : 0.65);
-        ctx.lineWidth = 1.5;
-        roundRect(ctx, cx + 2, y - 14, cw - 4, 28, 4); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = fl ? alpha(col, 0.08 + fl * 0.25) : C.bg;
+        ctx.strokeStyle = alpha(col, sel ? 0.9 : 0.45);
+        ctx.lineWidth = this.px(1);
+        ctx.fillRect(cx + 1, y - 13, cw - 2, 26);
+        ctx.strokeRect(cx + 1, y - 13, cw - 2, 26);
         const txt = (v.shownElems || [])[i] ?? '?';
-        this.text(String(txt).split(' ')[0].slice(0, 6), cx + cw / 2, y, 10, txt === '?' ? '#ff9aa9' : '#e8f4ff', { mono: true, weight: 700, min: 4 });
-        this.text(String(i), cx + cw / 2, y + 22, 8, 'rgba(170,190,230,0.6)', { mono: true, min: 5 });
+        this.text(String(txt).split(' ')[0].slice(0, 6), cx + cw / 2, y, 10, txt === '?' ? C.red : C.text, { mono: true, min: 4 });
+        this.text(String(i), cx + cw / 2, y + 21, 8, C.faint, { mono: true, min: 5 });
       }
-      if (v.len > n) this.text(`… ещё ${v.len - n}`, x0 + n * cw + 26, y, 10, 'rgba(170,190,230,0.7)');
-      this.text(v.typeName, x, y + 40, 9, 'rgba(170,190,230,0.6)', { mono: true });
+      if (v.len > n) this.text(`… ещё ${v.len - n}`, x0 + n * cw + 26, y, 10, C.muted);
+      this.text(v.typeName, x, y + 38, 9, C.muted, { mono: true });
       ctx.restore();
       return;
     }
-    this.glow(x, y, 44 + flash * 40, col, 0.55 + flash * 0.8);
-    const g = ctx.createRadialGradient(x - 5, y - 6, 2, x, y, 17);
-    g.addColorStop(0, '#ffffff');
-    g.addColorStop(0.35, col);
-    g.addColorStop(1, alpha(col, 0.35));
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(x, y, 15 + flash * 4, 0, TAU); ctx.fill();
-    if (sel) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 23, 0, TAU); ctx.stroke(); }
+    // точка-объект
+    ctx.fillStyle = alpha(col, 0.18 + flash * 0.3);
+    ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.fill();
+    this.ring(x, y, 8, col, 1.2);
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(x, y, 2.5, 0, TAU); ctx.fill();
+    if (flash > 0) this.ring(x, y, 8 + (1 - flash) * 16, alpha(col, flash * 0.55), 1);
+    if (sel) this.ring(x, y, 15, C.text, 1);
     // имя
-    this.text(v.name, x, y - 31, 17, '#f2f7ff', { mono: true, weight: 800 });
+    this.text(v.name, x, y - 24, 15, C.text, { mono: true, weight: 500 });
     // значение
-    let shown = v.shown ?? '?';
+    const shown = v.shown ?? '?';
     if (shown === '?' || v.garbage) {
       const glyphs = '?#%&@$';
-      const noise = v.garbage ? shown : glyphs[Math.floor(t / 120 + v.x) % glyphs.length];
-      this.text(noise, x, y + 31, 14, '#ff9aa9', { mono: true, weight: 700, bg: 'rgba(40,6,14,0.8)', border: 'rgba(255,107,129,0.5)' });
+      const noise = v.garbage ? shown : glyphs[Math.floor(t / 150 + v.x) % glyphs.length];
+      this.text(noise, x, y + 25, 13, C.red, { mono: true, border: alpha(C.red, 0.5) });
     } else {
-      this.text(String(shown).slice(0, 22), x, y + 31, 14, '#ffffff', { mono: true, weight: 700, bg: alpha(col, 0.22), border: alpha(col, 0.6) });
+      this.text(String(shown).slice(0, 22), x, y + 25, 13, C.text, { mono: true, border: alpha(col, 0.45) });
     }
-    if (this.cam.zoom > 0.45) this.text(`${v.isParam ? 'параметр ' : ''}${v.typeName} · ${v.size} Б`, x, y + 52, 10, 'rgba(170,190,230,0.6)', { mono: true });
+    if (this.cam.zoom > 0.45) this.text(`${v.isParam ? 'параметр · ' : ''}${v.typeName} · ${v.size} Б`, x, y + 44, 9.5, C.muted, { mono: true });
     ctx.restore();
   }
 
@@ -551,46 +546,32 @@ export class Renderer {
       const fade = t > 0.8 ? 1 - (t - 0.8) / 0.2 : 1;
       ctx.save();
       ctx.globalAlpha = fade;
-      const w = (a.width || 1.6) * 2 / Math.max(0.35, this.cam.zoom);
-      const g = ctx.createLinearGradient(p0.x, p0.y, hx, hy);
-      g.addColorStop(0, alpha(a.color, 0.05));
-      g.addColorStop(1, alpha(a.color, 0.95));
-      ctx.strokeStyle = g;
-      ctx.lineWidth = w;
-      ctx.lineCap = 'round';
+      ctx.strokeStyle = alpha(a.color, 0.75);
+      ctx.lineWidth = this.px(a.width && a.width > 1.8 ? 1.4 : 1);
       ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(hx, hy); ctx.stroke();
-      this.glow(hx, hy, 26 / Math.max(0.5, this.cam.zoom), a.color, 1);
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); ctx.arc(hx, hy, 3.5 / Math.max(0.5, this.cam.zoom), 0, TAU); ctx.fill();
-      if (a.detect && k >= 1) {
-        // «захват» объекта лучом
-        ctx.strokeStyle = alpha(a.color, 0.9);
-        ctx.lineWidth = 2;
-        const rr = 20 + (1 - fade) * 20;
-        ctx.beginPath(); ctx.arc(p1.x, p1.y, rr, 0, TAU); ctx.stroke();
-      }
+      ctx.fillStyle = a.color;
+      ctx.beginPath(); ctx.arc(hx, hy, this.px(2.5), 0, TAU); ctx.fill();
+      if (a.detect && k >= 1) this.ring(p1.x, p1.y, 12 + (1 - fade) * 10, alpha(a.color, 0.8), 1);
       ctx.restore();
-      if (a.label && k < 1) this.text(String(a.label).slice(0, 26), hx, hy - 18 / Math.max(0.6, this.cam.zoom), 12, '#ffffff', { mono: true, weight: 700, bg: alpha(a.color, 0.45), min: 7 });
+      if (a.label && k < 1) this.text(String(a.label).slice(0, 26), hx, hy - this.px(14), 11, a.color, { mono: true, bg: C.bg, min: 7 });
     } else if (a.type === 'ring' && layer === 'under') {
       const p = sc.pos(a.at);
       const r = a.r0 + (a.r1 - a.r0) * ease(t);
       ctx.save();
-      ctx.globalAlpha = 1 - t;
-      ctx.strokeStyle = a.color;
-      ctx.lineWidth = 3 / Math.max(0.4, this.cam.zoom);
-      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = (1 - t) * 0.7;
+      this.ring(p.x, p.y, r, a.color, 1);
       ctx.restore();
     } else if (a.type === 'float' && layer === 'over') {
       const p = sc.pos(a.at);
       ctx.save();
       ctx.globalAlpha = 1 - t;
-      this.text(a.text, p.x + 30, p.y - 20 - t * 30, 13, a.color, { mono: true, weight: 800 });
+      this.text(a.text, p.x + 24, p.y - 16 - t * 24, 12, a.color, { mono: true });
       ctx.restore();
     } else if (a.type === 'screen' && layer === 'over') {
       const text = a.text.replace(/\n/g, '⏎').slice(0, 40);
       ctx.save();
       ctx.globalAlpha = t < 0.1 ? t * 10 : t > 0.8 ? (1 - t) * 5 : 1;
-      this.text('🖥 ' + text, 0, -118 - t * 24, 13, '#9ef0b0', { mono: true, weight: 700, bg: 'rgba(4,20,10,0.85)', border: 'rgba(126,231,135,0.6)' });
+      this.text(text, 0, -112 - t * 20, 12, C.green, { mono: true, border: alpha(C.green, 0.4) });
       ctx.restore();
     }
   }
@@ -603,17 +584,5 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
-function star(ctx, x, y, spikes, outer, inner) {
-  let rot = -Math.PI / 2;
-  ctx.beginPath();
-  for (let i = 0; i < spikes; i++) {
-    ctx.lineTo(x + Math.cos(rot) * outer, y + Math.sin(rot) * outer);
-    rot += Math.PI / spikes;
-    ctx.lineTo(x + Math.cos(rot) * inner, y + Math.sin(rot) * inner);
-    rot += Math.PI / spikes;
-  }
   ctx.closePath();
 }
