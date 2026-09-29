@@ -85,6 +85,7 @@ export class Lab {
     const b = (name, fn) => this.el(`[data-act="${name}"]`).addEventListener('click', fn);
     b('run', () => (this.state === 'paused' ? this.resume() : this.run('anim')));
     b('step', () => this.stepOnce());
+    b('back', () => this.stepBack());
     b('pause', () => this.pause());
     b('stop', () => this.stop());
     b('instant', () => this.run('instant'));
@@ -124,6 +125,7 @@ export class Lab {
     b('home', () => { r.fitHome(); r.lastUser = performance.now(); });
     b('follow', (e) => {
       r.follow = !r.follow;
+      store.set('lab.follow', r.follow);
       e.currentTarget.classList.toggle('on', r.follow);
       if (r.follow) r.lastUser = 0;
     });
@@ -133,6 +135,7 @@ export class Lab {
       if (document.fullscreenElement) document.exitFullscreen();
       else pane.requestFullscreen?.().catch(() => {});
     });
+    r.follow = store.get('lab.follow', true);
     this.el('[data-u="follow"]').classList.toggle('on', r.follow);
     this.inspector.addEventListener('click', (e) => {
       if (e.target.closest('[data-close]')) { this.inspector.hidden = true; this.scene.selected = null; }
@@ -200,6 +203,7 @@ export class Lab {
     this.el('[data-act="run"]').disabled = s === 'running' || s === 'input';
     this.el('[data-act="instant"]').disabled = s === 'input';
     this.el('[data-act="step"]').disabled = s === 'running' || s === 'input';
+    this.updateBack();
     this.editor.setReadOnly(busy);
     const labels = {
       idle: ['', 'готов'], running: ['run', 'выполняется'], paused: ['pause', 'пауза'], input: ['input', 'ждёт ввода'],
@@ -251,16 +255,24 @@ export class Lab {
     this.scene.reset();
     this.scene.setProgram(c);
     const stdin = this.stdinEl.value;
-    this.interp = new Interpreter(c.program, c.pp, { stdin: stdin.trim() ? (stdin.endsWith('\n') ? stdin : stdin + '\n') : null, source: c.source, stepLimit: 2_000_000, tracing: mode !== 'instant', files: store.get('lab.files', {}) });
+    this.runCompile = c;
+    this.runStdin = stdin.trim() ? (stdin.endsWith('\n') ? stdin : stdin + '\n') : null;
+    this.runFiles = JSON.parse(JSON.stringify(store.get('lab.files', {})));
+    this.runHeader = [...this.console.term.children].map(el => [el.innerHTML, el.className.replace(/^tl ?/, '')]);
+    this.interp = new Interpreter(c.program, c.pp, { ...this.runOpts(), tracing: mode !== 'instant' });
     this.gen = this.interp.run();
     this.stepNo = 0;
+    this.inputLog = [];
     this.mode = mode;
-    this.renderer.follow = true;
-    this.el('[data-u="follow"]').classList.add('on');
+    // камера следует за выполнением, только если пользователь это не выключил
     this.renderer.lastUser = 0;
     if (mode === 'step') { this.setState('paused'); this.advance(); return; }
     this.setState('running');
     this.loop();
+  }
+
+  runOpts() {
+    return { stdin: this.runStdin, source: this.runCompile.source, stepLimit: 2_000_000, tracing: true, files: JSON.parse(JSON.stringify(this.runFiles || {})) };
   }
 
   loop() {
@@ -289,6 +301,49 @@ export class Lab {
     }
     if (this.state === 'paused') this.advance(false);
   }
+  /** Шаг назад: программа детерминирована, поэтому её можно тихо перезапустить
+   *  и прокрутить до предыдущего шага, подставляя тот же ввод с клавиатуры. */
+  updateBack() { const b = this.el('[data-act="back"]'); if (b) b.disabled = !this.canStepBack(); }
+  canStepBack() { return !!this.runCompile && this.stepNo > 1 && ['paused', 'input', 'done', 'error'].includes(this.state); }
+  stepBack() {
+    if (!this.canStepBack()) return;
+    const target = this.stepNo - 1;
+    const inputs = (this.inputLog || []).slice();
+    const c = this.runCompile;
+    clearTimeout(this.timer); cancelAnimationFrame(this.rafId);
+    this.console.askInput(false);
+    this.console.clear(); this.console.clearLogs();
+    for (const [h, cls] of this.runHeader) this.console.line(h, cls);
+    this.scene.reset(); this.scene.setProgram(c);
+    this.interp = new Interpreter(c.program, c.pp, this.runOpts());
+    this.gen = this.interp.run();
+    this.stepNo = 0; this.inputLog = [];
+    this.replaying = true;
+    this.setState('paused');
+    let guard = 0;
+    while (this.stepNo < target - 1 && guard++ < 5_000_000) {
+      if (this.advance(true)) continue;
+      if (this.interp && this.lastStep?.needInput && inputs.length) {
+        const v = inputs.shift();
+        if (v === null) { this.console.stdout('^D\n', 'si'); this.inputLog.push(null); this.interp.closeInput(); }
+        else { this.console.stdout(v, 'si'); this.inputLog.push(v); this.interp.provideInput(v); }
+        continue;
+      }
+      break;
+    }
+    this.replaying = false;
+    if (this.gen && this.state === 'paused') {
+      if (this.lastStep?.needInput && inputs.length) {
+        const v = inputs.shift();
+        if (v === null) { this.console.stdout('^D\n', 'si'); this.inputLog.push(null); this.interp.closeInput(); }
+        else { this.console.stdout(v, 'si'); this.inputLog.push(v); this.interp.provideInput(v); }
+      }
+      this.mode = 'step';
+      this.advance(false);
+    }
+    this.refreshProcesses(true);
+  }
+
   pause() { if (this.state === 'running') { this.setState('paused'); clearTimeout(this.timer); cancelAnimationFrame(this.rafId); this.refreshProcesses(true); } }
   resume() { if (this.state === 'paused') { this.mode = this.mode === 'instant' ? 'instant' : 'anim'; if (this.mode === 'step') this.mode = 'anim'; this.setState('running'); this.loop(); } }
   stop(silent) {
@@ -328,12 +383,14 @@ export class Lab {
     this.scene.setLine(step.line);
     this.lastStep = step;
     if (!fast) {
+      this.updateBack();
       this.editor.setExecLine(step.line, step.kind === 'input' ? 'input' : '');
       this.showStep(step);
       this.refreshProcesses();
     }
     if (step.done) { this.finish(); return false; }
     if (step.needInput) {
+      if (this.replaying) return false;
       this.editor.setExecLine(step.line, 'input');
       this.setState('input');
       this.console.askInput(true);
@@ -341,7 +398,7 @@ export class Lab {
       this.refreshProcesses(true);
       return false;
     }
-    if (this.breakpoints.has(step.line) && step.kind !== 'enter' && this.lastBp !== this.stepNo - 1) {
+    if (!this.replaying && this.breakpoints.has(step.line) && step.kind !== 'enter' && this.lastBp !== this.stepNo - 1) {
       this.lastBp = this.stepNo;
       this.setState('paused');
       clearTimeout(this.timer);
@@ -390,6 +447,7 @@ export class Lab {
   submitInput(v) {
     if (this.state !== 'input' || !this.interp) return;
     this.console.stdout(v + '\n', 'si');
+    this.inputLog.push(v + '\n');
     this.interp.provideInput(v + '\n');
     this.scene.inputBuf.text = this.interp.input.text.slice(this.interp.input.pos);
     this.console.askInput(false);
@@ -400,6 +458,7 @@ export class Lab {
   submitEOF() {
     if (this.state !== 'input' || !this.interp) return;
     this.console.stdout('^D\n', 'si');
+    this.inputLog.push(null);
     this.interp.closeInput();
     this.console.askInput(false);
     this.setState('running');

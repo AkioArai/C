@@ -5,10 +5,17 @@ import { esc, explain, typeInfo } from '../universe/explain.js';
 
 const glyph = (s) => esc(s).replace(/ /g, '<span class="g-sp">·</span>').replace(/\t/g, '<span class="g-sp">⇥</span>');
 
+/** Строка формата разбирается по байтам — собираем UTF-8 обратно в буквы. */
+function fromBytes(s) {
+  s = String(s);
+  if (!/[\u0080-\u00ff]/.test(s) || /[^\u0000-\u00ff]/.test(s)) return s;
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(s, c => c.charCodeAt(0))); } catch { return s; }
+}
+
 /** Отрисовать литерал формата: пробелы и \n видны. */
 function litHtml(src) {
   let h = '';
-  const parts = String(src).split('\n');
+  const parts = fromBytes(src).split('\n');
   parts.forEach((p, i) => {
     if (p) h += `<span class="tk tk-lit">${glyph(p)}</span>`;
     if (i < parts.length - 1) h += '<span class="tk tk-nl" title="\\n — переход на новую строку">↵<small>\\n новая строка</small></span>';
@@ -100,6 +107,29 @@ function condBlock(ev) {
   return `<div class="verdict ${ev.value ? 'yes' : 'no'}"><code>${esc(ev.text)}</code><span class="arr">→</span><b>${verdict}</b><span class="arr">→</span>${esc(what)}</div>`;
 }
 
+const grp = (v) => String(v).replace(/\B(?=(\d{3})+(?!\d))/g, '\u2009');
+
+/** Переполнение: полоса диапазона типа, точный результат за краем и куда он «перескочил». */
+function overflowBlock(ev) {
+  const min = BigInt(ev.min), max = BigInt(ev.max), ex = BigInt(ev.exact), res = BigInt(ev.result);
+  const span = Number(max - min) || 1;
+  const pos = (v) => Math.max(0, Math.min(100, Number(v - min) / span * 100));
+  const over = ex > max;
+  const rp = pos(res);
+  return `<div class="op-block ovf">
+    <div class="op-t">переполнение ${esc(ev.typeName)}${ev.signed ? '' : ' (без знака — счёт идёт по кругу)'}</div>
+    <div class="ovf-bar">
+      <span class="ovf-edge l">${grp(ev.min)}</span>
+      <div class="ovf-track"><div class="ovf-res" style="left:${rp}%"><b>${grp(ev.result)}</b></div>
+        <div class="ovf-out ${over ? 'r' : 'l'}">${grp(ev.exact)}</div>
+        <svg class="ovf-arc" viewBox="0 0 100 20" preserveAspectRatio="none"><path d="M ${over ? 100 : 0} 18 C ${over ? 100 : 0} 2, ${rp} 2, ${rp} 16" /></svg></div>
+      <span class="ovf-edge r">${grp(ev.max)}</span>
+    </div>
+    <div class="note">Точный результат <b>${grp(ev.exact)}</b> ${over ? 'больше максимума' : 'меньше минимума'} типа ${esc(ev.typeName)} (${sizeBits(ev)} бит). Лишние старшие биты отбрасываются, и значение «перескакивает» через край диапазона: получилось <b>${grp(ev.result)}</b>.${ev.signed ? ' Для знаковых типов это ошибка — проверяйте заранее: <code>a &lt;= INT_MAX - b</code>.' : ''}</div>
+  </div>`;
+}
+const sizeBits = (ev) => { const n = BigInt(ev.max) - BigInt(ev.min) + 1n; return n.toString(2).length - 1; };
+
 function switchBlock(ev) {
   const cases = (ev.cases || []).map(c => `<span class="tk ${c.hit ? 'tk-spec' : 'tk-lit'}" data-line="${c.line}"><b>${c.label === 'default' ? 'default' : 'case ' + esc(c.label)}</b><small>${c.hit ? 'совпало → сюда' : 'строка ' + c.line}</small></span>`).join('');
   return `<div class="op-block"><div class="op-t">switch — выбор ветки</div>
@@ -127,7 +157,7 @@ function callBlock(ev) {
     <div class="note">В стеке создан новый кадр. После return он исчезнет, а результат вернётся в строку ${ev.callLine}.</div></div>`;
 }
 
-const PRIORITY = { output: 9, input: 9, cond: 7, switch: 7, 'frame-enter': 6, alloc: 6, free: 6, file: 6, var: 5, return: 5, write: 4 };
+const PRIORITY = { overflow: 10, output: 9, input: 9, cond: 7, switch: 7, 'frame-enter': 6, alloc: 6, free: 6, file: 6, var: 5, return: 5, write: 4 };
 
 /** HTML панели для шага. */
 export function renderStep(step, { stepNo, srcLines }) {
@@ -140,7 +170,8 @@ export function renderStep(step, { stepNo, srcLines }) {
   const used = new Set();
   for (const ev of sorted) {
     if (blocks.length >= 2) break;
-    if (ev.type === 'output' && ev.pieces && !used.has('out')) { blocks.push(printfBlock(ev)); used.add('out'); }
+    if (ev.type === 'overflow' && !used.has('ovf')) { blocks.push(overflowBlock(ev)); used.add('ovf'); }
+    else if (ev.type === 'output' && ev.pieces && !used.has('out')) { blocks.push(printfBlock(ev)); used.add('out'); }
     else if (ev.type === 'input' && !used.has('in')) { const b = scanfBlock(ev); if (b) { blocks.push(b); used.add('in'); } }
     else if (ev.type === 'switch' && !used.has('cond')) { blocks.push(switchBlock(ev)); used.add('cond'); }
     else if ((ev.type === 'cond') && !used.has('cond')) { blocks.push(condBlock(ev)); used.add('cond'); if (step.trace?.length) { blocks.push(traceBlock(step.trace, 'Как вычислено условие')); used.add('trace'); } }

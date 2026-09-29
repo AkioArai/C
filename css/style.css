@@ -247,6 +247,7 @@ main { height: calc(100% - var(--top-h)); position: relative; }
 .tk-nl { border-color: rgba(233, 216, 92, .6); color: var(--yellow); }
 .tk-nl small { color: var(--yellow); opacity: .8; }
 .g-sp { color: var(--faint); }
+.tk-lit { display: inline-block; white-space: pre-wrap; line-height: 24px; color: var(--text2); }
 .g-nl { color: var(--yellow); margin: 0 1px; }
 .args { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .arg { display: flex; gap: 8px; align-items: baseline; font: 12.5px var(--mono); flex-wrap: wrap; }
@@ -616,3 +617,71 @@ main { height: calc(100% - var(--top-h)); position: relative; }
   .g-ln { padding-left: 22px; }
   .log { padding: 8px 14px; }
 }
+
+/* подсказки при наборе */
+.ed-ac { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.ac-ghost { position: absolute; line-height: var(--lh-code); white-space: pre; color: var(--faint); font: inherit; }
+.ac-key { margin-left: 8px; font: 9.5px var(--sans); color: var(--muted); border: 1px solid var(--line2); border-radius: 3px; padding: 0 4px; vertical-align: 1px; }
+.ac-list {
+  position: absolute; pointer-events: auto; min-width: 260px; max-width: 420px;
+  background: var(--panel); border: 1px solid var(--line2); border-radius: 6px; padding: 3px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
+}
+.ac-it { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: baseline; padding: 3px 8px; border-radius: 4px; cursor: pointer; }
+.ac-it code { color: var(--text2); white-space: nowrap; }
+.ac-it code b { color: var(--accent); font-weight: 500; }
+.ac-it.on { background: rgba(200, 240, 90, .08); }
+.ac-it.on code { color: var(--text); }
+.ac-d { font: 11px var(--sans); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-k { font: 9.5px var(--sans); color: var(--faint); text-transform: uppercase; letter-spacing: .5px; }
+
+/* ——— облегчённый интерфейс: меньше рамок, больше воздуха ——— */
+.brand-t small { display: none; }
+.btn { border-color: transparent; background: var(--panel2); }
+.btn:hover:not(:disabled) { background: var(--panel3); border-color: transparent; }
+.btn.ghost { background: transparent; }
+.select { border-color: var(--line); background: var(--panel); }
+.ubtn { border-color: transparent; background: rgba(20, 23, 19, .85); }
+.ubtn.on { border-color: transparent; background: rgba(200, 240, 90, .1); }
+.op-block { border: 0; background: rgba(255, 255, 255, .018); }
+.oppanel { border-color: var(--line); }
+.op-x code, .nr-item code, .log code, .pi code, .in-desc code { border: 0; background: rgba(255, 255, 255, .05); }
+.tk { border-color: var(--line); }
+.bc { border-color: var(--line); }
+.calc td { border-bottom-color: rgba(255, 255, 255, .04); }
+.toolbar { border-bottom-color: transparent; }
+
+/* ——— обучение ——— */
+.tour { position: fixed; inset: 0; z-index: 100; }
+.tour-block { position: absolute; inset: 0; }
+.tour-hole {
+  position: absolute; border-radius: 8px; pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(4, 5, 4, .78), 0 0 0 1px rgba(200, 240, 90, .55);
+  transition: left .3s ease, top .3s ease, width .3s ease, height .3s ease;
+}
+.tour-tip {
+  position: absolute; background: var(--panel); border: 1px solid var(--line2); border-radius: 10px;
+  padding: 14px 16px 12px; box-shadow: 0 16px 40px rgba(0, 0, 0, .5); transition: left .3s ease, top .3s ease;
+}
+.tour-n { font: 10.5px var(--mono); color: var(--accent); letter-spacing: .5px; }
+.tour-tip h4 { margin: 4px 0 6px; font-size: 15px; font-weight: 600; color: var(--text); }
+.tour-tip p { margin: 0 0 12px; font-size: 13px; line-height: 1.55; color: var(--text2); }
+.tour-tip code { font: 12px var(--mono); background: rgba(255, 255, 255, .06); border-radius: 3px; padding: 0 4px; color: var(--text); }
+.tour-tip kbd { font: 11px var(--mono); border: 1px solid var(--line2); border-radius: 3px; padding: 0 4px; color: var(--text); }
+.tour-red { color: var(--red); }
+.tour-act { display: flex; gap: 6px; align-items: center; }
+.tour-act span { flex: 1; }
+
+/* переполнение: полоса диапазона типа */
+.ovf-bar { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; margin: 22px 0 8px; font: 11px var(--mono); color: var(--muted); }
+.ovf-track { position: relative; height: 6px; border-radius: 3px; background: linear-gradient(90deg, rgba(143, 212, 106, .15), rgba(143, 212, 106, .35)); }
+.ovf-res { position: absolute; top: -4px; width: 2px; height: 14px; background: var(--yellow); }
+.ovf-res b { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); color: var(--yellow); font-weight: 500; white-space: nowrap; }
+.ovf-out { position: absolute; top: -20px; color: var(--red); white-space: nowrap; }
+.ovf-out.r { right: -6px; }
+.ovf-out.l { left: -6px; }
+.ovf-arc { position: absolute; left: 0; right: 0; top: -18px; width: 100%; height: 20px; overflow: visible; }
+.ovf-arc path { fill: none; stroke: var(--red); stroke-width: 1.2; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.ovf .note code { background: rgba(255, 255, 255, .05); border-radius: 3px; padding: 0 3px; }
+pre.code-sch { margin: 10px 0 14px; padding: 12px 16px; border-radius: 6px; background: var(--panel); font: 13px/1.6 var(--mono); color: var(--text2); overflow-x: auto; }
+.ovf .note { margin-top: 20px; }

@@ -2,6 +2,7 @@
 import { Lab } from './lab.js';
 import { LearnPage } from './pages/learn.js';
 import { PracticePage, updateProgressPill } from './pages/practice.js';
+import { Tour } from './ui/tour.js';
 
 const views = {};
 let lab, learn, practice;
@@ -33,4 +34,14 @@ function route() {
 window.addEventListener('hashchange', route);
 updateProgressPill();
 route();
+
+const tour = new Tour({
+  before() {
+    if (!location.hash.startsWith('#/lab')) location.hash = '#/lab';
+    ensure('lab');
+    lab.splash.hidden = true;
+  },
+});
+document.querySelector('[data-tour]').addEventListener('click', () => setTimeout(() => tour.start(), 60));
+if (!Tour.seen() && (location.hash || '#/lab').startsWith('#/lab')) setTimeout(() => tour.start(), 700);
 window.__app = { get lab() { return lab; } };

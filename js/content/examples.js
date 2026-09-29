@@ -695,4 +695,87 @@ int main(void) {
 }
 `,
   },
+  {
+    id: 'nested-table', group: 'Тема 4. Вложенные циклы, переходы', title: 'Вложенный цикл: таблица умножения',
+    code: `#include <stdio.h>
+
+int main(void) {
+    int i, j;
+    for (i = 1; i <= 4; i++) {        /* внешний цикл: строки */
+        for (j = 1; j <= 4; j++)      /* внутренний: выполняется целиком на каждой итерации внешнего */
+            printf("%3d", i * j);
+        printf("\\n");
+    }
+    return 0;
+}
+`,
+  },
+  {
+    id: 'cattle', group: 'Тема 4. Вложенные циклы, переходы', title: 'Перебор: задача о покупке скота',
+    code: `#include <stdio.h>
+
+int main(void) {
+    int b, k, t;
+    for (b = 0; b <= 10; b++)           /* быки: 10 руб. */
+        for (k = 0; k <= 20; k++) {     /* коровы: 5 руб. */
+            t = 100 - (b + k);          /* телята вычисляются, а не перебираются */
+            if (20*b + 10*k + t == 200)
+                printf("быков %d, коров %d, телят %d\\n", b, k, t);
+        }
+    return 0;
+}
+`,
+  },
+  {
+    id: 'break-continue', group: 'Тема 4. Вложенные циклы, переходы', title: 'break и continue',
+    code: `#include <stdio.h>
+
+int main(void) {
+    int i;
+    for (i = 1; i < 10; i++) {
+        if (i == 3) continue;   /* пропустить остаток тела */
+        if (i == 6) break;      /* выйти из цикла */
+        printf("%d ", i);
+    }
+    printf("\\nПоследнее значение i=%d\\n", i);
+    return 0;
+}
+`,
+  },
+  {
+    id: 'goto-exit', group: 'Тема 4. Вложенные циклы, переходы', title: 'goto: выход из вложенных циклов',
+    code: `#include <stdio.h>
+
+int main(void) {
+    int i, j;
+    for (i = 1; i <= 9; i++)
+        for (j = 1; j <= 9; j++)
+            if (i * j == 42)
+                goto found;         /* сразу из обоих циклов */
+    printf("не нашли\\n");
+    return 0;
+found:
+    printf("%d * %d = 42\\n", i, j);
+    return 0;
+}
+`,
+  },
+  {
+    id: 'overflow', group: 'Тема 4. Вложенные циклы, переходы', title: 'Переполнение и limits.h',
+    code: `#include <stdio.h>
+#include <limits.h>
+
+int main(void) {
+    unsigned int a = UINT_MAX - 5;
+    int b = INT_MAX;
+    a += 10;                           /* счёт по кругу: 0, 1, 2, ... */
+    printf("a = %u\\n", a);
+    if (b <= INT_MAX - 1) b = b + 1;   /* проверка обратной операцией */
+    else printf("b + 1 не помещается в int\\n");
+    b = b + 1;                         /* а здесь переполнение */
+    printf("b = %d\\n", b);
+    return 0;
+}
+`,
+  },
 ];

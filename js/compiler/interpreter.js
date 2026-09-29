@@ -1,7 +1,7 @@
 // Пошаговый интерпретатор C с байтовой моделью памяти.
 // Выполнение — генератор: каждый шаг отдаёт набор событий, по которым строится визуализация,
 // и «трассу вычислений» (как именно считалось выражение).
-import { T, ptr, arr, isInt, isFloat, isPointer, isRecord, isArith, commonType, promote, convert, isTruthy, typeName } from './types.js';
+import { T, ptr, arr, isInt, isFloat, isPointer, isRecord, isArith, commonType, promote, convert, isTruthy, typeName, rangeOf } from './types.js';
 import { HEADERS, STD_STREAMS, FILE_T } from './stdlib.js';
 import { formatPrintf, runScanf, NeedInput, decodeBytes, charToByte, encodeUtf8 } from './format.js';
 import { numLiteralValue } from './analyzer.js';
@@ -164,6 +164,14 @@ export class Interpreter {
   closeInput() { this.input.eof = true; }
 
   get frame() { return this.frames[this.frames.length - 1]; }
+
+  /** Переполнение: точный результат вышел за диапазон типа и «перескочил». */
+  emitOverflow(t, exact, res, node) {
+    if (!this.tracing) return;
+    const rg = rangeOf(t);
+    if (!rg) return;
+    this.emit({ type: 'overflow', line: node?.line, typeName: typeName(t), signed: !!t.signed, exact: String(exact), result: String(res), min: String(rg[0]), max: String(rg[1]) });
+  }
 
   runtimeWarn(message, node, hint) {
     const key = message + (node?.line ?? '');
@@ -761,7 +769,7 @@ export class Interpreter {
     const f = this.frame;
     const condText = s.cond ? this.src_(s.cond) : '(всегда истина)';
     if (kind === 'for') f.scopes.push(null);
-    this.emit({ type: 'loop-enter', nodeId: s.id, kind, line: s.line, text: condText, head: this.src.slice(s.start, s.body.start).trim() });
+    this.emit({ type: 'loop-enter', nodeId: s.id, kind, line: s.line, text: condText, head: this.src.slice(s.start, s.body.start).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ' ').replace(/\s+/g, ' ').trim() });
     let iter = 0;
     let reason = 'cond';
     try {
@@ -1167,7 +1175,10 @@ export class Interpreter {
       }
       const res = convert(r, ct);
       const out = { t: ct, v: res };
-      if (ct.signed && res !== r && ['+', '-', '*'].includes(op)) { out.overflow = true; this.runtimeWarn(`переполнение типа ${typeName(ct)}`, node, 'Результат не поместился в 64 бита.'); }
+      if (res !== r && ['+', '-', '*'].includes(op)) {
+        this.emitOverflow(ct, r, res, node);
+        if (ct.signed) { out.overflow = true; this.runtimeWarn(`переполнение типа ${typeName(ct)}`, node, 'Результат не поместился в 64 бита.'); }
+      }
       return out;
     }
     let r;
@@ -1186,6 +1197,10 @@ export class Interpreter {
     }
     const res = convert(r, ct);
     const out = { t: ct, v: res };
+    if (op === '+' || op === '-' || op === '*') {
+      const exact = op === '*' ? x * yy : r;
+      if (exact !== res && Number.isFinite(exact)) this.emitOverflow(ct, Number.isSafeInteger(exact) ? BigInt(exact) : BigInt(x) * BigInt(yy), BigInt(res), node);
+    }
     if (ct.signed && (op === '+' || op === '-' || op === '*')) {
       const exact = op === '*' ? x * yy : r;
       if (exact !== res) {

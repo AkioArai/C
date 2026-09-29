@@ -165,6 +165,12 @@ export const HEADERS = {
       CHAR_BIT: { type: T.int, value: 8, desc: 'Бит в байте.' },
       SHRT_MAX: { type: T.int, value: 32767, desc: 'Максимум short.' },
       SHRT_MIN: { type: T.int, value: -32768, desc: 'Минимум short.' },
+      USHRT_MAX: { type: T.int, value: 65535, desc: 'Максимум unsigned short.' },
+      UCHAR_MAX: { type: T.int, value: 255, desc: 'Максимум unsigned char.' },
+      SCHAR_MAX: { type: T.int, value: 127, desc: 'Максимум signed char.' },
+      SCHAR_MIN: { type: T.int, value: -128, desc: 'Минимум signed char.' },
+      ULONG_MAX: { type: T.ulong, value: 18446744073709551615n, desc: 'Максимум unsigned long.' },
+      ULLONG_MAX: { type: T.ullong, value: 18446744073709551615n, desc: 'Максимум unsigned long long.' },
     },
   },
   'float.h': {

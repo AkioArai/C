@@ -25,7 +25,7 @@ export const G = {
   codeW: 300,
   cardW: 222,
   cardGap: 12,
-  scalarH: 70,
+  scalarH: 60,
   lineH: 19,
   cellW: 48,
   cellH: 34,
@@ -261,7 +261,8 @@ export class Scene {
         if (!fr) break;
         const lp = this.loopOf(fr, ev.nodeId, ev);
         lp.active = true; lp.iter = 0; lp.runs = (lp.runs || 0) + 1; lp.head = ev.head; lp.kind = ev.kind; lp.at = now;
-        lp.trace = { cols: lp.trace?.cols || [], rows: [] };
+        // строки прошлого прохода (вложенный цикл) видны, пока не появится первая новая
+        lp.trace = { cols: lp.trace?.cols || [], rows: [], prevRows: lp.trace?.rows?.length ? lp.trace.rows : lp.trace?.prevRows };
         fr.loopStack = [...(fr.loopStack || []), lp];
         break;
       }
@@ -352,7 +353,7 @@ export class Scene {
     const L = { panels: [], cards: new Map(), frames: new Map() };
     let y = 0;
     // компьютер
-    const screenLines = 8;
+    const screenLines = Math.max(3, Math.min(8, this.screen.lines.length + 1));
     const compH = 40 + screenLines * 20 + 16 + 36;
     L.computer = { x: 0, y, w: G.colW, h: compH, screenLines };
     y += compH + 26;
@@ -378,9 +379,10 @@ export class Scene {
       const traces = [];
       let ty = vy + vh + (vh ? 14 : 0);
       for (const lp of fr.loops.values()) {
-        if (!lp.trace.rows.length) continue;
-        const rows = Math.min(lp.trace.rows.length, 6);
-        const th = 30 + 22 + rows * 20 + (lp.trace.rows.length > 6 ? 18 : 0) + 8;
+        const all = lp.trace.rows.length ? lp.trace.rows : lp.trace.prevRows || [];
+        if (!all.length) continue;
+        const rows = Math.min(all.length, 6);
+        const th = 30 + 22 + rows * 20 + (all.length > 6 ? 18 : 0) + 8;
         traces.push({ lp, x: vx, y: ty, w: G.varsW, h: th, rows });
         ty += th + 12;
       }
