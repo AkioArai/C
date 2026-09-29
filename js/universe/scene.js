@@ -187,7 +187,7 @@ export class Scene {
         if (fromIn) this.anim({ type: 'beam', from: { input: true }, to: { obj: o.id, cell: ev.cell }, color: '#e9d85c', dur, label: ev.inputText ?? ev.display });
         else {
           const srcs = [...new Map((ev.sources || []).filter(s => s.objId !== o.id && this.objects.has(s.objId)).map(s => [s.objId, s])).values()];
-          for (const s of srcs.slice(0, 4)) this.anim({ type: 'beam', from: { obj: s.objId }, to: { obj: o.id, cell: ev.cell }, color: colorForType(this.objects.get(s.objId)?.typeName), dur: dur * 0.9 });
+          for (const s of srcs.slice(0, 4)) this.anim({ type: 'beam', from: { obj: s.objId }, to: { obj: o.id, cell: ev.cell }, color: colorForType(this.objects.get(s.objId)?.typeName), dur: dur * 0.9, label: s.display != null ? String(s.display) : undefined });
         }
         break;
       }
@@ -203,7 +203,7 @@ export class Scene {
         if (ev.stream === 'stdout') {
           this.printText(ev.text);
           const srcs = [...new Map((ev.sources || []).filter(s => this.objects.has(s.objId)).map(s => [s.objId, s])).values()];
-          for (const s of srcs.slice(0, 4)) this.anim({ type: 'beam', from: { obj: s.objId }, to: { screen: true }, color: '#8fd46a', dur });
+          for (const s of srcs.slice(0, 4)) this.anim({ type: 'beam', from: { obj: s.objId }, to: { screen: true }, color: '#8fd46a', dur, label: s.display != null ? String(s.display) : undefined });
         } else if (ev.stream === 'stderr') {
           this.stderrLines.push(ev.text);
         } else if (ev.stream === 'file') {
@@ -283,6 +283,14 @@ export class Scene {
           this.closeTraceRow(lp, fr);
           fr.loopStack = (fr.loopStack || []).filter(x => x !== lp);
         }
+        break;
+      }
+      case 'jump': {
+        // стрелка прыжка в листинге: break — за конец цикла, continue — к заголовку
+        const fr = this.frames.get(this.current);
+        const lp = fr?.loopStack?.[fr.loopStack.length - 1];
+        if (fr && lp && (ev.kind === 'break' || ev.kind === 'continue'))
+          fr.jump = { from: ev.line, to: ev.kind === 'break' ? Math.min(lp.endLine + 1, fr.span.end) : lp.line, kind: ev.kind, at: now };
         break;
       }
       case 'exit': this.finished = { code: ev.code }; break;

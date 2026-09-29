@@ -621,7 +621,9 @@ export class Interpreter {
       this.mem.writeBytes(addr, v.bytes);
       return;
     }
-    this.tr({ text: `${node.name ?? ''} = ${this.src_(init)}`, calc: '', value: display(type, convert(v.v, type)), note: convNote(v.t, type) });
+    const cn = convNote(v.t, type);
+    this.tr({ text: `${node.name ?? ''} = ${this.src_(init)}`, calc: '', value: display(type, convert(v.v, type)), note: cn,
+      vis: cn && isArith(v.t) && isArith(type) ? { t: 'conv', explicit: false, from: typeName(v.t), to: typeName(type), before: disp(v), after: display(type, convert(v.v, type)), what: this.src_(init), target: node.name, fromFloat: isFloat(v.t), toFloat: isFloat(type), toChar: type.size === 1 && isInt(type) } : undefined });
     try { this.mem.write(addr, type, v.v); } catch (e) { throw this.fault(e, node); }
   }
 
@@ -875,7 +877,21 @@ export class Interpreter {
         const i = Number(idx.v);
         const addr = base.v + i * et.size;
         const prov = base.prov ?? this.objectAt(base.v)?.id;
-        if (this.tracing) this.tr({ text: this.src_(e), calc: `${this.src_(e.obj)}[${i}]`, value: `адрес 0x${addr.toString(16)}`, note: `${this.src_(e.obj)} + ${i}·${et.size} байт` , kind: 'index' });
+        if (this.tracing) {
+          const o = this.objectAt(base.v, 1);
+          const start = o ? Math.round((base.v - o.addr) / Math.max(1, et.size)) : 0;
+          const len = o && et.size ? Math.floor(o.size / et.size) : null;
+          let vals = null;
+          if (o && len && (isArith(et) || isPointer(et))) {
+            vals = [];
+            for (let k = 0; k < Math.min(len, 64); k++) {
+              const ad = o.addr + k * et.size;
+              try { vals.push(this.mem.isInit(ad, et.size) ? display(et, this.mem.read(ad, et)) : '?'); } catch { vals.push('?'); }
+            }
+          }
+          this.tr({ text: this.src_(e), calc: `${this.src_(e.obj)}[${i}]`, value: `адрес 0x${addr.toString(16)}`, note: `${this.src_(e.obj)} + ${i}·${et.size} байт`, kind: 'index',
+            vis: { t: 'index', arr: this.src_(e.obj), i, idxText: this.src_(e.index), pos: start + i, len, vals, elem: et.size, type: typeName(et), base: '0x' + base.v.toString(16), addr: '0x' + addr.toString(16) } });
+        }
         return { t: et, addr, prov };
       }
       case 'Member': {
@@ -969,24 +985,26 @@ export class Interpreter {
         else if (typeof old.v === 'bigint') nv = old.v + BigInt(delta);
         else nv = old.v + delta;
         const res = this.store(lv, nv, e, 'inc', { op: e.op, exprText: this.src_(e) });
-        this.tr({ text: this.src_(e), calc: `${display(lv.t, old.v)} ${e.op === '++' ? '+' : '−'} 1`, value: display(lv.t, res), note: e.prefix ? 'префиксная форма: значение выражения — новое' : 'постфиксная форма: значение выражения — старое (' + display(lv.t, old.v) + ')' });
+        this.tr({ text: this.src_(e), calc: `${display(lv.t, old.v)} ${e.op === '++' ? '+' : '−'} 1`, value: display(lv.t, res), note: e.prefix ? 'префиксная форма: значение выражения — новое' : 'постфиксная форма: значение выражения — старое (' + display(lv.t, old.v) + ')',
+          vis: { t: 'incdec', name: this.src_(e.arg), op: e.op, prefix: !!e.prefix, old: display(lv.t, old.v), now: display(lv.t, res), ptr: isPointer(lv.t), step: isPointer(lv.t) ? Math.max(1, lv.t.to.size) : 1 } });
         return { t: lv.t, v: e.prefix ? res : old.v, prov: old.prov };
       }
       case 'Binary': {
         const a = yield* this.eval(e.left);
         const b = yield* this.eval(e.right);
         const r = this.binop(e.op, a, b, e);
-        if (this.tracing) this.tr({ text: this.src_(e), calc: `${disp(a)} ${e.op} ${disp(b)}`, value: disp(r), note: this.binNote(e.op, a, b, r) });
+        if (this.tracing) this.tr({ text: this.src_(e), calc: `${disp(a)} ${e.op} ${disp(b)}`, value: disp(r), note: this.binNote(e.op, a, b, r), vis: this.binVis(e, a, b, r) });
         return r;
       }
       case 'Logical': {
         const a = yield* this.eval(e.left);
         const av = isTruthy(a.v);
-        if (e.op === '&&' && !av) { this.emit({ type: 'shortcircuit', op: '&&', line: e.line, text: this.src_(e.right) }); this.tr({ text: this.src_(e), calc: `0 && …`, value: '0', note: 'левая часть ложна — правая не вычисляется' }); return { t: T.int, v: 0 }; }
-        if (e.op === '||' && av) { this.emit({ type: 'shortcircuit', op: '||', line: e.line, text: this.src_(e.right) }); this.tr({ text: this.src_(e), calc: `1 || …`, value: '1', note: 'левая часть истинна — правая не вычисляется' }); return { t: T.int, v: 1 }; }
+        const lvis = (bv, res) => ({ t: 'logic', op: e.op, l: this.src_(e.left), lv: av ? 1 : 0, ld: disp(a), r: this.src_(e.right), rv: bv, res });
+        if (e.op === '&&' && !av) { this.emit({ type: 'shortcircuit', op: '&&', line: e.line, text: this.src_(e.right) }); this.tr({ text: this.src_(e), calc: `0 && …`, value: '0', note: 'левая часть ложна — правая не вычисляется', vis: lvis(null, 0) }); return { t: T.int, v: 0 }; }
+        if (e.op === '||' && av) { this.emit({ type: 'shortcircuit', op: '||', line: e.line, text: this.src_(e.right) }); this.tr({ text: this.src_(e), calc: `1 || …`, value: '1', note: 'левая часть истинна — правая не вычисляется', vis: lvis(null, 1) }); return { t: T.int, v: 1 }; }
         const b = yield* this.eval(e.right);
         const r = isTruthy(b.v) ? 1 : 0;
-        this.tr({ text: this.src_(e), calc: `${av ? 1 : 0} ${e.op} ${isTruthy(b.v) ? 1 : 0}`, value: String(r), note: r ? 'истина' : 'ложь' });
+        this.tr({ text: this.src_(e), calc: `${av ? 1 : 0} ${e.op} ${isTruthy(b.v) ? 1 : 0}`, value: String(r), note: r ? 'истина' : 'ложь', vis: { ...lvis(isTruthy(b.v) ? 1 : 0, r), rd: disp(b) } });
         return { t: T.int, v: r };
       }
       case 'Unary': {
@@ -1011,10 +1029,11 @@ export class Interpreter {
           return { t: e.ctype, v, prov: a.prov };
         }
         const r = convert(isPointer(a.t) ? a.v : a.v, e.ctype);
-        this.tr({ text: this.src_(e), calc: `(${typeName(e.ctype)}) ${disp(a)}`, value: display(e.ctype, r), note: convNote(a.t, e.ctype) || 'приведение типа' });
+        this.tr({ text: this.src_(e), calc: `(${typeName(e.ctype)}) ${disp(a)}`, value: display(e.ctype, r), note: convNote(a.t, e.ctype) || 'приведение типа',
+          vis: { t: 'conv', explicit: true, from: typeName(a.t), to: typeName(e.ctype), before: disp(a), after: display(e.ctype, r), what: this.src_(e.arg), fromFloat: isFloat(a.t), toFloat: isFloat(e.ctype), toChar: e.ctype.size === 1 && isInt(e.ctype) } });
         return { t: e.ctype, v: r };
       }
-      case 'SizeofType': return { t: T.ulong, v: BigInt(e.ctype.size) };
+      case 'SizeofType': this.tr({ text: this.src_(e), calc: `размер типа ${typeName(e.ctype)}`, value: String(e.ctype.size), note: 'байт', vis: { t: 'sizeof', what: typeName(e.ctype), type: typeName(e.ctype), size: e.ctype.size } }); return { t: T.ulong, v: BigInt(e.ctype.size) };
       case 'SizeofExpr': {
         const saveTr = this.tracing; this.tracing = false;
         let t;
@@ -1026,13 +1045,14 @@ export class Interpreter {
             t = lv.t;
           } else t = (yield* this.eval(e.arg)).t;
         } finally { this.tracing = saveTr; }
+        this.tr({ text: this.src_(e), calc: `размер ${typeName(t)}`, value: String(t.size), note: 'байт', vis: { t: 'sizeof', what: this.src_(e.arg), type: typeName(t), size: t.size, len: t.k === 'arr' ? t.len : null, elem: t.k === 'arr' ? t.of.size : null } });
         return { t: T.ulong, v: BigInt(t.size) };
       }
       case 'AddrOf': {
         const lv = yield* this.evalLV(e.arg);
         if (lv.fn) return { t: ptr(lv.t), v: lv.fn };
         const r = { t: ptr(lv.t), v: lv.addr, prov: lv.prov };
-        if (this.tracing) { const p = this.pathOf(lv.addr, lv.t.size); this.tr({ text: this.src_(e), calc: `адрес ${p?.path ?? this.src_(e.arg)}`, value: '0x' + lv.addr.toString(16), note: '& — «где лежит» объект' }); }
+        if (this.tracing) { const p = this.pathOf(lv.addr, lv.t.size); this.tr({ text: this.src_(e), calc: `адрес ${p?.path ?? this.src_(e.arg)}`, value: '0x' + lv.addr.toString(16), note: '& — «где лежит» объект', vis: { t: 'addr', name: p?.path ?? this.src_(e.arg), addr: '0x' + lv.addr.toString(16), size: lv.t.size, type: typeName(lv.t) } }); }
         return r;
       }
       case 'Cond': {
@@ -1041,7 +1061,8 @@ export class Interpreter {
         this.emit({ type: 'ternary', text: this.src_(e.cond), value: val, line: e.line });
         const r = val ? yield* this.eval(e.a) : yield* this.eval(e.b);
         // тип результата — общий тип ветвей (упрощённо: арифметические приводим)
-        this.tr({ text: this.src_(e), calc: `${val ? 'истина' : 'ложь'} → ${val ? this.src_(e.a) : this.src_(e.b)}`, value: disp(r), note: 'тернарная операция' });
+        this.tr({ text: this.src_(e), calc: `${val ? 'истина' : 'ложь'} → ${val ? this.src_(e.a) : this.src_(e.b)}`, value: disp(r), note: 'тернарная операция',
+          vis: { t: 'ternary', cond: this.src_(e.cond), cv: disp(c), yes: this.src_(e.a), no: this.src_(e.b), chosen: val, value: disp(r) } });
         return r;
       }
       case 'Comma': {
@@ -1083,15 +1104,38 @@ export class Interpreter {
     else {
       const cur = this.load(lv, e.target);
       const r = this.binop(e.op.slice(0, -1), cur, rhs, e);
-      this.tr({ text: `${this.src_(e.target)} ${e.op.slice(0, -1)} ${this.src_(e.value)}`, calc: `${disp(cur)} ${e.op.slice(0, -1)} ${disp(rhs)}`, value: disp(r), note: this.binNote(e.op.slice(0, -1), cur, rhs, r) });
+      this.tr({ text: `${this.src_(e.target)} ${e.op.slice(0, -1)} ${this.src_(e.value)}`, calc: `${disp(cur)} ${e.op.slice(0, -1)} ${disp(rhs)}`, value: disp(r), note: this.binNote(e.op.slice(0, -1), cur, rhs, r),
+        vis: this.binVis({ op: e.op.slice(0, -1), left: e.target, right: e.value }, cur, rhs, r) || { t: 'compound', target: this.src_(e.target), op: e.op, rhs: this.src_(e.value), cur: disp(cur), rv: disp(rhs), res: disp(r) } });
       nv = r.v;
       rhs.t = r.t;
     }
     if (isPointer(lv.t) && isArith(rhs.t) && e.op === '=' && Number(rhs.v) !== 0)
       this.runtimeWarn(`указателю присвоено число ${disp(rhs)} — это не адрес переменной`, e, 'Указателю присваивают адрес: p = &x; или результат malloc.');
     const res = this.store(lv, nv, e, e.op === '=' ? 'assign' : 'compound', { op: e.op, exprText: this.src_(e.value), fullText: this.src_(e) });
-    this.tr({ text: `${this.src_(e.target)} ← ${display(lv.t, res)}`, calc: '', value: display(lv.t, res), note: convNote(rhs.t, lv.t), kind: 'store' });
+    const cn = convNote(rhs.t, lv.t);
+    this.tr({ text: `${this.src_(e.target)} ← ${display(lv.t, res)}`, calc: '', value: display(lv.t, res), note: cn, kind: 'store',
+      vis: cn && isArith(rhs.t) && isArith(lv.t) ? { t: 'conv', explicit: false, from: typeName(rhs.t), to: typeName(lv.t), before: disp(rhs), after: display(lv.t, res), what: this.src_(e.value), target: this.src_(e.target), fromFloat: isFloat(rhs.t), toFloat: isFloat(lv.t), toChar: lv.t.size === 1 && isInt(lv.t) } : undefined });
     return { t: lv.t, v: res };
+  }
+
+  /** Данные для наглядной картинки бинарной операции (панель «Операция»). */
+  binVis(e, a, b, r) {
+    if (!this.tracing || !a || !b || !r || a.bytes || b.bytes) return undefined;
+    const op = e.op;
+    const num = (x) => (typeof x.v === 'bigint' ? Number(x.v) : x.v);
+    const isCh = (n, x) => n?.type === 'Char' || (isInt(x.t) && x.t.size === 1 && x.t.k !== '_Bool');
+    const cmp = ['<', '>', '<=', '>=', '==', '!='].includes(op);
+    if (!isArith(a.t) || !isArith(b.t)) return undefined;
+    const chars = [];
+    for (const [n, x] of [[e.left, a], [e.right, b]]) if (isCh(n, x)) chars.push({ text: this.src_(n), code: num(x) });
+    if (chars.length && (op === '+' || op === '-' || cmp)) return { t: 'ascii', op, chars, a: num(a), b: num(b), res: disp(r), text: this.src_(e), lt: this.src_(e.left), rt: this.src_(e.right) };
+    if ((op === '/' || op === '%') && isInt(a.t) && isInt(b.t)) {
+      const A = num(a), B = num(b);
+      if (B !== 0 && Math.abs(A) <= 1e15) return { t: 'div', op, a: A, b: B, q: Math.trunc(A / B), r: A % B, real: A / B, lt: this.src_(e.left), rt: this.src_(e.right) };
+    }
+    if (op === '/' && (isFloat(a.t) || isFloat(b.t))) return { t: 'fdiv', a: disp(a), b: disp(b), res: disp(r), lt: this.src_(e.left), rt: this.src_(e.right), aInt: isInt(a.t), bInt: isInt(b.t) };
+    if (cmp) return { t: 'cmp', op, a: num(a), b: num(b), ad: disp(a), bd: disp(b), res: num(r), lt: this.src_(e.left), rt: this.src_(e.right) };
+    return undefined;
   }
 
   binNote(op, a, b, r) {
@@ -1399,7 +1443,12 @@ export class Interpreter {
     for (let i = e.args.length - 1; i >= 0; i--) args[i] = yield* this.eval(e.args[i]);
     const num = (i) => Number(convert(args[i]?.v ?? 0, T.double));
     const int = (i) => Number(convert(args[i]?.v ?? 0, T.long));
-    const bi = (fn, argsDisp, result, t) => { this.emit({ type: 'builtin', fn, args: argsDisp, result, line: e.line, sources: this.reads.slice() }); this.tr({ text: this.src_(e), calc: `${fn}(${argsDisp.join(', ')})`, value: result ?? '', note: HEADERS[this.headerOf(fn)]?.funcs[fn]?.desc || '' }); };
+    const bi = (fn, argsDisp, result, t) => {
+      this.emit({ type: 'builtin', fn, args: argsDisp, result, line: e.line, sources: this.reads.slice() });
+      const h = this.headerOf(fn);
+      this.tr({ text: this.src_(e), calc: `${fn}(${argsDisp.join(', ')})`, value: result ?? '', note: HEADERS[h]?.funcs[fn]?.desc || '',
+        vis: { t: 'fn', fn, args: argsDisp, argTexts: e.args.map(x => this.src_(x)), result: result ?? '', desc: HEADERS[h]?.funcs[fn]?.desc || '', header: h } });
+    };
     const retPtr = (v, prov) => ({ t: ptr(T.char), v, prov });
 
     switch (name) {

@@ -222,7 +222,7 @@ main { height: calc(100% - var(--top-h)); position: relative; }
 /* панель «Операция» — разбор текущего шага */
 .oppanel {
   position: absolute; left: 14px; right: 58px; bottom: 12px; z-index: 4; max-height: 50%; overflow: auto;
-  background: rgba(10, 11, 9, .95); border: 1px solid var(--line2); border-radius: var(--radius);
+  background: var(--bg); border: 1px solid var(--line2); border-radius: var(--radius);
   padding: 8px 14px 10px; font-size: 13px; line-height: 1.5; overscroll-behavior: contain;
 }
 .oppanel.mini { max-height: 44px; overflow: hidden; }
@@ -688,11 +688,11 @@ pre.code-sch { margin: 10px 0 14px; padding: 12px 16px; border-radius: 6px; back
 
 /* ——— терминал: инструменты и настройки ——— */
 .con-tools { display: flex; align-items: center; gap: 2px; margin-left: 12px; flex: none; }
-.tt { width: 28px; height: 28px; display: grid; place-items: center; border: 0; background: transparent; color: var(--muted); border-radius: 5px; cursor: pointer; position: relative; }
-.tt:hover { color: var(--text); background: var(--panel2); }
-.tt.on { color: var(--accent); background: rgba(200, 240, 90, .08); }
-.tt .ic { width: 16px; height: 16px; }
-.tt.tip::after { content: attr(data-tip); position: absolute; top: 30px; right: 0; white-space: nowrap; font: 11px var(--sans); color: var(--text); background: var(--panel3); padding: 3px 8px; border-radius: 4px; z-index: 5; }
+.tbtn { width: 28px; height: 28px; display: grid; place-items: center; border: 0; background: transparent; color: var(--muted); border-radius: 5px; cursor: pointer; position: relative; }
+.tbtn:hover { color: var(--text); background: var(--panel2); }
+.tbtn.on { color: var(--accent); background: rgba(200, 240, 90, .08); }
+.tbtn .ic { width: 16px; height: 16px; }
+.tbtn.tip::after { content: attr(data-tip); position: absolute; top: 30px; right: 0; white-space: nowrap; font: 11px var(--sans); color: var(--text); background: var(--panel3); padding: 3px 8px; border-radius: 4px; z-index: 5; }
 .tt-fs { font: 11px var(--mono); color: var(--muted); min-width: 26px; text-align: center; }
 .p-console { position: relative; }
 .term-cfg {
@@ -758,4 +758,152 @@ pre.code-sch { margin: 10px 0 14px; padding: 12px 16px; border-radius: 6px; back
 /* название — едва заметным водяным знаком */
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .brand .logo svg { width: 20px; height: 20px; opacity: .8; }
-.watermark { position: absolute; left: 14px; top: 10px; z-index: 1; pointer-events: none; font: 500 10.5px var(--sans); letter-spacing: 2px; text-transform: uppercase; color: rgba(230, 233, 223, .09); user-select: none; }
+.watermark { pointer-events: none; font: 500 10px var(--sans); letter-spacing: 2.5px; text-transform: uppercase; color: rgba(230, 233, 223, .13); user-select: none; margin-right: 8px; }
+
+/* ——— наглядные картинки операций ——— */
+.vis-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px; }
+.vis { background: rgba(255, 255, 255, .018); border-radius: 6px; padding: 9px 12px 10px; min-width: 0; animation: visIn .35s ease both; }
+@keyframes visIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.vis-t { font-size: 11px; color: var(--muted); letter-spacing: .3px; margin-bottom: 8px; }
+.vis-t code { font-size: 11.5px; }
+.vis-n { font-size: 12px; color: var(--text2); line-height: 1.5; margin-top: 8px; }
+.vis-n code, .vis-eq code, .vis code { background: rgba(255, 255, 255, .05); border-radius: 3px; padding: 0 4px; font: 12px var(--mono); color: var(--text); }
+.vis-eq { font: 12.5px var(--mono); color: var(--text2); margin-top: 6px; }
+.vis b.v { color: var(--accent); font-weight: 500; }
+.vis b.yes { color: var(--green); font-weight: 500; }
+.vis b.no, .vis b.bad { color: var(--red); font-weight: 500; }
+.vis .arr { color: var(--faint); margin: 0 6px; }
+@keyframes pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+
+/* деление: точки группами */
+.dots { display: flex; flex-wrap: wrap; gap: 6px; }
+.dg { display: inline-flex; flex-wrap: wrap; gap: 3px; padding: 4px 5px 14px; border: 1px solid rgba(200, 240, 90, .35); border-radius: 5px; position: relative; max-width: 120px; animation: pop .3s ease both; animation-delay: calc(var(--i) * 90ms); }
+.dg i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); opacity: .85; }
+.dg small { position: absolute; bottom: 1px; left: 0; right: 0; text-align: center; font: 9px var(--mono); color: var(--muted); }
+.dg.rest { border-color: rgba(233, 216, 92, .5); border-style: dashed; }
+.dg.rest i { background: var(--yellow); }
+.dbar { display: flex; height: 14px; border-radius: 3px; overflow: hidden; gap: 1px; background: var(--bg); }
+.dbar span { background: rgba(200, 240, 90, .45); animation: pop .3s ease both; animation-delay: calc(var(--i) * 40ms); transform-origin: left; }
+.dbar span.rest { background: var(--yellow); }
+.dbar em { font: 9px var(--mono); color: var(--muted); display: grid; place-items: center; background: rgba(200, 240, 90, .15); font-style: normal; }
+
+/* ASCII */
+.as-row { font-size: 12px; color: var(--text2); display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 3px 0; }
+.as-strip { display: inline-flex; gap: 2px; margin-left: 8px; }
+.as { display: inline-flex; flex-direction: column; align-items: center; width: 26px; padding: 2px 0; border-radius: 3px; background: var(--bg); }
+.as b { font: 12px var(--mono); color: var(--text2); font-weight: 400; }
+.as small { font: 9px var(--mono); color: var(--faint); }
+.as.on { background: rgba(200, 240, 90, .14); outline: 1px solid rgba(200, 240, 90, .5); animation: pop .3s ease both; }
+.as.on b { color: var(--accent); }
+
+/* приведение типов */
+.cv { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cv-box { display: inline-flex; flex-direction: column; padding: 4px 10px; border-radius: 5px; background: var(--bg); min-width: 70px; }
+.cv-box small { font: 10px var(--mono); color: var(--muted); }
+.cv-box b { font: 500 14px var(--mono); color: var(--text); }
+.cv-box.to { outline: 1px solid rgba(200, 240, 90, .4); animation: pop .35s .2s ease both; }
+.cv-box.to b { color: var(--accent); }
+.cv-arr { font: 11px var(--mono); color: var(--yellow); display: inline-flex; flex-direction: column; align-items: center; }
+.cv-arr i { width: 40px; height: 1px; background: var(--yellow); position: relative; margin-top: 3px; }
+.cv-arr i::after { content: ''; position: absolute; right: 0; top: -3px; border: 3.5px solid transparent; border-left-color: var(--yellow); border-right: 0; }
+.cut { font: 14px var(--mono); color: var(--text); margin-top: 6px; }
+.cut s { color: var(--red); opacity: .7; text-decoration-thickness: 1.5px; animation: fadeCut 1.2s .4s ease forwards; }
+.cut span { font: 11px var(--sans); color: var(--muted); margin-left: 10px; }
+@keyframes fadeCut { to { opacity: .25; } }
+
+/* сравнение: числовая прямая */
+.nl { position: relative; height: 54px; margin: 2px 6px 0; }
+.nl-line { position: absolute; left: 0; right: 0; top: 20px; height: 1px; background: var(--line2); }
+.nl-line::after { content: ''; position: absolute; right: -2px; top: -3px; border: 3.5px solid transparent; border-left-color: var(--line2); border-right: 0; }
+.nl-p { position: absolute; top: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; transition: left .4s ease; animation: pop .35s ease both; }
+.nl-p b { font: 500 12px var(--mono); color: var(--text); order: -1; }
+.nl-p i { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); margin: 2px 0; }
+.nl-p.bb i { background: var(--yellow); }
+.nl-p small { font: 10px var(--mono); color: var(--muted); max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* логика */
+.lg-wrap { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.lgs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; }
+.lg { display: inline-flex; flex-direction: column; padding: 4px 8px; border-radius: 5px; background: var(--bg); border-left: 2px solid var(--line2); }
+.lg small { font: 10.5px var(--sans); color: var(--muted); }
+.lg.yes { border-left-color: var(--green); } .lg.yes small { color: var(--green); }
+.lg.no { border-left-color: var(--red); } .lg.no small { color: var(--red); }
+.lg.skip { opacity: .45; border-left-style: dashed; } .lg.skip code { text-decoration: line-through; }
+.lg-op { display: inline-flex; flex-direction: column; align-items: center; font: 500 11px var(--sans); color: var(--yellow); }
+.lg-op small { font: 10px var(--mono); color: var(--muted); }
+.truth { border-collapse: collapse; font: 11px var(--mono); }
+.truth th { color: var(--faint); font-weight: 400; padding: 1px 6px; }
+.truth td { width: 22px; text-align: center; color: var(--muted); background: var(--bg); border: 1px solid var(--panel); }
+.truth td.on { color: #11140a; background: var(--accent); }
+
+/* ++ / -- по шагам */
+.steps { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.st { white-space: nowrap; display: inline-flex; flex-direction: column; background: var(--bg); padding: 4px 10px; border-radius: 5px; font-size: 12.5px; color: var(--text2); animation: pop .3s ease both; animation-delay: calc(var(--i) * 350ms); }
+.st small { font-size: 10px; color: var(--muted); }
+
+/* тернарная */
+.tern { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tc { display: inline-flex; flex-direction: column; background: var(--bg); padding: 4px 8px; border-radius: 5px; }
+.tc small, .tb small { font: 10px var(--sans); color: var(--muted); }
+.tfork { width: 18px; height: 36px; position: relative; }
+.tfork::before { content: ''; position: absolute; left: 0; top: 50%; width: 8px; border-top: 1px solid var(--line2); }
+.tfork i { position: absolute; left: 8px; width: 10px; height: 18px; border-left: 1px solid var(--line2); }
+.tfork i.up { top: 0; border-top: 1px solid var(--accent); border-left-color: var(--accent); }
+.tfork i.down { bottom: 0; border-bottom: 1px solid var(--accent); border-left-color: var(--accent); }
+.tbs { display: flex; flex-direction: column; gap: 3px; }
+.tb { display: inline-flex; gap: 8px; align-items: baseline; padding: 2px 8px; border-radius: 4px; }
+.tb.on { background: rgba(200, 240, 90, .1); }
+.tb.off { opacity: .4; }
+
+/* функция-машина */
+.fm { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.fins { display: inline-flex; gap: 4px; }
+.fa { display: inline-flex; flex-direction: column; align-items: center; background: var(--bg); border-radius: 4px; padding: 3px 8px; }
+.fa small { font: 10px var(--mono); color: var(--muted); }
+.fa b { font: 500 12.5px var(--mono); color: var(--text); }
+.fbox { display: inline-flex; flex-direction: column; align-items: center; padding: 6px 14px; border: 1px solid rgba(143, 212, 106, .5); border-radius: 6px; font: 500 13px var(--mono); color: var(--green); }
+.fbox small { font: 9.5px var(--mono); color: var(--muted); }
+.fout { font: 500 14px var(--mono); color: var(--accent); animation: pop .35s .25s ease both; }
+
+/* индекс массива */
+.ixs { display: flex; gap: 2px; flex-wrap: wrap; }
+.ix { min-width: 34px; height: 36px; padding: 3px 4px 2px; border-radius: 3px; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
+.ix b { font: 500 12px var(--mono); color: var(--text); }
+.ix b.junk { color: var(--red); }
+.ix small { font: 9.5px var(--mono); color: var(--faint); }
+.ix.on { background: rgba(200, 240, 90, .18); outline: 1px solid var(--accent); animation: pop .3s ease both; }
+.ix.on small { color: var(--accent); }
+.ix.more { background: transparent; place-items: center; color: var(--faint); }
+.ix.bad { background: rgba(224, 112, 95, .15); outline: 1px dashed var(--red); }
+.ix.bad small { color: var(--red); }
+
+/* sizeof */
+.bytes { display: flex; flex-wrap: wrap; gap: 3px; }
+.bytes i { width: 12px; height: 16px; border-radius: 2px; background: rgba(200, 240, 90, .4); animation: pop .2s ease both; animation-delay: calc(var(--i) * 25ms); }
+.bytes em { color: var(--muted); font-style: normal; }
+
+/* адрес */
+.ad { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.ad-box { display: inline-flex; flex-direction: column; background: var(--bg); padding: 4px 10px; border-radius: 5px; }
+.ad-box small { font: 10px var(--mono); color: var(--muted); }
+
+/* return и переходы */
+.ret { display: flex; align-items: center; gap: 6px; font: 13px var(--mono); flex-wrap: wrap; }
+.ret code { background: rgba(255, 255, 255, .05); border-radius: 3px; padding: 0 4px; }
+.ret .v { color: var(--accent); font-weight: 500; }
+.ret-fly { font: 11.5px var(--sans); color: var(--green); animation: fly 1s ease both; }
+@keyframes fly { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+.jmp { display: flex; gap: 10px; align-items: flex-start; }
+.jmp-ic { flex: none; width: 30px; height: 22px; position: relative; margin-top: 2px; }
+.jmp-ic::before { content: ''; position: absolute; left: 2px; right: 6px; top: 50%; border-top: 1.5px solid var(--yellow); }
+.jmp-ic::after { content: ''; position: absolute; right: 2px; top: calc(50% - 4px); border: 4.5px solid transparent; border-left-color: var(--yellow); border-right: 0; }
+.jmp-ic.continue::before { border-top-style: dashed; }
+.jmp-ic.goto::before { border-top-color: var(--red); } .jmp-ic.goto::after { border-left-color: var(--red); }
+.vis-plain .note { font-size: 12px; color: var(--text2); }
+
+/* подсказка при наведении на поле памяти */
+.u-tip { position: absolute; left: 0; top: 0; z-index: 6; max-width: 320px; pointer-events: none; background: var(--panel); border: 1px solid var(--line2); border-radius: 8px; padding: 8px 11px; font-size: 12px; line-height: 1.5; color: var(--text2); box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
+.u-tip b { color: var(--text); font-weight: 500; }
+.u-tip b.bad { color: var(--red); }
+.u-tip code { font: 11.5px var(--mono); background: rgba(255, 255, 255, .06); border-radius: 3px; padding: 0 4px; color: var(--text); }
+.ut-k { margin-top: 5px; font-size: 10.5px; color: var(--muted); }

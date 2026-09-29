@@ -41,14 +41,14 @@ export class ConsolePanel {
         <button class="con-tab" data-tab="prob" role="tab">Проблемы <span class="badge" data-badge="prob"></span></button>
         <span class="con-status" data-status></span>
         <div class="con-tools" data-tools>
-          <button class="tt" data-tt="smaller" title="Уменьшить текст (Ctrl + колесо мыши, щипок двумя пальцами)">${ICON.smaller}</button>
+          <button class="tbtn" data-tt="smaller" title="Уменьшить текст (Ctrl + колесо мыши, щипок двумя пальцами)">${ICON.smaller}</button>
           <span class="tt-fs" data-fs title="Размер текста"></span>
-          <button class="tt" data-tt="bigger" title="Увеличить текст">${ICON.bigger}</button>
-          <button class="tt" data-tt="wrap" title="Перенос длинных строк. Выключен — строки не ломаются, их можно листать вправо-влево">${ICON.wrap}</button>
-          <button class="tt" data-tt="copy" title="Скопировать вывод программы">${ICON.copy}</button>
-          <button class="tt" data-tt="clear" title="Очистить терминал">${ICON.clear}</button>
-          <button class="tt" data-tt="size" title="Развернуть / свернуть панель">${ICON.up}</button>
-          <button class="tt" data-tt="cfg" title="Настройки терминала">${ICON.cfg}</button>
+          <button class="tbtn" data-tt="bigger" title="Увеличить текст">${ICON.bigger}</button>
+          <button class="tbtn" data-tt="wrap" title="Перенос длинных строк. Выключен — строки не ломаются, их можно листать вправо-влево">${ICON.wrap}</button>
+          <button class="tbtn" data-tt="copy" title="Скопировать вывод программы">${ICON.copy}</button>
+          <button class="tbtn" data-tt="clear" title="Очистить терминал">${ICON.clear}</button>
+          <button class="tbtn" data-tt="size" title="Развернуть / свернуть панель">${ICON.up}</button>
+          <button class="tbtn" data-tt="cfg" title="Настройки терминала">${ICON.cfg}</button>
         </div>
       </div>
       <div class="term-cfg" data-cfg hidden></div>

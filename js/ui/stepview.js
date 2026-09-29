@@ -2,6 +2,7 @@
 // printf — полоса формата (%d → «целое», \n → «новая строка»), scanf — как читается буфер,
 // выражения — пошаговое вычисление, условия — вердикт, объявления — ячейка памяти.
 import { esc, explain, typeInfo } from '../universe/explain.js';
+import { visuals } from './visuals.js';
 
 const glyph = (s) => esc(s).replace(/ /g, '<span class="g-sp">·</span>').replace(/\t/g, '<span class="g-sp">⇥</span>');
 
@@ -130,6 +131,23 @@ function overflowBlock(ev) {
 }
 const sizeBits = (ev) => { const n = BigInt(ev.max) - BigInt(ev.min) + 1n; return n.toString(2).length - 1; };
 
+function returnBlock(ev) {
+  const v = ev.display;
+  return `<div class="op-block vis-plain"><div class="op-t">return — выход из функции ${esc(ev.func)}</div>
+    <div class="ret">${ev.exprText ? `<code>${esc(ev.exprText)}</code><span class="arr">=</span>` : ''}${v != null ? `<b class="v">${esc(v)}</b>` : '<span class="muted">без значения</span>'}<span class="ret-fly">${ev.func === 'main' ? '→ операционной системе' : '↩ на место вызова'}</span></div>
+    <div class="note">${ev.func === 'main' ? `return в main завершает программу. Число ${esc(v ?? 0)} — код завершения: 0 значит «всё в порядке».` : `Значение подставляется туда, где функция была вызвана, а кадр ${esc(ev.func)} со всеми локальными переменными исчезает из памяти.`}</div></div>`;
+}
+
+const JUMP = {
+  break: ['break — немедленный выход', 'Цикл (или switch) прерывается сразу, без проверки условия. Выполнение продолжится со строки после цикла. Во вложенных циклах break выходит только из ближайшего.'],
+  continue: ['continue — к следующей итерации', 'Остаток тела цикла пропускается. В for дальше выполняется изменение счётчика и проверка условия, в while и do-while — сразу проверка условия.'],
+  goto: ['goto — прыжок к метке', 'Выполнение продолжается с оператора, помеченного меткой. Использовать стоит только для выхода сразу из нескольких вложенных циклов.'],
+};
+function jumpBlock(ev) {
+  const [t, n] = JUMP[ev.kind] || [ev.kind, ''];
+  return `<div class="op-block vis-plain"><div class="op-t">${esc(t)}${ev.label ? ' ' + esc(ev.label) : ''}</div><div class="jmp"><span class="jmp-ic ${esc(ev.kind)}"></span><span class="note">${esc(n)}</span></div></div>`;
+}
+
 function switchBlock(ev) {
   const cases = (ev.cases || []).map(c => `<span class="tk ${c.hit ? 'tk-spec' : 'tk-lit'}" data-line="${c.line}"><b>${c.label === 'default' ? 'default' : 'case ' + esc(c.label)}</b><small>${c.hit ? 'совпало → сюда' : 'строка ' + c.line}</small></span>`).join('');
   return `<div class="op-block"><div class="op-t">switch — выбор ветки</div>
@@ -178,7 +196,15 @@ export function renderStep(step, { stepNo, srcLines }) {
     else if (ev.type === 'frame-enter' && ev.frame.func !== 'main' && !used.has('call')) { blocks.push(callBlock(ev)); used.add('call'); }
     else if (ev.type === 'var' && ev.via !== 'static-again' && !used.has('var') && !step.trace?.length) { blocks.push(varBlock(ev)); used.add('var'); }
   }
-  if (!used.has('trace') && step.trace?.length && blocks.length < 2) blocks.push(traceBlock(step.trace));
+  // переходы: return, break, continue, goto
+  for (const ev of evs) {
+    if (blocks.length >= 3) break;
+    if (ev.type === 'return' && !used.has('ret')) { blocks.push(returnBlock(ev)); used.add('ret'); }
+    if (ev.type === 'jump' && !used.has('jump')) { blocks.push(jumpBlock(ev)); used.add('jump'); }
+  }
+  const vis = visuals(step.trace, blocks.length >= 2 ? 1 : 2);
+  if (vis) blocks.push(`<div class="vis-row">${vis}</div>`);
+  if (!used.has('trace') && step.trace?.length && blocks.length < 4) blocks.push(traceBlock(step.trace));
   const texts = evs.map(explain).filter(Boolean);
   const textHtml = texts.slice(0, 3).map(x => `<div class="op-x k-${x.kind}"><span class="kind-dot"></span><span>${x.html}</span></div>`).join('') + (texts.length > 3 ? `<div class="op-more">ещё ${texts.length - 3} — во вкладке «Логи»</div>` : '');
   return head + (blocks.length ? `<div class="op-blocks">${blocks.join('')}</div>` : '') + `<div class="op-texts">${textHtml}</div>`;
