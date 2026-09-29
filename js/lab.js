@@ -32,6 +32,12 @@ export class Lab {
       onEOF: () => this.submitEOF(),
       onJump: (line, col) => this.editor.flash(line, col),
       onEntity: (id) => this.focusEntity(id),
+      onSize: (mode) => {
+        const lab = this.el('.lab');
+        if (mode === 'max') { lab.style.setProperty('--con-h', '72%'); lab.style.setProperty('--con-h-p', '50%'); lab.style.setProperty('--uni-p', '28%'); }
+        else { lab.style.setProperty('--con-h', store.get('lab.conH', '36%')); lab.style.removeProperty('--con-h-p'); lab.style.removeProperty('--uni-p'); }
+        setTimeout(() => this.renderer.resize(), 30);
+      },
     });
     this.scene = new Scene();
     this.renderer = new Renderer(this.el('[data-canvas]'), this.scene, {
@@ -607,7 +613,46 @@ export class Lab {
     this.inspector.hidden = false;
   }
 
+  /** Подсказка при наведении: что это за элемент и за что он отвечает. */
+  hoverTip(h) {
+    if (!h) return '';
+    const code = (t) => `<code>${esc(t)}</code>`;
+    switch (h.kind) {
+      case 'var': {
+        const o = h.o;
+        const role = o.kind === 'param' ? 'Параметр функции — копия переданного аргумента.' : o.kind === 'heap' ? 'Блок динамической памяти из malloc: живёт, пока не вызван free.' : o.frameId === 'global' ? 'Глобальная переменная: видна во всех функциях и живёт всю программу.' : 'Локальная переменная: живёт, пока выполняется её блок { }.';
+        const val = o.shape === 'scalar' ? (o.cells[0]?.init ? `Сейчас: <b>${esc(o.cells[0].display)}</b>.` : '<b class="bad">Значение не задано — в ячейке мусор.</b>') : `${o.cells.length} ячеек.`;
+        return `<b>${esc(o.name)}</b> · ${code(o.typeName)} · ${o.size} Б<br>${esc(typeInfo(o.typeName))}<br>${role} ${val}<div class="ut-k">нажмите — паспорт переменной с историей значений</div>`;
+      }
+      case 'loop': return `<b>Таблица цикла</b> ${code(h.lp.head || '')}<br>Каждая строка — одна итерация. Столбцы — переменные, которые изменились в теле, со значениями <b>после</b> итерации. Справа — результат проверки условия: пока «истина», цикл повторяется.`;
+      case 'line': {
+        const src = (this.scene.srcLines[h.line - 1] || '').trim();
+        const cur = h.fr.curLine === h.line && !h.fr.ended;
+        return `<b>Строка ${h.line}</b> ${code(src)}<br>${cur ? 'Выполняется <b>сейчас</b> (подсвечена).' : h.fr.visited.has(h.line) ? 'Уже выполнялась.' : 'Ещё не выполнялась (бледная).'} Метки справа: <b>да/нет</b> — результат if, <b>×N</b> — сколько раз повторился цикл.<div class="ut-k">нажмите — показать строку в редакторе</div>`;
+      }
+      case 'frame': return `<b>Кадр функции ${esc(h.fr.func)}</b><br>Участок стека: здесь живут её параметры и локальные переменные. Когда функция вызывает другую, новый кадр появляется ниже; при return кадр исчезает.`;
+      case 'computer': return '<b>Компьютер</b><br><b>Экран</b> — всё, что вывели printf и puts; ↵ отмечает перевод строки <code>\\n</code>. <b>Буфер клавиатуры</b> — напечатанные символы, которые scanf ещё не забрал. «Подключено» — библиотеки из #include.';
+      case 'globals': return '<b>Глобальные переменные</b><br>Объявлены вне функций: видны отовсюду, живут всю программу, по умолчанию равны нулю.';
+      case 'heap': return '<b>Куча (heap)</b><br>Память, выделенная malloc/calloc. Не исчезает сама: её нужно вернуть через free, иначе будет утечка.';
+      case 'files': return '<b>Файлы</b><br>Виртуальный диск: что программа записала через fprintf/fputs и что читает через fscanf/fgets.';
+      default: return '';
+    }
+  }
+
   onFrame(r) {
+    const tip = this.tipEl || (this.tipEl = this.el('[data-utip]'));
+    if (tip) {
+      const h = r.mouse && r.pointers.size === 0 ? r.hoverHit : null;
+      const key = h ? h.key + (h.o?.cells?.[0]?.display ?? '') : '';
+      if (key !== this._tipKey) { this._tipKey = key; tip.innerHTML = this.hoverTip(h); this._tipAt = performance.now(); }
+      const show = !!(h && tip.innerHTML && performance.now() - this._tipAt > 450);
+      tip.hidden = !show;
+      if (show) {
+        const pw = tip.parentElement.clientWidth, ph = tip.parentElement.clientHeight;
+        const x = Math.min(r.mouse.x + 16, pw - tip.offsetWidth - 8), y = r.mouse.y + 18 + tip.offsetHeight > ph ? r.mouse.y - tip.offsetHeight - 10 : r.mouse.y + 18;
+        tip.style.transform = `translate(${Math.max(8, x)}px, ${Math.max(8, y)}px)`;
+      }
+    }
     if (!r.mouse) { this.coords.textContent = `масштаб ${r.cam.zoom.toFixed(2)}`; return; }
     const w = r.toWorld(r.mouse.x, r.mouse.y);
     this.coords.textContent = `(${Math.round(w.x)}, ${Math.round(w.y)}) · масштаб ${r.cam.zoom.toFixed(2)}`;

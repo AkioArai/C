@@ -205,7 +205,7 @@ export class Editor {
     const rest = it.ins.slice(r.prefix.length);
     const top = this.pad + line * this.lh;
     const left = this.padL + col * this.cw;
-    this.ac.innerHTML = `<div class="ac-ghost" style="top:${top}px;left:${left}px">${escH(rest)}<span class="ac-key">Tab</span></div>
+    this.ac.innerHTML = `<div class="ac-ghost" style="top:${top}px;left:${left}px">${escH(rest)}<span class="ac-key">→</span></div>
       <div class="ac-list" style="top:${top + this.lh + 2}px;left:${Math.max(0, left - r.prefix.length * this.cw - 6)}px">${r.items.map((x, i) =>
         `<div class="ac-it${i === this.acSel ? ' on' : ''}" data-i="${i}"><code><b>${escH(r.prefix)}</b>${escH(x.w.slice(r.prefix.length))}</code><span class="ac-d">${escH(x.d)}</span><span class="ac-k">${kindLabel(x.kind)}</span></div>`).join('')}</div>`;
     this.ac.hidden = false;
@@ -230,7 +230,8 @@ export class Editor {
   onKey(e) {
     const ta = this.ta;
     if (this.acData && !this.ac.hidden) {
-      if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); this.acceptComplete(); return; }
+      // → принимает подсказку (курсор стоит в конце набираемого слова); Tab остаётся отступом
+      if (e.key === 'ArrowRight' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); this.acceptComplete(); return; }
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         const n = this.acData.items.length;
@@ -239,7 +240,7 @@ export class Editor {
         return;
       }
       if (e.key === 'Escape') { e.preventDefault(); this.hideComplete(); return; }
-      if (e.key === 'Enter' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End') this.hideComplete();
+      if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'ArrowLeft' || e.key === 'Home' || e.key === 'End') this.hideComplete();
     }
     const v = ta.value;
     const s = ta.selectionStart, en = ta.selectionEnd;

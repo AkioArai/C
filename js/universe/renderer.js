@@ -200,6 +200,7 @@ export class Renderer {
     if (!this.mouse) return;
     const h = this.hitTest(this.mouse.x, this.mouse.y);
     this.hover = h?.key || null;
+    this.hoverHit = h;
     this.cv.style.cursor = h ? 'pointer' : 'grab';
   }
 
@@ -416,6 +417,7 @@ export class Renderer {
     this.drawListing(b);
     if (!fr.vars.length && this.lod) this.text('переменных пока нет', b.x + G.varsX, b.codeY + 16, { size: 11, color: C.faint, mono: false });
     for (const t of b.traces) this.drawTrace(t, fr);
+    this.drawJump(b);
     ctx.restore();
   }
 
@@ -462,6 +464,32 @@ export class Renderer {
         this.text(tag, x + w - tagW / 2 - 4, ly + G.lineH / 2, { size: 10.5, color: tagColor, align: 'center' });
       }
     }
+  }
+
+  /** Стрелка break/continue: откуда и куда перешло выполнение (гаснет за 2 с). */
+  drawJump(b) {
+    const j = b.fr.jump;
+    if (!j) return;
+    const a = this.flashA(j.at, 2200);
+    if (a <= 0) return;
+    const ctx = this.ctx;
+    const y = (ln) => b.codeY + (ln - b.fr.span.start) * G.lineH + G.lineH / 2;
+    const x = b.codeX + 1, y0 = y(j.from), y1 = y(j.to);
+    const col = j.kind === 'break' ? C.red : C.yellow;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = this.px(1.4);
+    if (j.kind === 'continue') ctx.setLineDash([this.px(4), this.px(3)]);
+    ctx.beginPath();
+    // дуга слева от листинга, стрелка указывает на строку, куда перешло выполнение
+    ctx.moveTo(x + 4, y0);
+    ctx.bezierCurveTo(x - 13, y0, x - 13, y1, x + 1, y1);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(x + 7, y1); ctx.lineTo(x, y1 - 4); ctx.lineTo(x, y1 + 4); ctx.closePath(); ctx.fill();
+    ctx.restore();
   }
 
   // ——— таблица трассировки цикла ———

@@ -47,6 +47,7 @@ export class PracticePage {
               <button class="chip" data-t="2">Тема 2</button>
               <button class="chip" data-t="3">Тема 3</button>
               <button class="chip" data-t="4">Тема 4</button>
+              <button class="chip" data-t="sr">Самостоятельные</button>
             </div>
             <div class="prac-filters" data-flevel>
               <button class="chip" data-l="all">Любая</button>
@@ -74,7 +75,7 @@ export class PracticePage {
     this.list.innerHTML = items.map(t => `
       <a class="task-item ${this.current?.id === t.id ? 'active' : ''}" href="#/practice/${t.id}">
         <div class="tt">${esc(t.title)} ${solved[t.id] ? '<span class="solved-mark">решено</span>' : ''}</div>
-        <div class="tm"><span class="lvl lvl-${t.level}">${LEVELS[t.level].name}</span><span>Тема ${t.topic}</span></div>
+        <div class="tm"><span class="lvl lvl-${t.level}">${LEVELS[t.level].name}</span><span>${t.topic === 'sr' ? 'Самостоятельная' : 'Тема ' + t.topic}</span></div>
       </a>`).join('') || '<div class="empty">Нет задач с такими фильтрами.</div>';
   }
 
