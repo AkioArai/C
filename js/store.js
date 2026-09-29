@@ -14,3 +14,17 @@ export const store = {
     try { localStorage.setItem(PREFIX + key, JSON.stringify(value)); } catch { /* недоступно */ }
   },
 };
+
+/** Подтверждение без системного диалога: первое нажатие «взводит» кнопку, второе — выполняет. */
+export function confirmClick(btn, question = 'Нажмите ещё раз') {
+  if (btn.dataset.armed) {
+    clearTimeout(+btn.dataset.armed);
+    delete btn.dataset.armed;
+    btn.innerHTML = btn.dataset.label;
+    return true;
+  }
+  btn.dataset.label = btn.innerHTML;
+  btn.textContent = question;
+  btn.dataset.armed = String(setTimeout(() => { delete btn.dataset.armed; btn.innerHTML = btn.dataset.label; }, 3000));
+  return false;
+}

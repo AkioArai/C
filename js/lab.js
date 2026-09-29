@@ -6,7 +6,7 @@ import { Scene } from './universe/scene.js';
 import { Renderer } from './universe/renderer.js';
 import { explain, esc, typeInfo, plural } from './universe/explain.js';
 import { EXAMPLES } from './content/examples.js';
-import { store } from './store.js';
+import { store, confirmClick } from './store.js';
 
 const PLAY = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>';
 const SPEEDS = [2200, 1500, 1050, 750, 520, 340, 200, 110, 50, 16];
@@ -90,8 +90,8 @@ export class Lab {
       if (ex) this.load(ex.code, ex.stdin || '', ex.title);
       e.target.value = ex ? ex.id : '';
     });
-    this.el('[data-act="reset-code"]')?.addEventListener('click', () => {
-      if (confirm('Очистить редактор и начать с чистого листа?')) this.load('#include <stdio.h>\n\nint main(void) {\n    \n    return 0;\n}\n');
+    this.el('[data-act="reset-code"]')?.addEventListener('click', (e) => {
+      if (confirmClick(e.currentTarget, 'Очистить?')) this.load('#include <stdio.h>\n\nint main(void) {\n    \n    return 0;\n}\n');
     });
   }
 

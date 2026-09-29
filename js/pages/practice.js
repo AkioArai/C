@@ -3,7 +3,7 @@ import { TASKS, LEVELS, TASK_TOPICS, STARTER, compareOutput, CHECK_NOTES } from 
 import { compile, Interpreter, RuntimeError, formatDiag } from '../compiler/index.js';
 import { Editor } from '../ui/editor.js';
 import { esc } from '../universe/explain.js';
-import { store } from '../store.js';
+import { store, confirmClick } from '../store.js';
 
 const expectedCache = new Map();
 
@@ -154,7 +154,7 @@ export class PracticePage {
     const q = (s) => this.main.querySelector(s);
     q('[data-act="check"]').addEventListener('click', () => this.check(t));
     q('[data-act="visual"]').addEventListener('click', () => this.opts.openInLab(this.editor.value, samples[0] ? samples[0] + '\n' : '', t.title));
-    q('[data-act="reset"]').addEventListener('click', () => { if (confirm('Вернуть шаблон? Текущий код будет удалён.')) { this.editor.value = STARTER; store.set(key, STARTER); } });
+    q('[data-act="reset"]').addEventListener('click', (e) => { if (confirmClick(e.currentTarget, 'Удалить код? Ещё раз')) { this.editor.value = STARTER; store.set(key, STARTER); } });
     q('[data-act="hint"]').addEventListener('click', (e) => {
       if (this.hintN >= t.hints.length) return;
       q('[data-hints]').insertAdjacentHTML('beforeend', `<div class="hint-box"><b>Подсказка ${this.hintN + 1}.</b> ${esc(t.hints[this.hintN])}</div>`);
@@ -162,7 +162,7 @@ export class PracticePage {
       if (this.hintN >= t.hints.length) { e.target.disabled = true; e.target.textContent = 'Подсказки закончились'; }
     });
     q('[data-act="solution"]').addEventListener('click', (e) => {
-      if (!confirm('Показать эталонное решение? Лучше сначала попробовать самостоятельно и воспользоваться подсказками.')) return;
+      if (!confirmClick(e.currentTarget, 'Точно показать? Нажмите ещё раз')) return;
       q('[data-solution]').innerHTML = `<div class="codebox"><div class="codebox-head"><span class="t">Эталонное решение</span><button class="btn small" data-act="sol-lab">Во вселенной</button></div><pre>${esc(t.solution)}</pre></div>`;
       q('[data-act="sol-lab"]').addEventListener('click', () => this.opts.openInLab(t.solution, samples[0] ? samples[0] + '\n' : '', t.title + ' (эталон)'));
       e.target.disabled = true;

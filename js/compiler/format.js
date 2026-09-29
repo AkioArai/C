@@ -125,7 +125,7 @@ export function decodeBytes(bytes) {
     if (b >= 0xc0) s += CP1251_HI[b - 0xc0];
     else if (b === 0xa8) s += 'Ё';
     else if (b === 0xb8) s += 'ё';
-    else s += '�';
+    else s += '\uFFFD';
     i++;
   }
   return s;
