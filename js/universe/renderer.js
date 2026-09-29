@@ -312,14 +312,14 @@ export class Renderer {
   drawComputer(r) {
     const sc = this.scene;
     const sel = sc.selected === 'computer';
-    this.rect(r.x, r.y, r.w, r.h, { fill: C.panel, stroke: sel ? C.text2 : C.line2, r: 6 });
-    this.text('КОМПЬЮТЕР', r.x + 14, r.y + 20, { size: 11, color: C.muted, weight: 500, mono: false });
+    this.rect(r.x, r.y, r.w, r.h, { fill: C.panel, stroke: sel ? C.text2 : C.line, r: 8 });
+    this.text('компьютер', r.x + 14, r.y + 20, { size: 12, color: C.text2, weight: 500, mono: false });
     const status = sc.waitingInput ? 'ждёт ввода с клавиатуры' : sc.finished ? `программа завершилась (код ${sc.finished.code})` : sc.frameStack.length ? 'выполняет программу' : 'готов';
     this.text(status, r.x + r.w - 14, r.y + 20, { size: 11, color: sc.waitingInput ? C.yellow : sc.finished ? C.green : C.text2, align: 'right', mono: false });
     // экран
     const sx = r.x + 14, sy = r.y + 36, sw = 486, sh = r.screenLines * 20 + 30;
-    this.rect(sx, sy, sw, sh, { fill: '#080907', stroke: C.line2 });
-    this.text('экран · stdout', sx + 10, sy + 12, { size: 9.5, color: C.faint, mono: false });
+    this.rect(sx, sy, sw, sh, { fill: '#080907', r: 5 });
+    this.text('экран', sx + 10, sy + 12, { size: 9.5, color: C.faint, mono: false });
     const scr = sc.screen;
     const n = r.screenLines;
     const first = Math.max(0, scr.lines.length - n);
@@ -344,8 +344,8 @@ export class Renderer {
     }
     // буфер ввода
     const bx = sx + sw + 12, bw = r.x + r.w - 14 - bx, bh = 92;
-    this.rect(bx, sy, bw, bh, { fill: '#080907', stroke: sc.waitingInput ? alpha(C.yellow, 0.7) : C.line2 });
-    this.text('ввод · буфер клавиатуры', bx + 10, sy + 12, { size: 9.5, color: C.faint, mono: false });
+    this.rect(bx, sy, bw, bh, { fill: '#080907', stroke: sc.waitingInput ? alpha(C.yellow, 0.7) : undefined, r: 5 });
+    this.text('буфер клавиатуры', bx + 10, sy + 12, { size: 9.5, color: C.faint, mono: false });
     const cw = 16, perRow = Math.floor((bw - 20) / cw);
     const recent = sc.inputBuf.recent || '';
     const rest = sc.inputBuf.text || '';
@@ -367,7 +367,7 @@ export class Renderer {
       this.font(11);
       const w = this.ctx.measureText(h.name).width + 12;
       if (x + w > r.x + r.w - 14) break;
-      this.rect(x, ly - 9, w, 18, { stroke: alpha(C.green, 0.5), r: 3 });
+      this.rect(x, ly - 9, w, 18, { fill: alpha(C.green, 0.08), r: 3 });
       this.text(h.name, x + 6, ly, { size: 11, color: C.green });
       x += w + 6;
     }
@@ -381,7 +381,7 @@ export class Renderer {
         this.font(11);
         const w = Math.min(this.ctx.measureText(s).width + 12, 200);
         if (x + w > r.x + r.w - 14) { this.text('…', x, ly, { size: 11, color: C.muted }); break; }
-        this.rect(x, ly - 9, w, 18, { stroke: alpha(C.yellow, 0.45), r: 3 });
+        this.rect(x, ly - 9, w, 18, { fill: alpha(C.yellow, 0.08), r: 3 });
         this.text(s, x + 6, ly, { size: 11, color: C.yellow, maxW: w - 12 });
         x += w + 6;
       }
@@ -389,8 +389,8 @@ export class Renderer {
   }
 
   drawPanel(r, title, sub) {
-    this.rect(r.x, r.y, r.w, r.h, { fill: C.panel, stroke: C.line2, r: 6 });
-    this.text(title, r.x + 14, r.y + 18, { size: 14, color: C.text, weight: 500 });
+    this.rect(r.x, r.y, r.w, r.h, { fill: C.panel, stroke: C.line, r: 8 });
+    this.text(title, r.x + 14, r.y + 18, { size: 13, color: C.text2, weight: 500 });
     this.font(14, 500);
     const w = this.ctx.measureText(title).width;
     this.text(sub, r.x + 26 + w, r.y + 18, { size: 10.5, color: C.muted, mono: false, maxW: r.w - w - 40 });
@@ -405,13 +405,13 @@ export class Renderer {
     ctx.save();
     ctx.globalAlpha = a;
     const sel = sc.selected === 'frame:' + fr.id;
-    this.rect(b.x, b.y, b.w, b.h, { fill: C.panel, stroke: sel ? C.text2 : active ? alpha(C.accent, 0.55) : C.line2, r: 6, lw: active ? 1.4 : 1 });
+    this.rect(b.x, b.y, b.w, b.h, { fill: C.panel, stroke: sel ? C.text2 : active ? alpha(C.accent, 0.4) : C.line, r: 8 });
     // заголовок
     const title = `${fr.func}(${(fr.args || []).map(x => x.name + '=' + shortVal(x.display)).join(', ')})`;
     this.text(title, b.x + 14, b.y + 20, { size: 15, color: active ? C.text : C.text2, weight: 500, maxW: b.w * 0.55 });
     const sub = fr.ended ? (fr.ret != null ? `вернула ${fr.ret}` : 'завершилась') : active ? `выполняется · строка ${fr.curLine}` : `ждёт возврата из вызова (строка ${fr.curLine})`;
     this.text(sub, b.x + b.w - 14, b.y + 20, { size: 11, color: fr.ended ? C.green : active ? C.accent : C.muted, align: 'right', mono: false });
-    this.text(`кадр стека · глубина ${fr.depth}${fr.callLine && fr.func !== 'main' ? ' · вызвана в строке ' + fr.callLine : ''}`, b.x + 14, b.y + 36, { size: 9.5, color: C.faint, mono: false });
+    if (fr.callLine && fr.func !== 'main') this.text(`вызвана в строке ${fr.callLine}`, b.x + 14, b.y + 36, { size: 9.5, color: C.faint, mono: false });
     // листинг
     this.drawListing(b);
     if (!fr.vars.length && this.lod) this.text('переменных пока нет', b.x + G.varsX, b.codeY + 16, { size: 11, color: C.faint, mono: false });
@@ -423,7 +423,7 @@ export class Renderer {
     const fr = b.fr, sc = this.scene;
     const x = b.codeX, y0 = b.codeY, w = b.codeW;
     const n = fr.span.end - fr.span.start + 1;
-    this.rect(x, y0 - 6, w, n * G.lineH + 12, { fill: '#0b0d0a', stroke: C.line, r: 4 });
+    this.rect(x, y0 - 6, w, n * G.lineH + 12, { fill: '#0c0e0b', r: 5 });
     const gutter = 30;
     // скобки циклов слева
     for (const lp of fr.loops.values()) {
@@ -458,7 +458,7 @@ export class Renderer {
       this.text(src.trimEnd(), x + gutter + 4, ly + G.lineH / 2, { size: 11.5, color: cur ? C.text : fr.visited.has(ln) ? C.text2 : C.muted, maxW: w - gutter - 10 - tagW });
       if (tag) {
         const fl = this.flashA(s?.at ?? lp?.at, 700);
-        this.rect(x + w - tagW - 4, ly + 3, tagW, G.lineH - 6, { fill: alpha(tagColor, 0.1 + fl * 0.25), stroke: alpha(tagColor, 0.6), r: 3 });
+        this.rect(x + w - tagW - 4, ly + 3, tagW, G.lineH - 6, { fill: alpha(tagColor, 0.1 + fl * 0.25), r: 3 });
         this.text(tag, x + w - tagW / 2 - 4, ly + G.lineH / 2, { size: 10.5, color: tagColor, align: 'center' });
       }
     }
@@ -468,26 +468,31 @@ export class Renderer {
   drawTrace(t, fr) {
     const lp = t.lp;
     const sel = this.scene.selected === `loop:${fr.id}:${lp.nodeId}`;
-    this.rect(t.x, t.y, t.w, t.h, { fill: C.card, stroke: sel ? C.text2 : lp.active ? alpha(C.accent, 0.5) : C.line2, r: 5 });
+    this.rect(t.x, t.y, t.w, t.h, { fill: C.card, stroke: sel ? C.text2 : lp.active ? alpha(C.accent, 0.35) : C.line, r: 6 });
     const head = lp.head || lp.text || '';
     this.text(`цикл ${lp.kind === 'do' ? 'do-while' : lp.kind}`, t.x + 10, t.y + 15, { size: 10, color: C.muted, mono: false });
-    this.text(head, t.x + 80, t.y + 15, { size: 11, color: lp.active ? C.accent : C.text2, maxW: t.w - 200 });
-    this.text(lp.active ? `итерация ${lp.iter}` : `итераций: ${lp.iters ?? lp.iter}${lp.exitReason === 'break' ? ' (break)' : ''}`, t.x + t.w - 10, t.y + 15, { size: 10.5, color: lp.active ? C.accent : C.muted, align: 'right', mono: false });
+    this.text(head, t.x + 80, t.y + 15, { size: 11, color: lp.active ? C.accent : C.text2, maxW: t.w - 240 });
+    const run = lp.runs > 1 ? `проход ${lp.runs} · ` : '';
+    this.text(run + (lp.active ? `итерация ${lp.iter}` : `итераций: ${lp.iters ?? lp.iter}${lp.exitReason === 'break' ? ' (break)' : ''}`), t.x + t.w - 10, t.y + 15, { size: 10.5, color: lp.active ? C.accent : C.muted, align: 'right', mono: false });
     if (!this.lod) return;
     const cols = lp.trace.cols;
     const colW = Math.min(110, (t.w - 70 - 90) / Math.max(1, cols.length));
     const hy = t.y + 38;
     this.text('итер.', t.x + 12, hy, { size: 10, color: C.faint, mono: false });
     cols.forEach((c, i) => this.text(c.path, t.x + 50 + i * colW, hy, { size: 10.5, color: C.muted, maxW: colW - 8 }));
-    this.text('условие', t.x + t.w - 12, hy, { size: 10, color: C.faint, align: 'right', mono: false });
+    const prevRun = !lp.trace.rows.length;
+    this.text(prevRun ? 'прошлый проход' : 'условие', t.x + t.w - 12, hy, { size: 10, color: prevRun ? C.yellow : C.faint, align: 'right', mono: false });
     const ctx = this.ctx;
     ctx.strokeStyle = C.line;
     ctx.lineWidth = this.px(1);
     ctx.beginPath(); ctx.moveTo(t.x + 8, hy + 10); ctx.lineTo(t.x + t.w - 8, hy + 10); ctx.stroke();
-    const rows = lp.trace.rows.slice(-t.rows);
-    const hidden = lp.trace.rows.length - rows.length;
+    const prev = !lp.trace.rows.length;
+    const all = prev ? lp.trace.prevRows || [] : lp.trace.rows;
+    const rows = all.slice(-t.rows);
+    const hidden = all.length - rows.length;
     let y = hy + 22;
     if (hidden > 0) { this.text(`… ещё ${hidden} строк выше`, t.x + 14, y - 2, { size: 9.5, color: C.faint, mono: false }); y += 18; }
+    if (prev) { ctx.save(); ctx.globalAlpha *= 0.4; }
     rows.forEach((row, ri) => {
       const last = ri === rows.length - 1;
       if (last && lp.active) this.rect(t.x + 6, y - 10, t.w - 12, 20, { fill: alpha(C.accent, 0.07), r: 3 });
@@ -499,6 +504,7 @@ export class Renderer {
       if (row.cond !== null && row.cond !== undefined) this.text(row.cond ? 'истина' : 'ложь → выход', t.x + t.w - 12, y, { size: 10.5, color: row.cond ? C.green : C.red, align: 'right', mono: false });
       y += 20;
     });
+    if (prev) ctx.restore();
   }
 
   // ——— карточки переменных ———
@@ -511,66 +517,78 @@ export class Renderer {
     const ctx = this.ctx;
     ctx.save();
     ctx.globalAlpha = a;
-    const col = o.freed ? C.faint : o.garbage ? C.red : colorForType(o.typeName);
+    const col = o.freed ? C.faint : colorForType(o.typeName);
     const sel = this.scene.selected === 'obj:' + o.id || this.hover === 'obj:' + o.id;
     const fl = this.flashA(o.ui?.flash, 900);
-    this.rect(c.x, c.y, c.w, c.h, { fill: fl > 0 ? alpha(col, 0.03 + fl * 0.08) : C.card, stroke: sel ? C.text : alpha(col, 0.45 + fl * 0.4), r: 5, lw: sel ? 1.4 : 1 });
-    ctx.fillStyle = col;
-    ctx.fillRect(c.x, c.y + 6, this.px(2), c.h - 12);
+    this.rect(c.x, c.y, c.w, c.h, { fill: fl > 0 ? alpha(col, 0.02 + fl * 0.07) : C.card, stroke: sel ? C.text2 : fl > 0 ? alpha(col, 0.25 + fl * 0.45) : C.line, r: 6 });
     if (o.shape === 'scalar') this.drawScalar(c, o, col);
     else if (o.shape === 'array') this.drawArray(c, o, col);
     else this.drawRecord(c, o, col);
     ctx.restore();
   }
 
-  typeChip(x, y, label, col, right = true) {
+  /** Заголовок карточки: имя слева, тип справа — без рамок. */
+  cardHead(c, name, typeLabel, col) {
     this.font(10.5);
-    const w = this.ctx.measureText(label).width + 12;
-    const bx = right ? x - w : x;
-    this.rect(bx, y - 9, w, 18, { stroke: alpha(col, 0.55), r: 3 });
-    this.text(label, bx + 6, y, { size: 10.5, color: col });
-    return w;
+    const tw = Math.min(this.ctx.measureText(typeLabel).width, c.w * 0.55);
+    this.text(typeLabel, c.x + c.w - 12, c.y + 15, { size: 10.5, color: alpha(col, 0.8), align: 'right', maxW: c.w * 0.55 });
+    this.text(name, c.x + 12, c.y + 15, { size: 13, color: C.text, weight: 500, maxW: c.w - tw - 34 });
+  }
+
+  /** Неинициализированная память: мягкая красная штриховка. */
+  hatch(x, y, w, h, r = 3) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h);
+    ctx.fillStyle = alpha(C.red, 0.07);
+    ctx.fill();
+    ctx.clip();
+    ctx.strokeStyle = alpha(C.red, 0.22);
+    ctx.lineWidth = this.px(1);
+    ctx.beginPath();
+    for (let k = -h; k < w; k += 6) { ctx.moveTo(x + k, y + h); ctx.lineTo(x + k + h, y); }
+    ctx.stroke();
+    ctx.restore();
+    this.rect(x, y, w, h, { stroke: alpha(C.red, 0.45), r });
   }
 
   drawScalar(c, o, col) {
     const cell = o.cells[0] || { display: '?' };
-    const x = c.x + 12, w = c.w - 22;
-    const chipW = this.typeChip(c.x + c.w - 10, c.y + 16, o.typeName, col);
     const role = o.kind === 'static' ? 'static ' : o.isConst ? 'const ' : '';
-    this.text(role + o.name, x, c.y + 16, { size: 14, color: C.text, weight: 500, maxW: w - chipW - 8 });
-    let val, vcol = C.text;
-    if (!cell.init) { val = '?  мусор'; vcol = C.red; }
-    else if (cell.ptr !== undefined) { val = cell.ptr === 0 || cell.display === 'NULL' ? 'NULL' : `→ ${cell.desc || cell.targetPath || cell.display}`; vcol = C.text; }
-    else val = cell.display;
-    this.text(val, x, c.y + 40, { size: 17, color: vcol, maxW: w });
+    this.cardHead(c, role + o.name, `${o.typeName} · ${o.size} Б`, col);
+    const x = c.x + 12, w = c.w - 24;
+    if (!cell.init) {
+      this.hatch(x, c.y + 26, Math.min(w, 120), 20);
+      this.text('мусор', x + 10, c.y + 36, { size: 11.5, color: C.red, mono: false });
+    } else {
+      const isPtr = cell.ptr !== undefined;
+      const val = isPtr ? (cell.ptr === 0 || cell.display === 'NULL' ? 'NULL' : `→ ${cell.desc || cell.targetPath || cell.display}`) : cell.display;
+      this.text(val, x, c.y + 36, { size: 16, color: C.text, maxW: w });
+    }
     if (!this.lod) return;
-    const sizeLabel = `${o.size} Б`;
-    const meta = (o.kind === 'param' ? 'параметр · ' : '') + (cell.ptr !== undefined && cell.init ? `адрес ${cell.display}` : o.garbage ? 'не задано значение' : typeDesc(o.typeName));
-    this.text(meta, x, c.y + 60, { size: 9.5, color: C.muted, mono: false, maxW: w - 90 });
-    // байты: сколько клеточек памяти занимает
-    const n = Math.min(o.size, 8);
-    for (let i = 0; i < n; i++) this.rect(c.x + c.w - 12 - (n - i) * 7, c.y + 55, 5, 9, { fill: cell.init ? alpha(col, 0.5) : alpha(C.red, 0.4), r: 1 });
-    this.text(sizeLabel, c.x + c.w - 16 - n * 7, c.y + 60, { size: 9.5, color: C.faint, align: 'right' });
+    const meta = [o.kind === 'param' ? 'параметр' : '', cell.ptr !== undefined && cell.init ? `адрес ${cell.display}` : ''].filter(Boolean).join(' · ');
+    if (meta) this.text(meta, x, c.y + c.h - 9, { size: 9.5, color: C.faint, mono: false, maxW: w });
   }
 
   drawArray(c, o, col) {
-    const x = c.x + 12;
-    const title = o.kind === 'heap' ? `${o.name} · ${o.freed ? 'освобождён' : o.typeName}` : `${o.name}`;
-    const chip = this.typeChip(c.x + c.w - 10, c.y + 16, o.kind === 'heap' ? `${o.size} Б` : `${o.typeName} · ${o.size} Б`, col);
-    this.text(title, x, c.y + 16, { size: 14, color: C.text, weight: 500, maxW: c.w - chip - 30 });
+    const title = o.kind === 'heap' ? `${o.name}${o.freed ? ' · освобождён' : ''}` : o.name;
+    this.cardHead(c, title, o.kind === 'heap' ? `${o.freed ? '' : o.typeName + ' · '}${o.size} Б` : `${o.typeName} · ${o.size} Б`, col);
     if (!this.lod) return;
     const perRow = Math.max(1, Math.floor((c.w - 40) / G.cellW));
     const dims = o.dims || [o.cells.length];
     const multi = dims.length >= 2 && !o.cells[0]?.label.includes('.');
     const inner = multi ? o.cells.length / Math.max(1, dims[0]) : o.cells.length;
     let y = c.y + 34;
+    const cw = G.cellW - 4, ch = G.cellH - 8;
     const drawCell = (cell, idx, cx, cy, label) => {
       const fl = o.ui?.flashCell === idx ? this.flashA(o.ui.flash, 900) : 0;
-      this.rect(cx, cy, G.cellW - 4, G.cellH - 8, { fill: fl ? alpha(col, 0.1 + fl * 0.3) : '#0b0d0a', stroke: cell.init ? alpha(col, 0.5) : alpha(C.red, 0.4), r: 3 });
-      let v = cell.init ? shortVal(cell.ptr !== undefined ? (cell.ptr === 0 ? 'NULL' : '→') : cell.display) : '?';
+      if (!cell.init) this.hatch(cx, cy, cw, ch);
+      else this.rect(cx, cy, cw, ch, { fill: fl ? alpha(col, 0.12 + fl * 0.3) : '#151813', stroke: fl ? alpha(col, 0.7) : undefined, r: 3 });
+      let v = cell.init ? shortVal(cell.ptr !== undefined ? (cell.ptr === 0 ? 'NULL' : '→') : cell.display) : '';
       if (v === "'\\0'") v = '\\0';
-      this.text(v, cx + (G.cellW - 4) / 2, cy + (G.cellH - 8) / 2, { size: 11, color: cell.init ? C.text : C.red, align: 'center', maxW: G.cellW - 8 });
-      this.text(label, cx + (G.cellW - 4) / 2, cy + G.cellH + 1, { size: 9, color: C.faint, align: 'center', maxW: G.cellW });
+      if (v) this.text(v, cx + cw / 2, cy + ch / 2, { size: 11, color: v === '\\0' ? C.muted : C.text, align: 'center', maxW: G.cellW - 8 });
+      this.text(label, cx + cw / 2, cy + G.cellH + 1, { size: 9, color: C.faint, align: 'center', maxW: G.cellW });
     };
     if (multi) {
       const rowsShown = Math.min(dims[0], 12);
@@ -595,23 +613,29 @@ export class Renderer {
       y += Math.ceil(shown / perRow) * (G.cellH + 16);
       if (o.cells.length > shown || o.truncated) this.text(`… ещё элементы`, c.x + c.w - 14, c.y + c.h - 12, { size: 9.5, color: C.faint, align: 'right', mono: false });
     }
-    if (o.str != null) this.text(`как строка: "${o.str}"`, c.x + 14, y + 6, { size: 11, color: C.amber, maxW: c.w - 28 });
+    if (o.str != null) this.text(`строка: "${o.str}"`, c.x + 14, y + 6, { size: 11, color: C.amber, maxW: c.w - 28 });
   }
 
   drawRecord(c, o, col) {
-    const x = c.x + 12;
-    const chip = this.typeChip(c.x + c.w - 10, c.y + 16, `${o.typeName} · ${o.size} Б`, col);
-    this.text(o.name, x, c.y + 16, { size: 14, color: C.text, weight: 500, maxW: c.w - chip - 30 });
+    this.cardHead(c, o.name, `${o.typeName} · ${o.size} Б`, col);
     if (!this.lod) return;
     const shown = o.cells.slice(0, 24);
+    const x = c.x + 12;
     shown.forEach((cell, i) => {
       const y = c.y + 34 + i * 22 + 11;
       const fl = o.ui?.flashCell === i ? this.flashA(o.ui.flash, 900) : 0;
       if (fl) this.rect(c.x + 6, y - 10, c.w - 12, 20, { fill: alpha(col, fl * 0.2), r: 3 });
+      else if (i % 2 === 0) this.rect(c.x + 6, y - 10, c.w - 12, 20, { fill: 'rgba(255,255,255,0.015)', r: 3 });
       this.text(cell.label.replace(/^\./, ''), x + 4, y, { size: 11.5, color: C.text2, maxW: c.w * 0.4 });
       this.text(cell.typeName, x + c.w * 0.42, y, { size: 10, color: C.faint, maxW: c.w * 0.2 });
-      const v = !cell.init ? '?' : cell.ptr !== undefined ? (cell.ptr === 0 ? 'NULL' : '→ ' + (cell.desc || cell.display)) : cell.display;
-      this.text(v, c.x + c.w - 14, y, { size: 12, color: cell.init ? C.text : C.red, align: 'right', maxW: c.w * 0.36 });
+      if (!cell.init) {
+        const hw = Math.min(64, c.w * 0.3);
+        this.hatch(c.x + c.w - 12 - hw, y - 8, hw, 16);
+        this.text('мусор', c.x + c.w - 12 - hw / 2, y, { size: 10, color: C.red, align: 'center', mono: false });
+        return;
+      }
+      const v = cell.ptr !== undefined ? (cell.ptr === 0 ? 'NULL' : '→ ' + (cell.desc || cell.display)) : cell.display;
+      this.text(v, c.x + c.w - 14, y, { size: 12, color: C.text, align: 'right', maxW: c.w * 0.36 });
     });
   }
 

@@ -1,6 +1,9 @@
 // Лёгкий редактор кода: textarea поверх подсвеченного <pre>, номера строк,
 // точки останова, подчёркивание ошибок и подсветка выполняемой строки.
 import { highlight } from './highlight.js';
+import { suggest, kindLabel } from './complete.js';
+
+const escH = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export class Editor {
   constructor(root, opts = {}) {
@@ -17,6 +20,7 @@ export class Editor {
             <div class="ed-bg" aria-hidden="true"></div>
             <pre class="ed-hl" aria-hidden="true"></pre>
             <div class="ed-marks" aria-hidden="true"></div>
+            <div class="ed-ac" hidden></div>
             <textarea class="ed-ta" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Код программы на C"></textarea>
           </div>
         </div>
@@ -28,7 +32,17 @@ export class Editor {
     this.bg = root.querySelector('.ed-bg');
     this.marks = root.querySelector('.ed-marks');
     this.ta = root.querySelector('.ed-ta');
-    this.ta.addEventListener('input', () => this.refresh(true));
+    this.ac = root.querySelector('.ed-ac');
+    this.ta.addEventListener('input', (e) => { this.refresh(true); this.updateComplete(e.inputType); });
+    this.ta.addEventListener('blur', () => setTimeout(() => this.hideComplete(), 120));
+    this.ta.addEventListener('click', () => this.hideComplete());
+    this.ac.addEventListener('mousedown', (e) => {
+      const it = e.target.closest('[data-i]');
+      if (!it) return;
+      e.preventDefault();
+      this.acSel = +it.dataset.i;
+      this.acceptComplete();
+    });
     this.ta.addEventListener('keydown', (e) => this.onKey(e));
     this.gutter.addEventListener('click', (e) => {
       const ln = +e.target.closest('[data-ln]')?.dataset.ln;
@@ -170,8 +184,63 @@ export class Editor {
     }
   }
 
+  // ——— подсказки ———
+  updateComplete(inputType) {
+    if (this.ta.readOnly || this.opts.complete === false || (inputType && !inputType.startsWith('insert'))) { this.hideComplete(); return; }
+    const pos = this.ta.selectionStart;
+    if (pos !== this.ta.selectionEnd) { this.hideComplete(); return; }
+    const r = suggest(this.ta.value, pos);
+    if (!r) { this.hideComplete(); return; }
+    this.acData = r;
+    this.acSel = 0;
+    this.renderComplete();
+  }
+  renderComplete() {
+    const r = this.acData;
+    const pos = this.ta.selectionStart;
+    const before = this.ta.value.slice(0, pos);
+    const line = before.split('\n').length - 1;
+    const col = pos - (before.lastIndexOf('\n') + 1);
+    const it = r.items[this.acSel];
+    const rest = it.ins.slice(r.prefix.length);
+    const top = this.pad + line * this.lh;
+    const left = this.padL + col * this.cw;
+    this.ac.innerHTML = `<div class="ac-ghost" style="top:${top}px;left:${left}px">${escH(rest)}<span class="ac-key">Tab</span></div>
+      <div class="ac-list" style="top:${top + this.lh + 2}px;left:${Math.max(0, left - r.prefix.length * this.cw - 6)}px">${r.items.map((x, i) =>
+        `<div class="ac-it${i === this.acSel ? ' on' : ''}" data-i="${i}"><code><b>${escH(r.prefix)}</b>${escH(x.w.slice(r.prefix.length))}</code><span class="ac-d">${escH(x.d)}</span><span class="ac-k">${kindLabel(x.kind)}</span></div>`).join('')}</div>`;
+    this.ac.hidden = false;
+  }
+  hideComplete() { if (this.ac) { this.ac.hidden = true; this.acData = null; } }
+  acceptComplete() {
+    const r = this.acData;
+    if (!r) return false;
+    const it = r.items[this.acSel];
+    this.hideComplete();
+    let ins = it.ins.slice(r.prefix.length);
+    // автоматически закрываем скобку: scanf( → scanf(|)
+    let back = 0;
+    if (ins.endsWith('(') && !/^\s*\)/.test(this.ta.value.slice(this.ta.selectionStart))) { ins += ')'; back = 1; }
+    if (ins.endsWith('<') && !this.ta.value.slice(this.ta.selectionStart).startsWith('>')) { /* заголовок подскажем следующим шагом */ }
+    this.insert(ins);
+    if (back) { const p = this.ta.selectionStart - back; this.ta.setSelectionRange(p, p); }
+    if (ins.endsWith('<')) this.updateComplete('insertText');
+    return true;
+  }
+
   onKey(e) {
     const ta = this.ta;
+    if (this.acData && !this.ac.hidden) {
+      if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); this.acceptComplete(); return; }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const n = this.acData.items.length;
+        this.acSel = (this.acSel + (e.key === 'ArrowDown' ? 1 : n - 1)) % n;
+        this.renderComplete();
+        return;
+      }
+      if (e.key === 'Escape') { e.preventDefault(); this.hideComplete(); return; }
+      if (e.key === 'Enter' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End') this.hideComplete();
+    }
     const v = ta.value;
     const s = ta.selectionStart, en = ta.selectionEnd;
     const lineStart = v.lastIndexOf('\n', s - 1) + 1;

@@ -46,6 +46,7 @@ export class PracticePage {
               <button class="chip" data-t="1">Тема 1</button>
               <button class="chip" data-t="2">Тема 2</button>
               <button class="chip" data-t="3">Тема 3</button>
+              <button class="chip" data-t="4">Тема 4</button>
             </div>
             <div class="prac-filters" data-flevel>
               <button class="chip" data-l="all">Любая</button>

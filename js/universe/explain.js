@@ -150,6 +150,8 @@ export function explain(ev) {
       return { kind: 'io', html: `${esc(ev.action)} ${code(ev.name)}.` };
     case 'locale':
       return { kind: 'law', html: ev.comma ? 'setlocale: включена русская локаль — дробная часть чисел отделяется ЗАПЯТОЙ (и при вводе, и при выводе).' : 'setlocale: стандартная локаль C — дробная часть через точку.' };
+    case 'overflow':
+      return ev.signed ? null : { kind: 'write', html: `Беззнаковый ${code(ev.typeName)}: точный результат ${val(ev.exact)} не помещается в диапазон 0…${esc(ev.max)}, счёт идёт по кругу — получилось ${val(ev.result)}.` };
     case 'runtime-warning':
       return { kind: 'warn', html: `${esc(ev.message)}${ev.hint ? `<div class="hint">${esc(ev.hint)}</div>` : ''}` };
     case 'shortcircuit':
