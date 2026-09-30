@@ -1,6 +1,7 @@
 // Состояние «вселенной»: компьютер (экран + буфер ввода), кадры стека функций
 // (листинг кода, карточки переменных, таблицы трассировки циклов), куча, файлы.
 // Раскладка — строгая сетка, поэтому ничего не накладывается.
+import { settings } from '../ui/settings.js';
 
 export const TYPE_COLORS = {
   int: '#c8f05a', 'unsigned int': '#c8f05a', short: '#c8f05a', 'unsigned short': '#c8f05a', 'enum': '#c8f05a',
@@ -53,7 +54,7 @@ export class Scene {
     this.headers = [];
     this.defines = [];
     this.files = new Map();
-    this.screen = { lines: [''], ended: [], lastAt: 0, fresh: 0 };
+    this.screen = { lines: [''], ended: [], lastAt: 0, fresh: 0, starts: [0], total: 0 };
     this.inputBuf = { text: '', consumedAt: 0, recent: '' };
     this.waitingInput = false;
     this.selected = null;
@@ -96,6 +97,7 @@ export class Scene {
 
   // ——— анимации ———
   anim(a) {
+    if (a.type === 'beam' && !settings.get('run.beams')) { a.onDone?.(); return; }
     a.t0 = this.now + (a.delay || 0);
     if (!a.dur) { a.onDone?.(); return; }
     this.anims.push(a);
@@ -109,15 +111,24 @@ export class Scene {
   }
 
   // ——— экран ———
-  printText(text, fresh = true) {
+  printText(text, fresh = true, dur = 0) {
     const scr = this.screen;
+    scr.starts ||= [0];
+    scr.total ||= 0;
+    const from = scr.total;
     for (const ch of text) {
-      if (ch === '\n') { scr.ended[scr.lines.length - 1] = true; scr.lines.push(''); }
-      else if (ch === '\r') continue;
+      if (ch === '\r') continue;
+      scr.total++;
+      if (ch === '\n') { scr.ended[scr.lines.length - 1] = true; scr.lines.push(''); scr.starts.push(scr.total); }
       else scr.lines[scr.lines.length - 1] += ch;
     }
-    if (scr.lines.length > 400) { scr.lines.splice(0, scr.lines.length - 300); scr.ended.splice(0, scr.ended.length - 300); }
-    if (fresh) { scr.lastAt = this.now; scr.fresh = text; }
+    if (scr.lines.length > 400) { const k = scr.lines.length - 300; scr.lines.splice(0, k); scr.ended.splice(0, k); scr.starts.splice(0, k); }
+    if (fresh) {
+      scr.lastAt = this.now; scr.fresh = text;
+      // печатная машинка: новые символы появляются по одному
+      scr.typeFrom = from; scr.typeTo = scr.total; scr.typeAt = this.now;
+      scr.typeDur = dur && settings.get('run.typewriter') ? Math.min(dur * 0.9, 30 + (scr.total - from) * 28) : 0;
+    }
   }
 
   // ——— применение событий ———
@@ -187,7 +198,7 @@ export class Scene {
         if (fromIn) this.anim({ type: 'beam', from: { input: true }, to: { obj: o.id, cell: ev.cell }, color: '#e9d85c', dur, label: ev.inputText ?? ev.display });
         else {
           const srcs = [...new Map((ev.sources || []).filter(s => s.objId !== o.id && this.objects.has(s.objId)).map(s => [s.objId, s])).values()];
-          for (const s of srcs.slice(0, 4)) this.anim({ type: 'beam', from: { obj: s.objId }, to: { obj: o.id, cell: ev.cell }, color: colorForType(this.objects.get(s.objId)?.typeName), dur: dur * 0.9 });
+          for (const s of srcs.slice(0, 4)) this.anim({ type: 'beam', from: { obj: s.objId }, to: { obj: o.id, cell: ev.cell }, color: colorForType(this.objects.get(s.objId)?.typeName), dur: dur * 0.9, label: s.display != null ? String(s.display) : undefined });
         }
         break;
       }
@@ -201,9 +212,9 @@ export class Scene {
         break;
       case 'output': {
         if (ev.stream === 'stdout') {
-          this.printText(ev.text);
+          this.printText(ev.text, true, dur);
           const srcs = [...new Map((ev.sources || []).filter(s => this.objects.has(s.objId)).map(s => [s.objId, s])).values()];
-          for (const s of srcs.slice(0, 4)) this.anim({ type: 'beam', from: { obj: s.objId }, to: { screen: true }, color: '#8fd46a', dur });
+          for (const s of srcs.slice(0, 4)) this.anim({ type: 'beam', from: { obj: s.objId }, to: { screen: true }, color: '#8fd46a', dur, label: s.display != null ? String(s.display) : undefined });
         } else if (ev.stream === 'stderr') {
           this.stderrLines.push(ev.text);
         } else if (ev.stream === 'file') {
@@ -283,6 +294,14 @@ export class Scene {
           this.closeTraceRow(lp, fr);
           fr.loopStack = (fr.loopStack || []).filter(x => x !== lp);
         }
+        break;
+      }
+      case 'jump': {
+        // стрелка прыжка в листинге: break — за конец цикла, continue — к заголовку
+        const fr = this.frames.get(this.current);
+        const lp = fr?.loopStack?.[fr.loopStack.length - 1];
+        if (fr && lp && (ev.kind === 'break' || ev.kind === 'continue'))
+          fr.jump = { from: ev.line, to: ev.kind === 'break' ? Math.min(lp.endLine + 1, fr.span.end) : lp.line, kind: ev.kind, at: now };
         break;
       }
       case 'exit': this.finished = { code: ev.code }; break;

@@ -9,19 +9,23 @@ import { renderStep, renderMessage } from './ui/stepview.js';
 import { G } from './universe/scene.js';
 import { EXAMPLES } from './content/examples.js';
 import { store, confirmClick } from './store.js';
+import { settings } from './ui/settings.js';
+import { Workspace } from './ui/files.js';
 
 const PLAY = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>';
 const SPEEDS = [2200, 1500, 1050, 750, 520, 340, 200, 110, 50, 16];
 
 export class Lab {
-  constructor(root) {
+  constructor(root, opts = {}) {
+    this.opts = opts;
     this.root = root;
     this.state = 'idle';
-    this.speed = store.get('speed', 4);
+    this.speed = settings.get('run.speed');
     this.el = (sel) => root.querySelector(sel);
 
     this.editor = new Editor(this.el('[data-editor]'), {
       onChange: () => this.onCodeChange(),
+      onCursor: (ln, col) => this.status('pos', `Стр ${ln}, стлб ${col}`),
       onRun: () => this.run('anim'),
       onBreakpoints: (bp) => { this.breakpoints = bp; },
     });
@@ -32,6 +36,13 @@ export class Lab {
       onEOF: () => this.submitEOF(),
       onJump: (line, col) => this.editor.flash(line, col),
       onEntity: (id) => this.focusEntity(id),
+      onSettings: (cat) => this.opts.openSettings?.(cat),
+      onSize: (mode) => {
+        const lab = this.el('.lab');
+        if (mode === 'max') { lab.style.setProperty('--con-h', '72%'); lab.style.setProperty('--con-h-p', '50%'); lab.style.setProperty('--uni-p', '28%'); }
+        else { lab.style.setProperty('--con-h', store.get('lab.conH', '36%')); lab.style.removeProperty('--con-h-p'); lab.style.removeProperty('--uni-p'); }
+        setTimeout(() => this.renderer.resize(), 30);
+      },
     });
     this.scene = new Scene();
     this.renderer = new Renderer(this.el('[data-canvas]'), this.scene, {
@@ -42,9 +53,9 @@ export class Lab {
     this.op.addEventListener('click', (e) => {
       const ln = e.target.closest('[data-line]');
       if (ln) { this.editor.flash(+ln.dataset.line); return; }
-      if (e.target.closest('.op-head')) { this.op.classList.toggle('mini'); store.set('lab.opMini', this.op.classList.contains('mini')); this.syncInsets(); }
+      if (e.target.closest('.op-head')) { this.op.classList.toggle('mini'); settings.set('run.opAuto', !this.op.classList.contains('mini')); this.syncInsets(); }
     });
-    if (store.get('lab.opMini', false)) this.op.classList.add('mini');
+    if (!settings.get('run.opAuto')) this.op.classList.add('mini');
     new ResizeObserver(() => this.syncInsets()).observe(this.op);
     this.inspector = this.el('[data-inspector]');
     this.coords = this.el('[data-coords]');
@@ -53,31 +64,71 @@ export class Lab {
     this.bindToolbar();
     this.bindUniverseControls();
     this.bindSplitters();
-    this.fillExamples();
 
-    const saved = store.get('lab.code', null);
-    this.editor.value = saved ?? EXAMPLES[0].code;
-    this.stdinEl.value = store.get('lab.stdin', '');
-    this.stdinEl.addEventListener('input', () => store.set('lab.stdin', this.stdinEl.value));
+    // файлы и вкладки
+    this.ws = new Workspace({
+      root: this.root, side: this.el('[data-side]'), tabs: this.el('[data-tabs]'), examples: EXAMPLES,
+      getCode: () => this.editor.value,
+      setCode: (c) => { this._loading = true; this.editor.value = c; this._loading = false; },
+      getStdin: () => this.stdinEl.value,
+      setStdin: (v) => { this.stdinEl.value = v; this.el('.stdin-box').open = !!v; },
+      showSide: () => this.toggleSide(true),
+      onSwitch: (f) => this.onFileSwitch(f),
+    });
+    this.editor.value = this.ws.current.code;
+    this.stdinEl.value = this.ws.current.stdin || '';
+    this.ws.render();
+    this.stdinEl.addEventListener('input', () => this.ws.edited());
+    if (store.get('lab.noSide', false)) this.el('.lab').classList.add('no-side');
+    document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b' && !this.root.hidden) { e.preventDefault(); this.toggleSide(); } });
+    this.el('.p-side').addEventListener('click', () => this.renderFileStatus());
+    settings.on((k) => this.onSetting(k));
     this.setState('idle');
-    this.onCodeChange(true);
+    this.onCodeChange(true, true);
+    this.renderFileStatus();
     this.console.line('<span class="muted">Вселенная Си · встроенный компилятор-интерпретатор C (стандарт C99/C11, модель gcc x86-64).</span>');
     this.console.line('<span class="muted">Нажмите <b>Запуск</b> (или Ctrl+Enter), чтобы скомпилировать и выполнить программу.</span>');
   }
 
   // ——— загрузка кода извне (теория/практика) ———
   load(code, stdin = '', title = '') {
+    this.ws.openText(title || 'program', code, stdin);
+    this.console.line(`<span class="muted">Открыта программа${title ? ' «' + esc(title) + '»' : ''}. Нажмите «Запуск» (F5).</span>`);
+  }
+
+  onFileSwitch(f) {
+    this.el('.lab').classList.remove('side-open');
     this.stop(true);
-    this.editor.value = code;
-    this.stdinEl.value = stdin;
-    this.el('.stdin-box').open = !!stdin;
-    store.set('lab.stdin', stdin);
-    this.onCodeChange(true);
-    this.console.clear();
-    this.console.line(`<span class="muted">Загружена программа${title ? ' «' + esc(title) + '»' : ''}. Нажмите «Запуск».</span>`);
-    this.el('[data-examples]').value = '';
+    this.onCodeChange(true, true);
     this.scene.reset();
+    this.inspector.hidden = true;
+    this.op.hidden = true;
     this.splash.hidden = false;
+    this.editor.setExecLine(0);
+    this.renderFileStatus();
+  }
+  toggleSide(force) {
+    const lab = this.el('.lab');
+    if (matchMedia('(max-width: 900px), (orientation: portrait) and (max-width: 1100px)').matches) {
+      lab.classList.toggle('side-open', force ?? !lab.classList.contains('side-open'));
+      return;
+    }
+    const hide = force === undefined ? !lab.classList.contains('no-side') : !force;
+    lab.classList.toggle('no-side', hide);
+    store.set('lab.noSide', hide);
+    setTimeout(() => this.renderer.resize(), 30);
+  }
+  status(key, html) { const el = document.querySelector(`[data-sb="${key}"]`); if (el) el.innerHTML = html; }
+  renderFileStatus() {
+    const f = this.ws.current;
+    if (!f) return;
+    this.status('file', `${f.preview ? '<i>пример</i> · ' : ''}${esc(f.name)}${this.ws.dirty.has(f.id) ? ' <span class="sb-dirty">●</span>' : ''}`);
+  }
+  onSetting(k) {
+    if (k === 'run.follow') { this.renderer.follow = settings.get(k); this.el('[data-u="follow"]').classList.toggle('on', this.renderer.follow); }
+    if (k === 'run.speed') { this.speed = settings.get(k); this.el('[data-speed]').value = this.speed; this.updateSpeedLabel(); }
+    if (k === 'editor.liveCheck' || k.startsWith('editor.')) this.onCodeChange(true, true);
+    if (k === 'run.opAuto') { this.op.classList.toggle('mini', !settings.get(k)); this.syncInsets(); }
   }
 
   // ——— панель инструментов ———
@@ -89,32 +140,30 @@ export class Lab {
     b('pause', () => this.pause());
     b('stop', () => this.stop());
     b('instant', () => this.run('instant'));
+    // перемотка по шагам
+    const tl = this.el('[data-timeline]');
+    tl.addEventListener('input', () => { this.el('[data-stepno]').textContent = `шаг ${tl.value} из ${this.maxStep || 0}`; });
+    tl.addEventListener('change', () => this.gotoStep(+tl.value));
+    // горячие клавиши (как в отладчиках)
+    document.addEventListener('keydown', (e) => {
+      if (this.root.hidden || document.querySelector('.tour:not([hidden])')) return;
+      const k = e.key;
+      if (k === 'F5' && !e.shiftKey) { e.preventDefault(); if (this.state === 'running') this.pause(); else if (this.state === 'paused') this.resume(); else this.run('anim'); }
+      else if (k === 'F5' && e.shiftKey) { e.preventDefault(); this.stop(); }
+      else if (k === 'F10' && e.shiftKey) { e.preventDefault(); this.stepBack(); }
+      else if (k === 'F10') { e.preventDefault(); this.stepOnce(); }
+      else if (k === 'F8') { e.preventDefault(); this.run('instant'); }
+    });
     const sp = this.el('[data-speed]');
     sp.value = this.speed;
-    sp.addEventListener('input', () => { this.speed = +sp.value; store.set('speed', this.speed); this.updateSpeedLabel(); });
+    sp.addEventListener('input', () => { this.speed = +sp.value; settings.set('run.speed', this.speed); this.updateSpeedLabel(); });
     this.updateSpeedLabel();
-    this.el('[data-examples]').addEventListener('change', (e) => {
-      const ex = EXAMPLES.find(x => x.id === e.target.value);
-      if (ex) this.load(ex.code, ex.stdin || '', ex.title);
-      e.target.value = ex ? ex.id : '';
-    });
-    this.el('[data-act="reset-code"]')?.addEventListener('click', (e) => {
-      if (confirmClick(e.currentTarget, 'Очистить?')) this.load('#include <stdio.h>\n\nint main(void) {\n    \n    return 0;\n}\n');
-    });
   }
 
   updateSpeedLabel() {
     const ms = SPEEDS[this.speed - 1];
     const r = 1000 / ms;
     this.el('[data-speed-label]').textContent = `${r < 10 ? r.toFixed(1).replace('.', ',') : Math.round(r)} шаг/с`;
-  }
-
-  fillExamples() {
-    const sel = this.el('[data-examples]');
-    const groups = {};
-    for (const ex of EXAMPLES) (groups[ex.group] ||= []).push(ex);
-    sel.innerHTML = '<option value="">Примеры программ…</option>' + Object.entries(groups).map(([g, list]) =>
-      `<optgroup label="${esc(g)}">${list.map(e => `<option value="${e.id}">${esc(e.title)}</option>`).join('')}</optgroup>`).join('');
   }
 
   bindUniverseControls() {
@@ -125,7 +174,7 @@ export class Lab {
     b('home', () => { r.fitHome(); r.lastUser = performance.now(); });
     b('follow', (e) => {
       r.follow = !r.follow;
-      store.set('lab.follow', r.follow);
+      settings.set('run.follow', r.follow);
       e.currentTarget.classList.toggle('on', r.follow);
       if (r.follow) r.lastUser = 0;
     });
@@ -135,7 +184,7 @@ export class Lab {
       if (document.fullscreenElement) document.exitFullscreen();
       else pane.requestFullscreen?.().catch(() => {});
     });
-    r.follow = store.get('lab.follow', true);
+    r.follow = settings.get('run.follow');
     this.el('[data-u="follow"]').classList.toggle('on', r.follow);
     this.inspector.addEventListener('click', (e) => {
       if (e.target.closest('[data-close]')) { this.inspector.hidden = true; this.scene.selected = null; }
@@ -154,14 +203,21 @@ export class Lab {
     const edW = store.get('lab.edW', null), conH = store.get('lab.conH', null);
     if (edW) lab.style.setProperty('--ed-w', edW);
     if (conH) lab.style.setProperty('--con-h', conH);
+    const sideW = store.get('lab.sideW', null);
+    if (sideW) lab.style.setProperty('--side-w', sideW);
     for (const sp of this.root.querySelectorAll('[data-split]')) {
       sp.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         sp.setPointerCapture(e.pointerId);
         const rect = lab.getBoundingClientRect();
         const move = (ev) => {
-          if (sp.dataset.split === 'v') {
-            const pct = Math.max(22, Math.min(65, ((ev.clientX - rect.left) / rect.width) * 100));
+          if (sp.dataset.split === 's') {
+            const px = Math.max(150, Math.min(420, ev.clientX - rect.left));
+            lab.style.setProperty('--side-w', px + 'px');
+            store.set('lab.sideW', px + 'px');
+          } else if (sp.dataset.split === 'v') {
+            const sw = lab.classList.contains('no-side') ? 0 : lab.querySelector('.p-side').getBoundingClientRect().width;
+            const pct = Math.max(18, Math.min(60, ((ev.clientX - rect.left - sw) / rect.width) * 100));
             lab.style.setProperty('--ed-w', pct + '%');
             store.set('lab.edW', pct + '%');
           } else {
@@ -178,8 +234,9 @@ export class Lab {
   }
 
   // ——— живая проверка кода ———
-  onCodeChange(immediate) {
-    store.set('lab.code', this.editor.value);
+  onCodeChange(immediate, noEdit) {
+    if (!noEdit && !this._loading) { this.ws?.edited(); this.renderFileStatus(); }
+    if (!settings.get('editor.liveCheck') && !immediate) return;
     clearTimeout(this._chk);
     const doCheck = () => {
       if (this.state === 'running' || this.state === 'input' || this.state === 'paused') return;
@@ -187,6 +244,8 @@ export class Lab {
       this.lastCompile = c;
       this.editor.setDiagnostics(c.diagnostics);
       this.console.setProblems(c.diagnostics, c.lines);
+      const ne = c.diagnostics.filter(d => d.severity === 'error').length, nw = c.diagnostics.filter(d => d.severity === 'warning').length;
+      this.status('problems', `<span class="${ne ? 'sb-err' : ''}">⊗ ${ne}</span> <span class="${nw ? 'sb-warn' : ''}">⚠ ${nw}</span>`);
     };
     if (immediate) doCheck(); else this._chk = setTimeout(doCheck, 450);
   }
@@ -204,6 +263,7 @@ export class Lab {
     this.el('[data-act="instant"]').disabled = s === 'input';
     this.el('[data-act="step"]').disabled = s === 'running' || s === 'input';
     this.updateBack();
+    this.updateTimeline();
     this.editor.setReadOnly(busy);
     const labels = {
       idle: ['', 'готов'], running: ['run', 'выполняется'], paused: ['pause', 'пауза'], input: ['input', 'ждёт ввода'],
@@ -211,6 +271,9 @@ export class Lab {
     };
     const [cls, txt] = labels[s] || ['', s];
     this.console.status(txt, cls);
+    const sb = document.querySelector('[data-sb="state"]');
+    if (sb) { sb.className = 'sb-i sb-state ' + cls; sb.querySelector('b').textContent = txt; }
+    document.documentElement.dataset.run = s;
   }
 
   // ——— запуск ———
@@ -258,10 +321,11 @@ export class Lab {
     this.runCompile = c;
     this.runStdin = stdin.trim() ? (stdin.endsWith('\n') ? stdin : stdin + '\n') : null;
     this.runFiles = JSON.parse(JSON.stringify(store.get('lab.files', {})));
-    this.runHeader = [...this.console.term.children].map(el => [el.innerHTML, el.className.replace(/^tl ?/, '')]);
+    this.runHeader = [...this.console.term.children].filter(el => !el.classList.contains('kline')).map(el => [el.innerHTML, el.className.replace(/^tl ?/, '')]);
     this.interp = new Interpreter(c.program, c.pp, { ...this.runOpts(), tracing: mode !== 'instant' });
     this.gen = this.interp.run();
     this.stepNo = 0;
+    this.maxStep = 0;
     this.inputLog = [];
     this.mode = mode;
     // камера следует за выполнением, только если пользователь это не выключил
@@ -285,6 +349,7 @@ export class Lab {
         if (!this.advance(true)) break;
       }
       this.refreshProcesses(true);
+      this.updateTimeline();
       if (this.state === 'running') this.rafId = requestAnimationFrame(() => this.loop());
       return;
     }
@@ -305,9 +370,30 @@ export class Lab {
    *  и прокрутить до предыдущего шага, подставляя тот же ввод с клавиатуры. */
   updateBack() { const b = this.el('[data-act="back"]'); if (b) b.disabled = !this.canStepBack(); }
   canStepBack() { return !!this.runCompile && this.stepNo > 1 && ['paused', 'input', 'done', 'error'].includes(this.state); }
-  stepBack() {
+  /** Перейти к шагу n: назад — тихим перезапуском, вперёд — быстрым выполнением. */
+  gotoStep(n) {
+    if (!this.runCompile || !n) return;
+    if (n < this.stepNo) { this.stepBack(n); return; }
+    if (n > this.stepNo && this.state === 'paused' && this.gen) {
+      while (this.stepNo < n - 1 && this.advance(true)) { /* вперёд без анимации */ }
+      if (this.state === 'paused' && this.gen && this.stepNo < n) this.advance(false);
+      this.refreshProcesses(true);
+    }
+    this.updateTimeline();
+  }
+  updateTimeline() {
+    const tl = this.el('[data-timeline]');
+    if (!tl) return;
+    tl.max = this.maxStep || 0;
+    tl.value = this.stepNo || 0;
+    tl.disabled = !this.runCompile || this.state === 'running' || this.state === 'idle' || this.state === 'cerror';
+    tl.style.setProperty('--p', this.maxStep ? ((this.stepNo || 0) / this.maxStep) * 100 + '%' : '0%');
+    this.el('[data-stepno]').textContent = this.runCompile && this.stepNo ? `шаг ${this.stepNo}${this.maxStep > this.stepNo ? ' из ' + this.maxStep : ''}` : '—';
+    this.status('step', this.runCompile && this.stepNo ? `шаг ${this.stepNo}` : '');
+  }
+  stepBack(to) {
     if (!this.canStepBack()) return;
-    const target = this.stepNo - 1;
+    const target = Math.max(1, to ?? this.stepNo - 1);
     const inputs = (this.inputLog || []).slice();
     const c = this.runCompile;
     clearTimeout(this.timer); cancelAnimationFrame(this.rafId);
@@ -370,20 +456,23 @@ export class Lab {
     if (r.done) { this.finish(); return false; }
     const step = r.value;
     this.stepNo++;
+    if (this.stepNo > (this.maxStep || 0)) this.maxStep = this.stepNo;
     const dur = fast ? 0 : Math.min(950, SPEEDS[this.speed - 1] * 0.85);
-    const logFull = this.console.logCount >= 2500;
+    const maxLogs = settings.get('logs.max') || Infinity;
+    const logFull = this.console.logCount >= maxLogs;
     for (const ev of step.events) {
       this.scene.apply(ev, dur);
       this.consoleEvent(ev);
       if (!fast || !logFull) {
         const x = explain(ev);
         if (x) this.console.log({ step: this.stepNo, line: ev.line || step.line, html: x.html, kind: x.kind, ent: this.entKey(ev) });
-      } else if (this.console.logCount < 2502) this.console.log({});
+      } else if (this.console.logCount < maxLogs + 2) this.console.log({});
     }
     this.scene.setLine(step.line);
     this.lastStep = step;
     if (!fast) {
       this.updateBack();
+      this.updateTimeline();
       this.editor.setExecLine(step.line, step.kind === 'input' ? 'input' : '');
       this.showStep(step);
       this.refreshProcesses();
@@ -504,7 +593,7 @@ export class Lab {
 
   // ——— панель «Операция» ———
   showStep(step) {
-    this.showOp(renderStep(step, { stepNo: this.stepNo, srcLines: this.scene.srcLines }));
+    this.showOp(renderStep(step, { stepNo: this.stepNo, srcLines: this.scene.srcLines, showVisuals: settings.get('run.visuals') }));
   }
   showOp(html) {
     this.op.innerHTML = html;
@@ -517,7 +606,9 @@ export class Lab {
   }
   syncInsets() {
     const h = this.op.hidden ? 0 : this.op.getBoundingClientRect().height + 16;
-    this.renderer.setInsets({ bottom: h, top: 0 });
+    const pl = this.el('[data-player]');
+    const top = pl ? pl.getBoundingClientRect().height + 20 : 0;
+    this.renderer.setInsets({ bottom: h, top });
   }
 
   refreshProcesses(force) {
@@ -607,7 +698,46 @@ export class Lab {
     this.inspector.hidden = false;
   }
 
+  /** Подсказка при наведении: что это за элемент и за что он отвечает. */
+  hoverTip(h) {
+    if (!h) return '';
+    const code = (t) => `<code>${esc(t)}</code>`;
+    switch (h.kind) {
+      case 'var': {
+        const o = h.o;
+        const role = o.kind === 'param' ? 'Параметр функции — копия переданного аргумента.' : o.kind === 'heap' ? 'Блок динамической памяти из malloc: живёт, пока не вызван free.' : o.frameId === 'global' ? 'Глобальная переменная: видна во всех функциях и живёт всю программу.' : 'Локальная переменная: живёт, пока выполняется её блок { }.';
+        const val = o.shape === 'scalar' ? (o.cells[0]?.init ? `Сейчас: <b>${esc(o.cells[0].display)}</b>.` : '<b class="bad">Значение не задано — в ячейке мусор.</b>') : `${o.cells.length} ячеек.`;
+        return `<b>${esc(o.name)}</b> · ${code(o.typeName)} · ${o.size} Б<br>${esc(typeInfo(o.typeName))}<br>${role} ${val}<div class="ut-k">нажмите — паспорт переменной с историей значений</div>`;
+      }
+      case 'loop': return `<b>Таблица цикла</b> ${code(h.lp.head || '')}<br>Каждая строка — одна итерация. Столбцы — переменные, которые изменились в теле, со значениями <b>после</b> итерации. Справа — результат проверки условия: пока «истина», цикл повторяется.`;
+      case 'line': {
+        const src = (this.scene.srcLines[h.line - 1] || '').trim();
+        const cur = h.fr.curLine === h.line && !h.fr.ended;
+        return `<b>Строка ${h.line}</b> ${code(src)}<br>${cur ? 'Выполняется <b>сейчас</b> (подсвечена).' : h.fr.visited.has(h.line) ? 'Уже выполнялась.' : 'Ещё не выполнялась (бледная).'} Метки справа: <b>да/нет</b> — результат if, <b>×N</b> — сколько раз повторился цикл.<div class="ut-k">нажмите — показать строку в редакторе</div>`;
+      }
+      case 'frame': return `<b>Кадр функции ${esc(h.fr.func)}</b><br>Участок стека: здесь живут её параметры и локальные переменные. Когда функция вызывает другую, новый кадр появляется ниже; при return кадр исчезает.`;
+      case 'computer': return '<b>Компьютер</b><br><b>Экран</b> — всё, что вывели printf и puts; ↵ отмечает перевод строки <code>\\n</code>. <b>Буфер клавиатуры</b> — напечатанные символы, которые scanf ещё не забрал. «Подключено» — библиотеки из #include.';
+      case 'globals': return '<b>Глобальные переменные</b><br>Объявлены вне функций: видны отовсюду, живут всю программу, по умолчанию равны нулю.';
+      case 'heap': return '<b>Куча (heap)</b><br>Память, выделенная malloc/calloc. Не исчезает сама: её нужно вернуть через free, иначе будет утечка.';
+      case 'files': return '<b>Файлы</b><br>Виртуальный диск: что программа записала через fprintf/fputs и что читает через fscanf/fgets.';
+      default: return '';
+    }
+  }
+
   onFrame(r) {
+    const tip = this.tipEl || (this.tipEl = this.el('[data-utip]'));
+    if (tip) {
+      const h = r.mouse && r.pointers.size === 0 && settings.get('ui.tips') ? r.hoverHit : null;
+      const key = h ? h.key + (h.o?.cells?.[0]?.display ?? '') : '';
+      if (key !== this._tipKey) { this._tipKey = key; tip.innerHTML = this.hoverTip(h); this._tipAt = performance.now(); }
+      const show = !!(h && tip.innerHTML && performance.now() - this._tipAt > 450);
+      tip.hidden = !show;
+      if (show) {
+        const pw = tip.parentElement.clientWidth, ph = tip.parentElement.clientHeight;
+        const x = Math.min(r.mouse.x + 16, pw - tip.offsetWidth - 8), y = r.mouse.y + 18 + tip.offsetHeight > ph ? r.mouse.y - tip.offsetHeight - 10 : r.mouse.y + 18;
+        tip.style.transform = `translate(${Math.max(8, x)}px, ${Math.max(8, y)}px)`;
+      }
+    }
     if (!r.mouse) { this.coords.textContent = `масштаб ${r.cam.zoom.toFixed(2)}`; return; }
     const w = r.toWorld(r.mouse.x, r.mouse.y);
     this.coords.textContent = `(${Math.round(w.x)}, ${Math.round(w.y)}) · масштаб ${r.cam.zoom.toFixed(2)}`;

@@ -1,6 +1,7 @@
 // Отрисовка вселенной на canvas: строгая сетка панелей и мини-таблиц.
 // Управление: перетаскивание — перемещение, колесо/щипок — масштаб, касание — выбор.
 import { G, colorForType, shortVal } from './scene.js';
+import { settings } from '../ui/settings.js';
 
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -200,6 +201,7 @@ export class Renderer {
     if (!this.mouse) return;
     const h = this.hitTest(this.mouse.x, this.mouse.y);
     this.hover = h?.key || null;
+    this.hoverHit = h;
     this.cv.style.cursor = h ? 'pointer' : 'grab';
   }
 
@@ -324,18 +326,26 @@ export class Renderer {
     const n = r.screenLines;
     const first = Math.max(0, scr.lines.length - n);
     const fresh = this.flashA(scr.lastAt, 1200);
+    // печатная машинка: сколько символов уже «напечатано»
+    const tp = scr.typeDur ? clamp((this.t - scr.typeAt) / scr.typeDur, 0, 1) : 1;
+    const visible = tp < 1 ? Math.floor(scr.typeFrom + (scr.typeTo - scr.typeFrom) * tp) : Infinity;
     for (let i = 0; i < n && first + i < scr.lines.length; i++) {
       const li = first + i;
       const ly = sy + 32 + i * 20;
-      const line = scr.lines[li];
+      const start = scr.starts?.[li] ?? 0;
+      if (start > visible) break;
+      const full = scr.lines[li];
+      const line = visible === Infinity ? full : full.slice(0, Math.max(0, visible - start));
+      const typing = line.length < full.length || (visible !== Infinity && start + full.length + 1 > visible);
       this.font(13);
       const shown = this.fit(line, sw - 60);
       const w = this.text(shown, sx + 12, ly, { size: 13, color: C.text });
-      const isLast = li === scr.lines.length - 1;
-      if (scr.ended[li]) this.text('↵', sx + 16 + w, ly, { size: 12, color: alpha(C.accent, 0.55) });
+      const isLast = li === scr.lines.length - 1 || typing;
+      if (scr.ended[li] && !typing) this.text('↵', sx + 16 + w, ly, { size: 12, color: alpha(C.accent, 0.55) });
       if (isLast) {
-        const blink = Math.floor(this.t / 530) % 2 === 0;
+        const blink = typing || Math.floor(this.t / 530) % 2 === 0;
         if (blink || sc.waitingInput) this.rect(sx + 14 + w, ly - 8, 8, 16, { fill: sc.waitingInput ? C.yellow : alpha(C.accent, 0.8), r: 1 });
+        if (typing) break;
       }
     }
     if (fresh > 0 && scr.fresh) {
@@ -416,6 +426,7 @@ export class Renderer {
     this.drawListing(b);
     if (!fr.vars.length && this.lod) this.text('переменных пока нет', b.x + G.varsX, b.codeY + 16, { size: 11, color: C.faint, mono: false });
     for (const t of b.traces) this.drawTrace(t, fr);
+    this.drawJump(b);
     ctx.restore();
   }
 
@@ -456,12 +467,44 @@ export class Renderer {
       this.font(10.5);
       const tagW = tag ? this.ctx.measureText(tag).width + 10 : 0;
       this.text(src.trimEnd(), x + gutter + 4, ly + G.lineH / 2, { size: 11.5, color: cur ? C.text : fr.visited.has(ln) ? C.text2 : C.muted, maxW: w - gutter - 10 - tagW });
+      // вспышка строки: условие проверено — зелёным (истина) или красным (ложь)
+      const fsrc = lp ? (lp.lastCond !== undefined ? { at: lp.at, col: lp.lastCond ? C.green : C.red } : null) : s ? { at: s.at, col: tagColor } : null;
+      if (fsrc && settings.get('run.flashes')) {
+        const cf = this.flashA(fsrc.at, 900);
+        if (cf > 0) this.rect(x + 1, ly, w - 2, G.lineH, { fill: alpha(fsrc.col, 0.16 * cf), r: 2 });
+      }
       if (tag) {
         const fl = this.flashA(s?.at ?? lp?.at, 700);
         this.rect(x + w - tagW - 4, ly + 3, tagW, G.lineH - 6, { fill: alpha(tagColor, 0.1 + fl * 0.25), r: 3 });
         this.text(tag, x + w - tagW / 2 - 4, ly + G.lineH / 2, { size: 10.5, color: tagColor, align: 'center' });
       }
     }
+  }
+
+  /** Стрелка break/continue: откуда и куда перешло выполнение (гаснет за 2 с). */
+  drawJump(b) {
+    const j = b.fr.jump;
+    if (!j) return;
+    const a = this.flashA(j.at, 2200);
+    if (a <= 0) return;
+    const ctx = this.ctx;
+    const y = (ln) => b.codeY + (ln - b.fr.span.start) * G.lineH + G.lineH / 2;
+    const x = b.codeX + 1, y0 = y(j.from), y1 = y(j.to);
+    const col = j.kind === 'break' ? C.red : C.yellow;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = this.px(1.4);
+    if (j.kind === 'continue') ctx.setLineDash([this.px(4), this.px(3)]);
+    ctx.beginPath();
+    // дуга слева от листинга, стрелка указывает на строку, куда перешло выполнение
+    ctx.moveTo(x + 4, y0);
+    ctx.bezierCurveTo(x - 13, y0, x - 13, y1, x + 1, y1);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(x + 7, y1); ctx.lineTo(x, y1 - 4); ctx.lineTo(x, y1 + 4); ctx.closePath(); ctx.fill();
+    ctx.restore();
   }
 
   // ——— таблица трассировки цикла ———
