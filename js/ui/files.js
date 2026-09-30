@@ -186,6 +186,7 @@ export class Workspace {
         const a = act.dataset.fa;
         if (a === 'new') this.startNew();
         else if (a === 'upload') this.upload();
+        else if (a === 'hideside') this.o.hideSide?.();
         else if (a === 'download') this.download(id);
         else if (a === 'rename') this.startRename(id);
         else if (a === 'delete') { if (confirmClick(act, 'Удалить?')) this.remove(id); }
@@ -246,7 +247,7 @@ export class Workspace {
     const groups = {};
     for (const ex of this.o.examples) (groups[ex.group] ||= []).push(ex);
     const sec = (key, title, body, actions = '') => `<div class="fsec ${this.collapsed.has(key) ? 'closed' : ''}"><div class="fsec-h" data-grp="${key}">${I.chev}<span>${title}</span><span class="fsec-a">${actions}</span></div><div class="fsec-b">${body}</div></div>`;
-    side.innerHTML = `<div class="side-h"><span>Проводник</span></div>
+    side.innerHTML = `<div class="side-h"><span>Проводник</span><span class="side-a"><button data-fa="new" title="Новый файл (Ctrl+Alt+N)">${I.plus}</button><button data-fa="upload" title="Открыть файл с компьютера">${I.open}</button><button data-fa="hideside" title="Скрыть проводник (Ctrl+B)">${I.x}</button></span></div>
       <div class="side-scroll">
       ${sec('mine', 'Мои файлы', this.files.map(fileRow).join('') + (adding ? `<div class="fi fi-new">${I.file}<input value="program.c" spellcheck="false"></div>` : ''),
         `<button data-fa="new" title="Новый файл (Ctrl+Alt+N)">${I.plus}</button><button data-fa="upload" title="Открыть файл с компьютера">${I.open}</button>`)}

@@ -182,7 +182,7 @@ export function renderStep(step, { stepNo, srcLines, showVisuals = true }) {
   const evs = step.events || [];
   const line = step.line;
   const codeLine = line ? (srcLines[line - 1] || '').trim() : '';
-  const head = `<div class="op-head"><span class="op-step">шаг ${stepNo}</span>${line ? `<span class="op-line" data-line="${line}">строка ${line}</span><code class="op-code">${esc(codeLine)}</code>` : ''}<span class="op-tg"></span></div>`;
+  const head = `<div class="op-head"><span class="op-step">шаг ${stepNo}</span>${line ? `<span class="op-line" data-line="${line}">строка ${line}</span><code class="op-code">${esc(codeLine)}</code>` : ''}<span class="op-tg"></span><button class="op-close" data-opclose title="Скрыть панель «Операция» (вернуть — кнопка справа на поле)">×</button></div>`;
   const blocks = [];
   const sorted = [...evs].sort((a, b) => (PRIORITY[b.type] || 0) - (PRIORITY[a.type] || 0));
   const used = new Set();
@@ -212,6 +212,6 @@ export function renderStep(step, { stepNo, srcLines, showVisuals = true }) {
 
 export function renderMessage(title, html, kind = 'flow', line = 0, srcLines = []) {
   const codeLine = line ? (srcLines[line - 1] || '').trim() : '';
-  return `<div class="op-head"><span class="op-step">${esc(title)}</span>${line ? `<span class="op-line" data-line="${line}">строка ${line}</span><code class="op-code">${esc(codeLine)}</code>` : ''}<span class="op-tg"></span></div>
+  return `<div class="op-head"><span class="op-step">${esc(title)}</span>${line ? `<span class="op-line" data-line="${line}">строка ${line}</span><code class="op-code">${esc(codeLine)}</code>` : ''}<span class="op-tg"></span><button class="op-close" data-opclose title="Скрыть панель «Операция» (вернуть — кнопка справа на поле)">×</button></div>
     <div class="op-texts"><div class="op-x k-${kind}"><span class="kind-dot"></span><span>${html}</span></div></div>`;
 }

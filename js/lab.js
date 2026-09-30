@@ -37,6 +37,7 @@ export class Lab {
       onJump: (line, col) => this.editor.flash(line, col),
       onEntity: (id) => this.focusEntity(id),
       onSettings: (cat) => this.opts.openSettings?.(cat),
+      onHide: () => this.togglePane('panel', false),
       onSize: (mode) => {
         const lab = this.el('.lab');
         if (mode === 'max') { lab.style.setProperty('--con-h', '72%'); lab.style.setProperty('--con-h-p', '50%'); lab.style.setProperty('--uni-p', '28%'); }
@@ -53,6 +54,7 @@ export class Lab {
     this.op.addEventListener('click', (e) => {
       const ln = e.target.closest('[data-line]');
       if (ln) { this.editor.flash(+ln.dataset.line); return; }
+      if (e.target.closest('[data-opclose]')) { this.togglePane('op', false); return; }
       if (e.target.closest('.op-head')) { this.op.classList.toggle('mini'); settings.set('run.opAuto', !this.op.classList.contains('mini')); this.syncInsets(); }
     });
     if (!settings.get('run.opAuto')) this.op.classList.add('mini');
@@ -73,14 +75,21 @@ export class Lab {
       getStdin: () => this.stdinEl.value,
       setStdin: (v) => { this.stdinEl.value = v; this.el('.stdin-box').open = !!v; },
       showSide: () => this.toggleSide(true),
+      hideSide: () => this.toggleSide(false),
       onSwitch: (f) => this.onFileSwitch(f),
     });
     this.editor.value = this.ws.current.code;
     this.stdinEl.value = this.ws.current.stdin || '';
     this.ws.render();
     this.stdinEl.addEventListener('input', () => this.ws.edited());
-    if (store.get('lab.noSide', false)) this.el('.lab').classList.add('no-side');
-    document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b' && !this.root.hidden) { e.preventDefault(); this.toggleSide(); } });
+    document.addEventListener('keydown', (e) => {
+      if (this.root.hidden || !(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === 'b' && !e.shiftKey) { e.preventDefault(); this.toggleSide(); }
+      else if (k === 'j' && !e.shiftKey) { e.preventDefault(); this.togglePane('panel'); }
+      else if (k === 'm' && e.shiftKey) { e.preventDefault(); this.togglePane('uni'); }
+    });
+    this.applyLayout();
     this.el('.p-side').addEventListener('click', () => this.renderFileStatus());
     settings.on((k) => this.onSetting(k));
     this.setState('idle');
@@ -113,18 +122,56 @@ export class Lab {
       lab.classList.toggle('side-open', force ?? !lab.classList.contains('side-open'));
       return;
     }
-    const hide = force === undefined ? !lab.classList.contains('no-side') : !force;
-    lab.classList.toggle('no-side', hide);
-    store.set('lab.noSide', hide);
-    setTimeout(() => this.renderer.resize(), 30);
+    settings.set('layout.side', force ?? !settings.get('layout.side'));
+  }
+  /** Показать/скрыть панель: side, editor, uni, panel, op, player. */
+  togglePane(name, force) {
+    const key = 'layout.' + name;
+    const v = force ?? !settings.get(key);
+    // редактор и поле памяти не могут пропасть одновременно
+    if (!v && name === 'editor' && !settings.get('layout.uni')) settings.set('layout.uni', true);
+    if (!v && name === 'uni' && !settings.get('layout.editor')) settings.set('layout.editor', true);
+    settings.set(key, v);
+  }
+  applyLayout() {
+    const lab = this.el('.lab');
+    const g = (k) => settings.get('layout.' + k);
+    lab.classList.toggle('no-side', !g('side'));
+    lab.classList.toggle('no-editor', !g('editor'));
+    lab.classList.toggle('no-uni', !g('uni'));
+    lab.classList.toggle('no-panel', !g('panel'));
+    this.el('.p-universe').classList.toggle('no-op', !g('op'));
+    this.el('.p-universe').classList.toggle('no-player', !g('player'));
+    for (const b of document.querySelectorAll('[data-lay]')) b.classList.toggle('on', !!g(b.dataset.lay));
+    this.el('[data-u="op"]')?.classList.toggle('on', g('op'));
+    clearTimeout(this._lr);
+    this._lr = setTimeout(() => { this.renderer.resize(); this.syncInsets(); this.console.placeCursor?.(true); }, 40);
+  }
+  /** Готовые раскладки. */
+  preset(name) {
+    const lab = this.el('.lab');
+    const P = {
+      balanced: { side: true, editor: true, uni: true, panel: true, op: true, ed: '33%', con: '34%' },
+      code: { side: true, editor: true, uni: false, panel: true, op: true, con: '38%' },
+      visual: { side: false, editor: true, uni: true, panel: true, op: true, ed: '30%', con: '24%' },
+      study: { side: false, editor: true, uni: true, panel: false, op: true, ed: '36%' },
+      terminal: { side: false, editor: true, uni: false, panel: true, op: true, con: '58%' },
+    }[name];
+    if (!P) return;
+    if (P.ed) { lab.style.setProperty('--ed-w', P.ed); store.set('lab.edW', P.ed); }
+    if (P.con) { lab.style.setProperty('--con-h', P.con); store.set('lab.conH', P.con); }
+    for (const k of ['side', 'editor', 'uni', 'panel', 'op']) settings.set('layout.' + k, P[k]);
+    this.applyLayout();
   }
   status(key, html) { const el = document.querySelector(`[data-sb="${key}"]`); if (el) el.innerHTML = html; }
   renderFileStatus() {
     const f = this.ws.current;
     if (!f) return;
+    this.opts.onCrumb?.(f);
     this.status('file', `${f.preview ? '<i>пример</i> · ' : ''}${esc(f.name)}${this.ws.dirty.has(f.id) ? ' <span class="sb-dirty">●</span>' : ''}`);
   }
   onSetting(k) {
+    if (k.startsWith('layout.')) this.applyLayout();
     if (k === 'run.follow') { this.renderer.follow = settings.get(k); this.el('[data-u="follow"]').classList.toggle('on', this.renderer.follow); }
     if (k === 'run.speed') { this.speed = settings.get(k); this.el('[data-speed]').value = this.speed; this.updateSpeedLabel(); }
     if (k === 'editor.liveCheck' || k.startsWith('editor.')) this.onCodeChange(true, true);
@@ -179,6 +226,7 @@ export class Lab {
       if (r.follow) r.lastUser = 0;
     });
     b('legend', () => { const l = this.el('[data-legend]'); l.hidden = !l.hidden; });
+    b('op', () => this.togglePane('op'));
     b('full', () => {
       const pane = this.el('.p-universe');
       if (document.fullscreenElement) document.exitFullscreen();
@@ -256,6 +304,15 @@ export class Lab {
     this.root.dataset.state = s;
     const runBtn = this.el('[data-act="run"]');
     runBtn.innerHTML = s === 'paused' ? `${PLAY}<span>Продолжить</span>` : `${PLAY}<span>Запуск</span>`;
+    const tr = document.querySelector('[data-trun="run"]');
+    if (tr) {
+      const PAUSE_I = '<svg class="ic" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg>';
+      tr.innerHTML = s === 'running' ? `${PAUSE_I}<span>Пауза</span>` : s === 'paused' ? `${PLAY}<span>Продолжить</span>` : `${PLAY}<span>Запуск</span>`;
+      tr.disabled = s === 'input';
+      tr.classList.toggle('pause', s === 'running');
+      document.querySelector('[data-trun="stop"]').disabled = !(s === 'running' || s === 'input' || s === 'paused');
+      document.querySelector('[data-trun="step"]').disabled = s === 'running' || s === 'input';
+    }
     const busy = s === 'running' || s === 'input' || s === 'paused';
     this.el('[data-act="pause"]').disabled = s !== 'running';
     this.el('[data-act="stop"]').disabled = !busy;
@@ -605,9 +662,10 @@ export class Lab {
     this.showOp(renderMessage('компиляция', x.html, x.kind, line, this.editor.value.split('\n')));
   }
   syncInsets() {
-    const h = this.op.hidden ? 0 : this.op.getBoundingClientRect().height + 16;
+    const opOn = !this.op.hidden && settings.get('layout.op');
+    const h = opOn ? this.op.getBoundingClientRect().height + 16 : 0;
     const pl = this.el('[data-player]');
-    const top = pl ? pl.getBoundingClientRect().height + 20 : 0;
+    const top = pl && settings.get('layout.player') ? pl.getBoundingClientRect().height + 20 : 0;
     this.renderer.setInsets({ bottom: h, top });
   }
 

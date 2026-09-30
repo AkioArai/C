@@ -39,6 +39,7 @@ export class ConsolePanel {
           <button class="tbtn" data-tt="clear" title="Очистить терминал">${ICON.clear}</button>
           <button class="tbtn" data-tt="size" title="Развернуть / свернуть панель">${ICON.up}</button>
           <button class="tbtn" data-tt="cfg" title="Настройки терминала (Ctrl+,)">${ICON.cfg}</button>
+          <button class="tbtn" data-tt="hide" title="Скрыть панель (Ctrl+J)"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
       </div>
       <div class="con-body">
@@ -267,6 +268,7 @@ export class ConsolePanel {
       this.setSize(this.size);
     }
     if (name === 'cfg') this.opts.onSettings?.('term');
+    if (name === 'hide') this.opts.onHide?.();
   }
   setSize(mode) {
     this.size = mode;
