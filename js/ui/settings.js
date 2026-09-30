@@ -1,5 +1,6 @@
 // Единые настройки приложения: схема, хранение, окно с поиском (в духе VS Code).
 import { store } from '../store.js';
+import { applyTheme } from './theme.js';
 
 const ACCENTS = [
   ['#c8f05a', 'Салатовый'], ['#e9d85c', 'Жёлтый'], ['#7fd6c2', 'Мятный'],
@@ -8,12 +9,21 @@ const ACCENTS = [
 
 export const SCHEMA = [
   { id: 'ui', title: 'Интерфейс', icon: 'M4 5h16v14H4zM4 9h16', items: [
-    { key: 'ui.density', label: 'Плотность', desc: 'Размер кнопок, отступов и панелей.', type: 'seg', options: [['compact', 'Компактная'], ['normal', 'Обычная'], ['touch', 'Для пальцев']], def: 'compact' },
+    { key: 'ui.theme', label: 'Тема', desc: 'Оформление всего приложения, подсветки кода и поля памяти.', type: 'seg', options: [['graphite', 'Графит'], ['midnight', 'Полночь'], ['light', 'Светлая']], def: 'graphite' },
+    { key: 'ui.density', label: 'Плотность', desc: 'Размер кнопок, отступов и панелей.', type: 'seg', options: [['compact', 'Компактная'], ['normal', 'Обычная'], ['touch', 'Для пальцев']], def: 'normal' },
     { key: 'ui.fontSize', label: 'Размер текста интерфейса', desc: 'Меню, панели, пояснения.', type: 'range', min: 11, max: 16, step: 0.5, unit: 'px', def: 13 },
     { key: 'ui.accent', label: 'Акцентный цвет', desc: 'Цвет кнопки запуска, выделений и текущей строки.', type: 'swatch', options: ACCENTS, def: '#c8f05a' },
     { key: 'ui.tips', label: 'Подсказки при наведении на поле памяти', desc: 'Что это за элемент и за что он отвечает.', type: 'bool', def: true },
     { key: 'ui.statusBar', label: 'Строка состояния внизу', desc: 'Состояние программы, шаг, строка и столбец курсора.', type: 'bool', def: true },
     { key: 'ui.reduceMotion', label: 'Меньше движения', desc: 'Отключить плавные анимации интерфейса.', type: 'bool', def: false },
+  ] },
+  { id: 'layout', title: 'Раскладка', icon: 'M4 4h16v16H4zM10 4v16M10 14h10', items: [
+    { key: 'layout.side', label: 'Проводник файлов', desc: 'Ctrl+B', type: 'bool', def: true },
+    { key: 'layout.editor', label: 'Редактор кода', type: 'bool', def: true },
+    { key: 'layout.uni', label: 'Поле памяти (визуализация)', desc: 'Ctrl+Shift+M', type: 'bool', def: true },
+    { key: 'layout.panel', label: 'Нижняя панель: терминал, логи, процессы, проблемы', desc: 'Ctrl+J', type: 'bool', def: true },
+    { key: 'layout.op', label: 'Панель «Операция» поверх поля памяти', desc: 'Разбор текущего шага картинками.', type: 'bool', def: true },
+    { key: 'layout.player', label: 'Пульт выполнения на поле памяти', desc: 'Кнопки запуска всегда есть и в шапке.', type: 'bool', def: true },
   ] },
   { id: 'editor', title: 'Редактор', icon: 'M8 7l-5 5 5 5M16 7l5 5-5 5', items: [
     { key: 'editor.fontSize', label: 'Размер шрифта кода', type: 'range', min: 11, max: 22, step: 0.5, unit: 'px', def: 13.5 },
@@ -43,7 +53,7 @@ export const SCHEMA = [
     { key: 'run.opAuto', label: 'Панель «Операция» развёрнута', desc: 'Выключите, чтобы видеть только заголовок шага.', type: 'bool', def: true },
   ] },
   { id: 'term', title: 'Терминал', icon: 'M4 17l5-5-5-5M11 18h9', items: [
-    { key: 'term.fs', label: 'Размер текста', type: 'range', min: 9, max: 24, step: 0.5, unit: 'px', def: 13 },
+    { key: 'term.fs', label: 'Размер текста', type: 'range', min: 9, max: 24, step: 0.5, unit: 'px', def: 14 },
     { key: 'term.lh', label: 'Межстрочный интервал', type: 'range', min: 1.1, max: 2.2, step: 0.05, unit: '×', def: 1.6 },
     { key: 'term.wrap', label: 'Длинные строки', type: 'seg', options: [[false, 'листать вправо-влево'], [true, 'переносить']], def: false },
     { key: 'term.font', label: 'Шрифт', type: 'seg', options: [['jet', 'JetBrains Mono'], ['system', 'Системный'], ['serif', 'С засечками']], def: 'jet' },
@@ -99,10 +109,7 @@ export function applyUi() {
   const r = document.documentElement;
   r.dataset.density = settings.get('ui.density');
   r.style.setProperty('--ui-fs', settings.get('ui.fontSize') + 'px');
-  const acc = settings.get('ui.accent');
-  r.style.setProperty('--accent', acc);
-  const n = parseInt(acc.slice(1), 16);
-  r.style.setProperty('--accent-rgb', `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`);
+  applyTheme(settings.get('ui.theme'), settings.get('ui.accent'));
   const fs = settings.get('editor.fontSize');
   r.style.setProperty('--fs-code', fs + 'px');
   r.style.setProperty('--lh-code', Math.round(fs * settings.get('editor.lineHeight')) + 'px');

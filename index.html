@@ -13,7 +13,35 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <header class="titlebar">
+    <a class="tb-logo" href="#/home" title="Главная"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="16" cy="16" r="2.8" fill="currentColor"/><circle cx="26.5" cy="11" r="1.9" fill="currentColor"/></svg><span>Вселенная&nbsp;Си</span></a>
+    <nav class="tb-crumb" data-crumb aria-label="Где вы сейчас"></nav>
+    <button class="cmdk" data-cmdk title="Поиск и команды (Ctrl+K)"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><span>Поиск: файлы, примеры, уроки, задачи, команды</span><kbd>Ctrl K</kbd></button>
+    <div class="tb-right">
+      <div class="tb-run" data-tbrun>
+        <button class="tb-go" data-trun="run" title="Запуск (F5)"><svg class="ic" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg><span>Запуск</span></button>
+        <button class="tb-b" data-trun="step" title="Один шаг (F10)"><svg class="ic" viewBox="0 0 24 24"><path d="M6 5l9 7-9 7z"/><path d="M18 5v14"/></svg></button>
+        <button class="tb-b" data-trun="stop" title="Остановить (Shift+F5)"><svg class="ic" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg></button>
+      </div>
+      <span class="tb-sep"></span>
+      <div class="tb-lay" role="group" aria-label="Панели">
+        <button class="tb-b" data-lay="side" title="Проводник (Ctrl+B)"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
+        <button class="tb-b" data-lay="panel" title="Нижняя панель: терминал и логи (Ctrl+J)"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18"/></svg></button>
+        <button class="tb-b" data-lay="uni" title="Поле памяти (Ctrl+Shift+M)"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M13 4v16"/></svg></button>
+        <button class="tb-b" data-laymenu title="Готовые раскладки"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></button>
+      </div>
+      <button class="tb-b" data-themetoggle title="Тема: графит / полночь / светлая"><svg class="ic" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
+    </div>
+    <div class="menu" data-laypop hidden>
+      <button data-preset="balanced"><b>Сбалансированная</b><small>код, память и терминал</small></button>
+      <button data-preset="code"><b>Фокус на коде</b><small>редактор и терминал, без поля памяти</small></button>
+      <button data-preset="visual"><b>Фокус на памяти</b><small>большое поле памяти и разбор шагов</small></button>
+      <button data-preset="study"><b>Разбор по шагам</b><small>код и память, терминал спрятан</small></button>
+      <button data-preset="terminal"><b>Терминал крупно</b><small>код и большой терминал</small></button>
+    </div>
+  </header>
   <nav class="rail" aria-label="Разделы">
+    <a href="#/home" data-nav="home" class="rail-i" title="Главная: прогресс и быстрый старт"><svg class="ic" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/><path d="M10 20v-5h4v5"/></svg><span>Главная</span></a>
     <a href="#/lab" data-nav="lab" class="rail-i" data-explorer title="Код и проводник файлов (Ctrl+B — скрыть/показать проводник)"><svg class="ic" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9.5 12.5l-1.5 1.5 1.5 1.5M14.5 12.5l1.5 1.5-1.5 1.5"/></svg><span>Код</span></a>
     <a href="#/learn" data-nav="learn" class="rail-i" title="Теория по методичкам"><svg class="ic" viewBox="0 0 24 24"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg><span>Теория</span></a>
     <a href="#/practice" data-nav="practice" class="rail-i" title="Задачи с автопроверкой"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6" fill="currentColor"/></svg><span>Задачи</span><em class="rail-badge" data-progress title="Решено задач"></em></a>
@@ -24,13 +52,16 @@
   </nav>
 
   <main>
+    <!-- ГЛАВНАЯ -->
+    <section class="view" id="view-home" data-view="home" hidden></section>
+
     <!-- ЛАБОРАТОРИЯ -->
     <section class="view" id="view-lab" data-view="lab">
       <div class="lab">
         <aside class="pane p-side" data-side aria-label="Проводник"></aside>
         <div class="splitter s" data-split="s" aria-hidden="true"></div>
         <div class="pane p-editor">
-          <div class="tabs" data-tabs role="tablist" aria-label="Открытые файлы"></div>
+          <div class="ed-top"><div class="tabs" data-tabs role="tablist" aria-label="Открытые файлы"></div></div>
           <div class="editor-host" data-editor></div>
           <details class="stdin-box">
             <summary>Входные данные заранее <small>(необязательно)</small></summary>
@@ -62,6 +93,7 @@
             <button class="ubtn" data-u="zout" title="Отдалить"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
             <button class="ubtn" data-u="home" title="Показать всю вселенную"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/></svg></button>
             <button class="ubtn" data-u="follow" title="Камера следует за выполнением"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+            <button class="ubtn" data-u="op" title="Панель «Операция»: разбор шага"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18M7 17h6"/></svg></button>
             <button class="ubtn" data-u="legend" title="Легенда: что означают объекты"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><path d="M12 17.5v.01"/></svg></button>
             <button class="ubtn" data-u="full" title="Во весь экран"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
           </div>
@@ -124,6 +156,8 @@
     <div class="keys-card" role="dialog" aria-label="Горячие клавиши">
       <div class="keys-h"><b>Горячие клавиши</b><button class="in-close" data-close aria-label="Закрыть">×</button></div>
       <table>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>Поиск по всему: файлы, примеры, уроки, задачи, команды</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></td><td>Только команды</td></tr>
         <tr><td><kbd>F5</kbd> или <kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>Запуск / пауза / продолжить</td></tr>
         <tr><td><kbd>F10</kbd></td><td>Один шаг</td></tr>
         <tr><td><kbd>Shift</kbd>+<kbd>F10</kbd></td><td>Шаг назад</td></tr>
@@ -136,6 +170,8 @@
         <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>N</kbd></td><td>Новый файл</td></tr>
         <tr><td><kbd>F2</kbd></td><td>Переименовать файл</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd></td><td>Скрыть/показать проводник</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>J</kbd></td><td>Скрыть/показать терминал</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd></td><td>Скрыть/показать поле памяти</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>Настройки</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Дублировать строку</td></tr>
         <tr><td><kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></td><td>Переместить строку</td></tr>

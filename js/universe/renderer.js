@@ -9,10 +9,11 @@ const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
 const SANS = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 
-const C = {
+export const C = {
   bg: '#0a0b09', panel: '#0e100d', panel2: '#121510', card: '#10120f', line: '#20241e', line2: '#2c3128', line3: '#3a4034',
   faint: '#4b5145', muted: '#767d6c', text: '#e6e9df', text2: '#b3b8a9',
   accent: '#c8f05a', yellow: '#e9d85c', green: '#8fd46a', red: '#e0705f', amber: '#e3b36b',
+  screen: '#080907', code: '#0d0f0c', cell: '#161914', zebra: 'rgba(255,255,255,0.018)', ptr: '#9fc7a8', star: '210,220,190', screenText: '#e6e9df',
 };
 
 function alpha(hex, a) {
@@ -259,7 +260,7 @@ export class Renderer {
       let x = (s.x - this.cam.x * 0.05) % 2400; if (x < 0) x += 2400;
       let y = (s.y - this.cam.y * 0.05) % 2400; if (y < 0) y += 2400;
       if (x > W || y > H) continue;
-      ctx.fillStyle = `rgba(210,220,190,${s.a})`;
+      ctx.fillStyle = `rgba(${C.star},${s.a})`;
       ctx.fillRect(x, y, s.s, s.s);
     }
     ctx.save();
@@ -320,7 +321,7 @@ export class Renderer {
     this.text(status, r.x + r.w - 14, r.y + 20, { size: 11, color: sc.waitingInput ? C.yellow : sc.finished ? C.green : C.text2, align: 'right', mono: false });
     // экран
     const sx = r.x + 14, sy = r.y + 36, sw = 486, sh = r.screenLines * 20 + 30;
-    this.rect(sx, sy, sw, sh, { fill: '#080907', r: 5 });
+    this.rect(sx, sy, sw, sh, { fill: C.screen, r: 5 });
     this.text('экран', sx + 10, sy + 12, { size: 9.5, color: C.faint, mono: false });
     const scr = sc.screen;
     const n = r.screenLines;
@@ -339,7 +340,7 @@ export class Renderer {
       const typing = line.length < full.length || (visible !== Infinity && start + full.length + 1 > visible);
       this.font(13);
       const shown = this.fit(line, sw - 60);
-      const w = this.text(shown, sx + 12, ly, { size: 13, color: C.text });
+      const w = this.text(shown, sx + 12, ly, { size: 13, color: C.screenText });
       const isLast = li === scr.lines.length - 1 || typing;
       if (scr.ended[li] && !typing) this.text('↵', sx + 16 + w, ly, { size: 12, color: alpha(C.accent, 0.55) });
       if (isLast) {
@@ -354,7 +355,7 @@ export class Renderer {
     }
     // буфер ввода
     const bx = sx + sw + 12, bw = r.x + r.w - 14 - bx, bh = 92;
-    this.rect(bx, sy, bw, bh, { fill: '#080907', stroke: sc.waitingInput ? alpha(C.yellow, 0.7) : undefined, r: 5 });
+    this.rect(bx, sy, bw, bh, { fill: C.screen, stroke: sc.waitingInput ? alpha(C.yellow, 0.7) : undefined, r: 5 });
     this.text('буфер клавиатуры', bx + 10, sy + 12, { size: 9.5, color: C.faint, mono: false });
     const cw = 16, perRow = Math.floor((bw - 20) / cw);
     const recent = sc.inputBuf.recent || '';
@@ -366,7 +367,7 @@ export class Renderer {
       const x = bx + 10 + (i % perRow) * cw, y = sy + 26 + Math.floor(i / perRow) * 20;
       this.rect(x, y, cw - 2, 18, { fill: c.used ? alpha(C.yellow, 0.15 * rf) : 'transparent', stroke: c.used ? alpha(C.yellow, 0.5 * rf + 0.1) : C.line2, r: 2 });
       const g = c.ch === '\n' ? '↵' : c.ch === ' ' ? '·' : c.ch;
-      this.text(g, x + (cw - 2) / 2, y + 9, { size: 11, color: c.used ? alpha(C.yellow, 0.4 + 0.6 * rf) : c.ch === '\n' || c.ch === ' ' ? C.faint : C.text, align: 'center' });
+      this.text(g, x + (cw - 2) / 2, y + 9, { size: 11, color: c.used ? alpha(C.yellow, 0.4 + 0.6 * rf) : c.ch === '\n' || c.ch === ' ' ? C.faint : C.screenText, align: 'center' });
     });
     // библиотеки и константы
     const ly = sy + sh + 20;
@@ -434,7 +435,7 @@ export class Renderer {
     const fr = b.fr, sc = this.scene;
     const x = b.codeX, y0 = b.codeY, w = b.codeW;
     const n = fr.span.end - fr.span.start + 1;
-    this.rect(x, y0 - 6, w, n * G.lineH + 12, { fill: '#0c0e0b', r: 5 });
+    this.rect(x, y0 - 6, w, n * G.lineH + 12, { fill: C.code, r: 5 });
     const gutter = 30;
     // скобки циклов слева
     for (const lp of fr.loops.values()) {
@@ -627,7 +628,7 @@ export class Renderer {
     const drawCell = (cell, idx, cx, cy, label) => {
       const fl = o.ui?.flashCell === idx ? this.flashA(o.ui.flash, 900) : 0;
       if (!cell.init) this.hatch(cx, cy, cw, ch);
-      else this.rect(cx, cy, cw, ch, { fill: fl ? alpha(col, 0.12 + fl * 0.3) : '#151813', stroke: fl ? alpha(col, 0.7) : undefined, r: 3 });
+      else this.rect(cx, cy, cw, ch, { fill: fl ? alpha(col, 0.12 + fl * 0.3) : C.cell, stroke: fl ? alpha(col, 0.7) : undefined, r: 3 });
       let v = cell.init ? shortVal(cell.ptr !== undefined ? (cell.ptr === 0 ? 'NULL' : '→') : cell.display) : '';
       if (v === "'\\0'") v = '\\0';
       if (v) this.text(v, cx + cw / 2, cy + ch / 2, { size: 11, color: v === '\\0' ? C.muted : C.text, align: 'center', maxW: G.cellW - 8 });
@@ -668,7 +669,7 @@ export class Renderer {
       const y = c.y + 34 + i * 22 + 11;
       const fl = o.ui?.flashCell === i ? this.flashA(o.ui.flash, 900) : 0;
       if (fl) this.rect(c.x + 6, y - 10, c.w - 12, 20, { fill: alpha(col, fl * 0.2), r: 3 });
-      else if (i % 2 === 0) this.rect(c.x + 6, y - 10, c.w - 12, 20, { fill: 'rgba(255,255,255,0.015)', r: 3 });
+      else if (i % 2 === 0) this.rect(c.x + 6, y - 10, c.w - 12, 20, { fill: C.zebra, r: 3 });
       this.text(cell.label.replace(/^\./, ''), x + 4, y, { size: 11.5, color: C.text2, maxW: c.w * 0.4 });
       this.text(cell.typeName, x + c.w * 0.42, y, { size: 10, color: C.faint, maxW: c.w * 0.2 });
       if (!cell.init) {
@@ -713,7 +714,7 @@ export class Renderer {
         const toRight = { x: tc.x + tc.w, y: tc.y + 18 };
         const end = Math.abs(toRight.x - from.x) < Math.abs(to.x - from.x) ? toRight : to;
         const sel = this.scene.selected === 'obj:' + o.id || this.scene.selected === 'obj:' + tc.o.id;
-        ctx.strokeStyle = sel ? alpha('#9fc7a8', 0.95) : alpha('#9fc7a8', 0.45);
+        ctx.strokeStyle = sel ? alpha(C.ptr, 0.95) : alpha(C.ptr, 0.45);
         ctx.lineWidth = this.px(sel ? 1.5 : 1);
         const mx = Math.max(from.x, end.x) + 40;
         ctx.beginPath();
