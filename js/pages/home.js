@@ -3,6 +3,7 @@ import { LESSONS, TOPICS } from '../content/lessons.js';
 import { TASKS, TASK_TOPICS, LEVELS } from '../content/tasks.js';
 import { EXAMPLES } from '../content/examples.js';
 import { store } from '../store.js';
+import { stats as xpStats, ACHIEVEMENTS, icon } from '../ui/xp.js';
 
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const I = (d) => `<svg class="ic" viewBox="0 0 24 24">${d}</svg>`;
@@ -34,6 +35,13 @@ export class HomePage {
     const hour = new Date().getHours();
     const hello = hour < 5 ? 'Доброй ночи' : hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : 'Добрый вечер';
     const last = files[0];
+    const xp = xpStats();
+    const dstat = store.get('drill.stats', { ok: 0, all: 0 });
+    // последние 14 дней: были ли занятия
+    const days = new Set(xp.days);
+    const cal = Array.from({ length: 14 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (13 - i)); const k = d.toLocaleDateString('sv'); return `<i class="${days.has(k) ? 'on' : ''}${i === 13 ? ' today' : ''}" title="${d.toLocaleDateString('ru', { day: 'numeric', month: 'long' })}"></i>`; }).join('');
+    const gotN = ACHIEVEMENTS.filter(a => xp.got[a.id]).length;
+    const achs = ACHIEVEMENTS.map(a => `<div class="ach ${xp.got[a.id] ? 'got' : ''}" title="${a.desc}${xp.got[a.id] ? ' — получено ' + new Date(xp.got[a.id]).toLocaleDateString('ru') : ''}"><i>${icon(a.icon)}</i><b>${a.title}</b><small>${a.desc}</small></div>`).join('');
 
     const topicRows = TOPICS.filter(t => t.id >= 1 && t.id <= 8).map(t => {
       const ls = lessons.filter(l => l.topic === t.id);
@@ -68,6 +76,21 @@ export class HomePage {
         </div>
       </section>
 
+      <section class="hm-level">
+        <div class="hm-lv-main">
+          <div class="hm-lv-badge"><small>уровень</small><b>${xp.level}</b></div>
+          <div class="hm-lv-txt">
+            <div class="hm-lv-row"><b>${xp.xp} опыта</b><span class="muted">до уровня ${xp.level + 1}: ${xp.need - xp.into}</span></div>
+            <div class="bar thick"><i style="width:${Math.round((xp.into / xp.need) * 100)}%"></i></div>
+            <small class="muted">Опыт дают прочитанные уроки, решённые задачи, верные ответы в тренажёре и запуски программ.</small>
+          </div>
+        </div>
+        <div class="hm-lv-streak">
+          <div class="hm-lv-row"><b>${xp.streak} ${xp.streak % 10 === 1 && xp.streak % 100 !== 11 ? 'день' : xp.streak % 10 >= 2 && xp.streak % 10 <= 4 && (xp.streak % 100 < 10 || xp.streak % 100 >= 20) ? 'дня' : 'дней'} подряд</b><span class="muted">2 недели</span></div>
+          <div class="hm-cal">${cal}</div>
+        </div>
+      </section>
+
       <section class="hm-grid">
         <button class="hm-card" data-home="learn:${next.id}">
           <div class="hm-card-k">${I('<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/>')}Следующий урок</div>
@@ -78,6 +101,11 @@ export class HomePage {
           <div class="hm-card-k">${I('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/>')}Задача дня</div>
           <h3>${esc(daily.title)}</h3>
           <p><span class="lvl lvl-${daily.level}">${LEVELS[daily.level].name}</span> · ${esc(TASK_TOPICS[daily.topic] || '')}</p>
+        </button>
+        <button class="hm-card" data-home="drill">
+          <div class="hm-card-k">${icon('bolt')}Тренажёр</div>
+          <h3>Угадай, что выведет программа</h3>
+          <p>${dstat.all ? `Верно ${dstat.ok} из ${dstat.all} · лучшая серия ${xp.best}` : 'Короткие задачки на деление, ++, приоритеты, форматы printf. Минута — и вы разогрелись.'}</p>
         </button>
         <button class="hm-card" data-home="tour">
           <div class="hm-card-k">${I('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><path d="M12 17.5v.01"/>')}Впервые здесь?</div>
@@ -106,6 +134,11 @@ export class HomePage {
       <section class="hm-sec">
         <h2>Попробуйте примеры</h2>
         <div class="hm-ex">${featured.map(ex => `<button class="hm-exi" data-home="example:${ex.id}"><small>${esc(ex.group)}</small><b>${esc(ex.title)}</b><code>${esc(ex.code.split('\n').find(l => /printf|scanf|for|while|->/.test(l))?.trim() || '')}</code></button>`).join('')}</div>
+      </section>
+
+      <section class="hm-sec">
+        <h2>Достижения <span class="muted">${gotN} из ${ACHIEVEMENTS.length}</span></h2>
+        <div class="hm-achs">${achs}</div>
       </section>
 
       <section class="hm-sec hm-keys">

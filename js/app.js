@@ -3,6 +3,8 @@ import { Lab } from './lab.js';
 import { LearnPage } from './pages/learn.js';
 import { PracticePage, updateProgressPill } from './pages/practice.js';
 import { HomePage } from './pages/home.js';
+import { DrillPage } from './pages/drill.js';
+import { stats as xpStats, onXp } from './ui/xp.js';
 import { Tour } from './ui/tour.js';
 import { Palette } from './ui/palette.js';
 import { settings, applyUi, SettingsDialog } from './ui/settings.js';
@@ -26,10 +28,11 @@ $('[data-explorer]').addEventListener('click', (e) => {
   if (currentView === 'lab' && lab) { e.preventDefault(); lab.toggleSide(); }
 });
 
-let lab, learn, practice, home, currentView = '';
+let lab, learn, practice, home, drill, currentView = '';
 
 function ensure(name) {
-  if (name === 'lab' && !lab) lab = new Lab(document.getElementById('view-lab'), { openSettings: (cat) => settingsDlg.open(cat), onCrumb: () => crumb() });
+  if (name === 'lab' && !lab) lab = new Lab(document.getElementById('view-lab'), { openSettings: (cat) => settingsDlg.open(cat), onCrumb: () => crumb(), toggleZen });
+  if (name === 'drill' && !drill) drill = new DrillPage(document.getElementById('view-drill'), { openInLab });
   if (name === 'learn' && !learn) learn = new LearnPage(document.getElementById('view-learn'), { openInLab });
   if (name === 'practice' && !practice) practice = new PracticePage(document.getElementById('view-practice'), { openInLab });
   if (name === 'home' && !home) home = new HomePage(document.getElementById('view-home'), { action: homeAction });
@@ -53,10 +56,11 @@ function homeAction(act, arg) {
   else if (act === 'file') openFile(arg);
   else if (act === 'example') { const ex = EXAMPLES.find(e => e.id === arg); if (ex) openExample(ex); }
   else if (act === 'tour') startTour();
+  else if (act === 'drill') location.hash = '#/drill/quiz';
 }
 
 // ——— «хлебные крошки» в заголовке: где я и что открыто ———
-const NAMES = { home: 'Главная', lab: 'Код', learn: 'Теория', practice: 'Задачи' };
+const NAMES = { home: 'Главная', lab: 'Код', learn: 'Теория', practice: 'Задачи', drill: 'Тренажёр' };
 function crumb() {
   const el = $('[data-crumb]');
   let tail = '';
@@ -76,7 +80,7 @@ function crumb() {
 
 function route() {
   const [, name = 'home', ...rest] = (location.hash || '#/home').split('/');
-  const view = ['home', 'lab', 'learn', 'practice'].includes(name) ? name : 'home';
+  const view = ['home', 'lab', 'learn', 'practice', 'drill'].includes(name) ? name : 'home';
   ensure(view);
   currentView = view;
   document.body.dataset.view = view;
@@ -85,7 +89,13 @@ function route() {
   if (view === 'home') home.open();
   if (view === 'learn') learn.open(rest[0]);
   if (view === 'practice') practice.open(rest[0]);
-  if (view === 'lab') lab.renderer.resize();
+  if (view === 'drill') drill.open(rest[0]);
+  if (view === 'lab') {
+    lab.renderer.resize();
+    if (rest[0] === 's' && rest[1]) { const enc = rest[1]; history.replaceState(null, '', '#/lab'); lab.openShared(enc); }
+  }
+  const v = document.getElementById('view-' + view);
+  v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
   document.title = view === 'lab' ? 'Вселенная Си' : `${NAMES[view]} · Вселенная Си`;
   crumb();
 }
@@ -118,7 +128,7 @@ layPop.addEventListener('click', (e) => {
   if (!p) return;
   layPop.hidden = true;
   ensure('lab'); go('lab');
-  lab.preset(p.dataset.preset);
+  if (p.dataset.preset === 'zen') toggleZen(true); else lab.preset(p.dataset.preset);
 });
 document.addEventListener('click', (e) => { if (!layPop.hidden && !e.target.closest('[data-laypop]')) layPop.hidden = true; });
 const THEME_ORDER = Object.keys(THEMES);
@@ -138,6 +148,27 @@ function toast(text) {
   clearTimeout(t._h);
   t._h = setTimeout(() => t.classList.remove('show'), 1600);
 }
+
+// ——— режим дзен: только рабочая область ———
+function toggleZen(force) {
+  const on = document.documentElement.classList.toggle('zen', force);
+  if (on) { ensure('lab'); go('lab'); toast('Режим дзен · Esc или Alt+Z — выйти'); }
+  setTimeout(() => { lab?.renderer.resize(); lab?.applyLayout(); }, 60);
+}
+$('[data-zenexit]').addEventListener('click', () => toggleZen(false));
+document.addEventListener('keydown', (e) => {
+  if (e.altKey && !e.ctrlKey && e.code === 'KeyZ') { e.preventDefault(); toggleZen(); }
+  else if (e.key === 'Escape' && document.documentElement.classList.contains('zen') && !document.querySelector('.pal:not([hidden]), .sdlg:not([hidden]), .keys:not([hidden])')) toggleZen(false);
+});
+
+// ——— уровень и серия в заголовке ———
+function renderXp() {
+  const s = xpStats();
+  $('[data-xpchip]').innerHTML = `<span class="xp-lvl">${s.level}</span><span class="xp-bar"><i style="width:${Math.round((s.into / s.need) * 100)}%"></i></span>${s.streak ? `<span class="xp-fire" title="Дней подряд">${s.streak}</span>` : ''}`;
+  $('[data-xpchip]').title = `Уровень ${s.level} · ${s.xp} опыта (до следующего уровня ${s.need - s.into}) · серия ${s.streak} дн.`;
+}
+renderXp();
+onXp(() => { renderXp(); if (currentView === 'home') home.open(); });
 
 // ——— палитра команд ———
 function commands() {
@@ -165,6 +196,12 @@ function commands() {
     C('Раскладка: разбор по шагам', () => L().preset('study'), '', 'layout preset'),
     C('Раскладка: терминал крупно', () => L().preset('terminal'), '', 'layout preset'),
     ...THEME_ORDER.map(n => C(`Тема: ${THEMES[n].name}`, () => cycleTheme(n), '', 'theme цвет оформление')),
+    C('Выровнять отступы в коде', () => L().formatCode(), 'Shift+Alt+F', 'format форматировать prettier'),
+    C('Поделиться кодом: скопировать ссылку', () => L().share(), '', 'share ссылка link'),
+    C('Режим дзен', () => toggleZen(), 'Alt+Z', 'zen focus фокус полный экран'),
+    C('Тренажёр: угадай вывод', () => { location.hash = '#/drill/quiz'; }, '', 'drill quiz викторина'),
+    C('Таблица ASCII', () => { location.hash = '#/drill/ascii'; }, '', 'ascii коды символов'),
+    C('Приоритет операций и расстановка скобок', () => { location.hash = '#/drill/prec'; }, '', 'precedence приоритет скобки'),
     C('Очистить терминал', () => L().console.clear?.(), '', 'clear'),
     C('Открыть настройки', () => settingsDlg.open(), 'Ctrl+,', 'settings preferences'),
     C('Настройки терминала', () => settingsDlg.open('term'), '', 'terminal settings шрифт'),
@@ -174,6 +211,7 @@ function commands() {
     C('Перейти: Код', () => go('lab'), '', 'lab'),
     C('Перейти: Теория', () => go('learn'), '', 'learn'),
     C('Перейти: Задачи', () => go('practice'), '', 'practice'),
+    C('Перейти: Тренажёр', () => go('drill'), '', 'drill'),
   ];
   const files = (lab ? lab.ws.files : store.get('fs.files', [])).map(f => ({ kind: 'file', title: f.name, sub: f.code.split('\n').find(l => l.trim() && !l.startsWith('#'))?.trim().slice(0, 50) || '', run: () => openFile(f.id) }));
   const ex = EXAMPLES.map(e => ({ kind: 'ex', title: e.title, sub: e.group, run: () => openExample(e) }));
