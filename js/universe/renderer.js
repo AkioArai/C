@@ -390,6 +390,32 @@ export class Renderer {
       this.text(g, x + (cw - 2) / 2, y + 9, { size: 11, color: c.used ? alpha(C.yellow, 0.4 + 0.6 * rf) : c.ch === '\n' || c.ch === ' ' ? C.faint : C.screenText, align: 'center' });
       if (fade < 1) this.ctx.restore();
     });
+    // ждёт ввода: буфер мягко светится, стрелка подсказывает, куда печатать
+    if (sc.waitingInput && live) {
+      const ph = (Math.sin(this.t / 260) + 1) / 2;
+      this.rect(bx - 3, sy - 3, bw + 6, bh + 6, { stroke: alpha(C.yellow, 0.25 + 0.45 * ph), lw: 2, r: 7 });
+      const ay = sy + bh + 8 + ph * 6;
+      this.text('↓ введите в терминале и нажмите Enter', bx + bw / 2, ay + 8, { size: 10.5, weight: 600, color: C.yellow, align: 'center', mono: false });
+    }
+    // программа завершилась: штамп с кодом возврата
+    const fin = sc.finished || (sc.crashed ? { code: null, at: sc.crashed.at } : null);
+    if (fin && live) {
+      const age = this.t - (fin.at || 0);
+      if (age >= 0) {
+        const ok = fin.code === 0;
+        const col = fin.code == null ? C.red : ok ? C.green : C.orange || C.amber;
+        const k = clamp(age / 420, 0, 1), s = 1 + (1 - ease(k)) * 0.8;
+        const cx = sx + sw - 64, cy = sy + sh - 26;
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.globalAlpha *= Math.min(1, k * 2) * (age > 6000 ? Math.max(0.35, 1 - (age - 6000) / 2000) : 1);
+        ctx.translate(cx, cy); ctx.rotate(-0.12 * (1 - ease(k)) - 0.06); ctx.scale(s, s);
+        ctx.strokeStyle = col; ctx.lineWidth = this.px(2);
+        this.rect(-52, -15, 104, 30, { stroke: col, lw: 2, r: 6 });
+        this.text(fin.code == null ? '✗ ошибка' : ok ? '✓ код 0' : `✗ код ${fin.code}`, 0, 0, { size: 13, weight: 700, color: col, align: 'center' });
+        ctx.restore();
+      }
+    }
     // библиотеки и константы
     const ly = sy + sh + 20;
     let x = r.x + 14;
@@ -507,6 +533,25 @@ export class Renderer {
       if (cur) this.rect(x + 1, ly, w - 2, G.lineH, { fill: alpha(C.accent, 0.12), r: 2 });
       else if (sel) this.rect(x + 1, ly, w - 2, G.lineH, { fill: alpha(C.text2, 0.08), r: 2 });
       if (cur) this.rect(x + 1, ly, 2, G.lineH, { fill: C.accent, r: 0 });
+      // остановка на точке останова: строка пульсирует красными кольцами
+      const bp = sc.bpHit;
+      if (bp && bp.line === ln && bp.frame === fr.id && settings.get('run.anims') !== false) {
+        const age = this.t - bp.at;
+        if (age >= 0 && age < 2400) {
+          const ctx = this.ctx;
+          ctx.save();
+          for (let k = 0; k < 2; k++) {
+            const q = ((age / 900) + k * 0.5) % 1;
+            ctx.strokeStyle = alpha(C.red, 0.6 * (1 - q) * (1 - age / 2400));
+            ctx.lineWidth = this.px(1.5);
+            const pad = q * 7;
+            ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - pad, ly - pad, w + pad * 2, G.lineH + pad * 2, 4) : ctx.rect(x - pad, ly - pad, w + pad * 2, G.lineH + pad * 2); ctx.stroke();
+          }
+          ctx.fillStyle = C.red; ctx.beginPath(); ctx.arc(x - 9, ly + G.lineH / 2, this.px(4), 0, TAU); ctx.fill();
+          ctx.restore();
+          if (age < 1800) this.text('● стоп', x + w - 4, ly - 7, { size: 9.5, weight: 600, color: C.red, align: 'right', mono: false });
+        }
+      }
       if (!lodText) continue;
       this.text(String(ln), x + gutter - 4, ly + G.lineH / 2, { size: 10, color: cur ? C.accent : fr.visited.has(ln) ? C.muted : C.faint, align: 'right' });
       const src = (sc.srcLines[ln - 1] || '').replace(/\t/g, '    ');

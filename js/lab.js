@@ -89,7 +89,7 @@ export class Lab {
     this.stdinEl.value = this.ws.current.stdin || '';
     this.ws.render();
     this.stdinEl.addEventListener('input', () => this.ws.edited());
-    this.el('[data-tsets]').addEventListener('click', (e) => this.onTestSets(e));
+    this.el('[data-tsets]')?.addEventListener('click', (e) => this.onTestSets(e));
     this.el('[data-console]').addEventListener('click', (e) => {
       const b = e.target.closest('[data-tsexp]');
       if (!b || !this.lastRun) return;
@@ -107,7 +107,7 @@ export class Lab {
       else if (k === 'j' && !e.shiftKey) { e.preventDefault(); this.togglePane('panel'); }
       else if (k === 'm' && e.shiftKey) { e.preventDefault(); this.togglePane('uni'); }
     });
-    this.el('.ed-acts').addEventListener('click', (e) => {
+    this.el('.ed-acts')?.addEventListener('click', (e) => {
       const b = e.target.closest('[data-ed]');
       if (!b) return;
       if (b.dataset.ed === 'format') this.formatCode();
@@ -328,7 +328,7 @@ export class Lab {
 
   // ——— панель инструментов ———
   bindToolbar() {
-    const b = (name, fn) => this.el(`[data-act="${name}"]`).addEventListener('click', fn);
+    const b = (name, fn) => this.el(`[data-act="${name}"]`)?.addEventListener('click', fn);
     b('run', () => (this.state === 'paused' ? this.resume() : this.run('anim')));
     b('step', () => this.stepOnce());
     b('back', () => this.stepBack());
@@ -363,7 +363,7 @@ export class Lab {
 
   bindUniverseControls() {
     const r = this.renderer;
-    const b = (name, fn) => this.el(`[data-u="${name}"]`).addEventListener('click', fn);
+    const b = (name, fn) => this.el(`[data-u="${name}"]`)?.addEventListener('click', fn);
     b('zin', () => r.zoomBy(1.3));
     b('zout', () => r.zoomBy(1 / 1.3));
     b('home', () => { r.fitHome(); r.lastUser = performance.now(); });
@@ -723,6 +723,7 @@ export class Lab {
     }
     if (!this.replaying && this.breakpoints.has(step.line) && step.kind !== 'enter' && this.lastBp !== this.stepNo - 1) {
       this.lastBp = this.stepNo;
+      this.scene.bpHit = { line: step.line, frame: this.scene.current, at: performance.now() };
       this.setState('paused');
       clearTimeout(this.timer);
       this.editor.setExecLine(step.line);
@@ -809,6 +810,7 @@ export class Lab {
 
   onRuntimeError(e) {
     this.gen = null;
+    this.scene.crashed = { at: performance.now(), line: e.line };
     this.console.askInput(false);
     if (!(e instanceof RuntimeError)) {
       console.error(e);
