@@ -28,6 +28,7 @@ export const SCHEMA = [
   { id: 'editor', title: 'Редактор', icon: 'M8 7l-5 5 5 5M16 7l5 5-5 5', items: [
     { key: 'editor.fontSize', label: 'Размер шрифта кода', type: 'range', min: 11, max: 22, step: 0.5, unit: 'px', def: 13.5 },
     { key: 'editor.lineHeight', label: 'Высота строки', type: 'range', min: 1.2, max: 2, step: 0.05, unit: '×', def: 1.55 },
+    { key: 'editor.inlineValues', label: 'Значения переменных в коде', desc: 'Во время выполнения справа от строки видно, что в неё записалось: s = 11.', type: 'bool', def: true },
     { key: 'editor.tabSize', label: 'Размер отступа', desc: 'Сколько пробелов вставляет Tab.', type: 'seg', options: [[2, '2'], [4, '4'], [8, '8']], def: 4 },
     { key: 'editor.autoClose', label: 'Автозакрытие скобок и кавычек', desc: 'Набрали ( — сразу появится ). Повторный набор ) просто перешагнёт её.', type: 'bool', def: true },
     { key: 'editor.autoSave', label: 'Автосохранение файлов', desc: 'Изменения сохраняются в браузере сразу. Выключено — сохранение по Ctrl+S.', type: 'bool', def: true },
@@ -48,6 +49,7 @@ export const SCHEMA = [
     { key: 'run.follow', label: 'Камера следует за выполнением', type: 'bool', def: true },
     { key: 'run.typewriter', label: 'Вывод на экран компьютера по буквам', type: 'bool', def: true },
     { key: 'run.beams', label: 'Летящие значения по лучам', type: 'bool', def: true },
+    { key: 'run.anims', label: 'Живые изменения', desc: 'Значение прокручивается как счётчик, курсор индекса едет по массиву, кадр функции разворачивается при вызове.', type: 'bool', def: true },
     { key: 'run.flashes', label: 'Вспышки строк с условиями', type: 'bool', def: true },
     { key: 'run.visuals', label: 'Картинки операций в панели «Операция»', type: 'bool', def: true },
     { key: 'run.opAuto', label: 'Панель «Операция» развёрнута', desc: 'Выключите, чтобы видеть только заголовок шага.', type: 'bool', def: true },

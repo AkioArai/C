@@ -415,6 +415,18 @@ export class Renderer {
     const ctx = this.ctx;
     ctx.save();
     ctx.globalAlpha = a;
+    // вызов: кадр разворачивается сверху вниз; возврат — сворачивается к заголовку
+    const live = settings.get('run.anims') !== false;
+    const open = fr.func === 'main' || !live ? 1 : ease(clamp((this.t - (fr.born || 0)) / 480, 0, 1));
+    const close = fr.closeAt && live ? 1 - ease(clamp((this.t - fr.closeAt) / 700, 0, 1)) : 1;
+    const vis = Math.min(open, close);
+    if (vis < 1) {
+      const hh = 44 + (b.h - 44) * vis;
+      ctx.beginPath();
+      ctx.rect(b.x - 4, b.y - 4, b.w + 8, hh + 8);
+      ctx.clip();
+      if (open < 1) { ctx.strokeStyle = alpha('#d9a6f0', 0.6 * (1 - open)); ctx.lineWidth = this.px(2); ctx.beginPath(); ctx.moveTo(b.x + 8, b.y + hh); ctx.lineTo(b.x + b.w - 8, b.y + hh); ctx.stroke(); }
+    }
     const sel = sc.selected === 'frame:' + fr.id;
     this.rect(b.x, b.y, b.w, b.h, { fill: C.panel, stroke: sel ? C.text2 : active ? alpha(C.accent, 0.4) : C.line, r: 8 });
     // заголовок
@@ -608,7 +620,32 @@ export class Renderer {
     } else {
       const isPtr = cell.ptr !== undefined;
       const val = isPtr ? (cell.ptr === 0 || cell.display === 'NULL' ? 'NULL' : `→ ${cell.desc || cell.targetPath || cell.display}`) : cell.display;
-      this.text(val, x, c.y + 36, { size: 16, color: C.text, maxW: w });
+      const rk = !isPtr && o.ui?.rollAt && settings.get('run.anims') !== false ? clamp((this.t - o.ui.rollAt) / 520, 0, 1) : 1;
+      if (rk < 1) {
+        // одометр: старое значение уезжает вверх, новое въезжает снизу
+        const e = ease(rk), ctx = this.ctx;
+        ctx.save();
+        ctx.beginPath(); ctx.rect(x - 2, c.y + 25, w + 4, 23); ctx.clip();
+        ctx.globalAlpha *= 1 - e;
+        this.text(String(o.ui.prevVal), x, c.y + 36 - 18 * e, { size: 16, color: C.muted, maxW: w });
+        ctx.globalAlpha = (ctx.globalAlpha / Math.max(1e-3, 1 - e)) * e;
+        this.text(val, x, c.y + 36 + 18 * (1 - e), { size: 16, color: C.text, maxW: w });
+        ctx.restore();
+      } else this.text(val, x, c.y + 36, { size: 16, color: C.text, maxW: w });
+      // на сколько изменилось: всплывает и тает
+      const dk = o.ui?.rollAt && o.ui.delta ? clamp((this.t - o.ui.rollAt) / 1500, 0, 1) : 1;
+      if (dk < 1 && this.lod) {
+        const d = o.ui.delta, s = (d > 0 ? '+' : '−') + shortVal(String(Math.abs(d)));
+        this.font(11.5, 600);
+        const tw = this.ctx.measureText(s).width + 12;
+        const bx = c.x + c.w - 12 - tw, by = c.y + 28 - 10 * ease(dk);
+        this.ctx.save();
+        this.ctx.globalAlpha *= dk < 0.7 ? 1 : 1 - (dk - 0.7) / 0.3;
+        const dc = d > 0 ? C.green : C.red;
+        this.rect(bx, by, tw, 17, { fill: alpha(dc, 0.14), stroke: alpha(dc, 0.5), r: 8 });
+        this.text(s, bx + tw / 2, by + 9, { size: 11.5, weight: 600, color: dc, align: 'center' });
+        this.ctx.restore();
+      }
     }
     if (!this.lod) return;
     const meta = [o.kind === 'param' ? 'параметр' : '', cell.ptr !== undefined && cell.init ? `адрес ${cell.display}` : ''].filter(Boolean).join(' · ');
@@ -625,8 +662,13 @@ export class Renderer {
     const inner = multi ? o.cells.length / Math.max(1, dims[0]) : o.cells.length;
     let y = c.y + 34;
     const cw = G.cellW - 4, ch = G.cellH - 8;
+    const pos = {};
     const drawCell = (cell, idx, cx, cy, label) => {
+      pos[idx] = { x: cx, y: cy };
       const fl = o.ui?.flashCell === idx ? this.flashA(o.ui.flash, 900) : 0;
+      // ячейка «подпрыгивает», когда в неё пишут
+      const pop = fl > 0.6 ? Math.sin(((1 - fl) / 0.4) * Math.PI) * 3 : 0;
+      cy -= pop;
       if (!cell.init) this.hatch(cx, cy, cw, ch);
       else this.rect(cx, cy, cw, ch, { fill: fl ? alpha(col, 0.12 + fl * 0.3) : C.cell, stroke: fl ? alpha(col, 0.7) : undefined, r: 3 });
       let v = cell.init ? shortVal(cell.ptr !== undefined ? (cell.ptr === 0 ? 'NULL' : '→') : cell.display) : '';
@@ -658,6 +700,34 @@ export class Renderer {
       if (o.cells.length > shown || o.truncated) this.text(`… ещё элементы`, c.x + c.w - 14, c.y + c.h - 12, { size: 9.5, color: C.faint, align: 'right', mono: false });
     }
     if (o.str != null) this.text(`строка: "${o.str}"`, c.x + 14, y + 6, { size: 11, color: C.amber, maxW: c.w - 28 });
+    this.drawIndexCursor(o, pos, cw, col);
+  }
+
+  /** Курсор индекса массива: треугольник с подписью [i] переезжает к ячейке, куда идёт запись. */
+  drawIndexCursor(o, pos, cw, col) {
+    const ui = o.ui;
+    if (!ui || ui.curTo == null || !pos[ui.curTo] || settings.get('run.anims') === false) return;
+    const age = this.t - ui.curAt;
+    if (age > 6000) return;
+    const from = pos[ui.curFrom] || pos[ui.curTo], to = pos[ui.curTo];
+    const k = ease(clamp(age / 380, 0, 1));
+    const sameRow = Math.abs(from.y - to.y) < 1;
+    const x = (sameRow ? from.x + (to.x - from.x) * k : to.x) + cw / 2;
+    const y = to.y - 3;
+    const a = age < 4500 ? 1 : 1 - (age - 4500) / 1500;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalAlpha *= a * (sameRow ? 1 : k);
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 5, y - 7); ctx.lineTo(x + 5, y - 7); ctx.closePath(); ctx.fill();
+    const s = ui.curLabel || '';
+    if (s && this.lod) {
+      this.font(9.5, 600);
+      const tw = ctx.measureText(s).width + 8;
+      this.rect(x - tw / 2, y - 21, tw, 13, { fill: alpha(col, 0.18), r: 6 });
+      this.text(s, x, y - 14.5, { size: 9.5, weight: 600, color: col, align: 'center' });
+    }
+    ctx.restore();
   }
 
   drawRecord(c, o, col) {
