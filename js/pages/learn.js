@@ -12,6 +12,14 @@ export class LearnPage {
     this.side = root.querySelector('[data-side]');
     this.content = root.querySelector('[data-content]');
     this.content.addEventListener('click', (e) => this.onClick(e));
+    this.side.addEventListener('click', (e) => {
+      const th = e.target.closest('[data-topic]');
+      if (!th) return;
+      const k = th.dataset.topic, set = new Set(store.get('learn.closed', []));
+      set.has(k) ? set.delete(k) : set.add(k);
+      store.set('learn.closed', [...set]);
+      th.parentElement.classList.toggle('shut');
+    });
     this.content.addEventListener('scroll', () => this.onScroll(), { passive: true });
   }
 
@@ -28,13 +36,22 @@ export class LearnPage {
 
   renderSide(active) {
     const read = store.get('learn.read', {});
+    const marks = store.get('learn.marks', {});
+    const notes = store.get('learn.notes', {});
+    const closed = new Set(store.get('learn.closed', []));
+    const activeTopic = LESSONS.find(l => l.id === active)?.topic;
     let h = '';
+    const fav = LESSONS.filter(l => marks[l.id]);
+    if (fav.length) h += `<h3 class="ls-fav">★ Закладки</h3>` + fav.map(l => `<a href="#/learn/${l.id}" class="${l.id === active ? 'active' : ''}"><span class="num">${l.num}</span><span>${l.title}</span></a>`).join('');
     for (const t of TOPICS) {
       const list = LESSONS.filter(l => l.topic === t.id);
       if (!list.length) continue;
-      h += `<h3>${t.title}</h3>`;
+      const done = list.filter(l => read[l.id]).length;
+      const shut = closed.has(String(t.id)) && t.id !== activeTopic;
+      h += `<div class="ls-topic ${shut ? 'shut' : ''}"><button class="ls-th" data-topic="${t.id}"><span class="ls-tt">${t.title}</span><span class="ls-n">${done}/${list.length}</span><i class="ls-bar"><b style="width:${(done / list.length) * 100}%"></b></i></button><div class="ls-list">`;
       for (const l of list)
-        h += `<a href="#/learn/${l.id}" class="${l.id === active ? 'active' : ''}"><span class="num">${l.num}</span><span>${l.title}</span>${read[l.id] ? '<span class="done"></span>' : ''}</a>`;
+        h += `<a href="#/learn/${l.id}" class="${l.id === active ? 'active' : ''}"><span class="num">${l.num}</span><span>${l.title}</span>${marks[l.id] ? '<span class="ls-star">★</span>' : ''}${notes[l.id] ? '<span class="ls-note" title="Есть заметка">✎</span>' : ''}${read[l.id] ? '<span class="done"></span>' : ''}</a>`;
+      h += '</div></div>';
     }
     this.side.innerHTML = h;
   }
@@ -69,9 +86,14 @@ export class LearnPage {
     this.content.innerHTML = `<div class="read-bar"><i></i></div><div class="lesson-wrap"><article class="article">
       <div class="kicker">${topic.title}</div>
       <h1>${lesson.num !== '★' && lesson.num !== '0' ? lesson.num + '. ' : ''}${lesson.title}</h1>
-      <div class="lesson-meta">${meta.map(m => `<span>${m}</span>`).join('')}</div>
+      <div class="lesson-meta">${meta.map(m => `<span>${m}</span>`).join('')}<button class="ls-mark ${store.get('learn.marks', {})[lesson.id] ? 'on' : ''}" data-mark title="Добавить в закладки">${store.get('learn.marks', {})[lesson.id] ? '★ в закладках' : '☆ в закладки'}</button><button class="ls-mark" data-to="notes">✎ заметка</button></div>
       ${html}
       ${quiz}
+      <section class="notes" id="notes">
+        <h4>Мои заметки к уроку</h4>
+        <textarea data-note rows="3" placeholder="Что важно запомнить, вопросы к преподавателю, свои примеры… Сохраняется автоматически и ищется через Ctrl+K.">${(store.get('learn.notes', {})[lesson.id] || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}</textarea>
+        <small class="muted" data-note-st></small>
+      </section>
       <div class="pager">
         ${prev ? `<a href="#/learn/${prev.id}"><small>← назад</small>${prev.title}</a>` : '<span></span>'}
         ${next ? `<a href="#/learn/${next.id}" style="text-align:right"><small>далее →</small>${next.title}</a>` : `<a href="#/practice" style="text-align:right"><small>далее →</small>К задачам</a>`}
@@ -79,12 +101,37 @@ export class LearnPage {
     </article>
     ${toc.length > 1 ? `<aside class="toc"><b>На этой странице</b>${toc.map(([id, t]) => `<a data-to="${id}">${t}</a>`).join('')}${lesson.quiz?.length ? '<a data-to="quiz">Проверь себя</a>' : ''}</aside>` : ''}</div>`;
     this.content.querySelector('.quiz')?.setAttribute('id', 'quiz');
+    const na = this.content.querySelector('[data-note]');
+    const fit = () => { na.style.height = 'auto'; na.style.height = Math.max(76, na.scrollHeight + 2) + 'px'; };
+    fit();
+    na.addEventListener('input', () => {
+      fit();
+      clearTimeout(this._nt);
+      this._nt = setTimeout(() => {
+        const all = store.get('learn.notes', {});
+        const v = na.value.trim();
+        if (v) all[lesson.id] = na.value; else delete all[lesson.id];
+        store.set('learn.notes', all);
+        this.content.querySelector('[data-note-st]').textContent = 'Сохранено';
+        this.renderSide(lesson.id);
+      }, 400);
+    });
     this.lesson = lesson;
     this.content.scrollTop = 0;
     this.onScroll();
   }
 
   onClick(e) {
+    if (e.target.closest('[data-mark]')) {
+      const m = store.get('learn.marks', {});
+      if (m[this.lesson.id]) delete m[this.lesson.id]; else m[this.lesson.id] = Date.now();
+      store.set('learn.marks', m);
+      const b = e.target.closest('[data-mark]');
+      b.classList.toggle('on', !!m[this.lesson.id]);
+      b.textContent = m[this.lesson.id] ? '★ в закладках' : '☆ в закладки';
+      this.renderSide(this.lesson.id);
+      return;
+    }
     const to = e.target.closest('[data-to]');
     if (to) { this.content.querySelector('#' + to.dataset.to)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     const run = e.target.closest('[data-run]');

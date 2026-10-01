@@ -266,6 +266,7 @@ export class Scene {
           this.inputBuf.recent = (ev.buffer ?? ev.text ?? '').slice(0, ev.consumedLen ?? (ev.text || '').length);
           this.inputBuf.text = (ev.buffer ?? '').slice(ev.consumedLen ?? 0);
           this.inputBuf.consumedAt = now;
+          this.inputBuf.eaten = this.inputBuf.recent.length;
         }
         break;
       case 'cond': {
@@ -278,6 +279,7 @@ export class Scene {
         } else {
           const lp = this.loopOf(fr, ev.nodeId, ev);
           lp.lastCond = ev.value; lp.at = now; lp.checks = (lp.checks || 0) + 1;
+          if (lp.checks > 1 && lp.kind !== 'do') lp.backAt = now; // выполнение вернулось к заголовку цикла
           for (const r of ev.reads || []) this.addTraceCol(lp, r.objId, r.path);
           this.closeTraceRow(lp, fr);
           lp.trace.rows.push({ iter: ev.value ? ev.iter + 1 : null, cond: ev.value, vals: {} });
@@ -306,6 +308,7 @@ export class Scene {
         const lp = fr?.loops.get(ev.nodeId);
         if (lp) {
           lp.iter = ev.iter; lp.total = (lp.total || 0) + 1;
+          if (lp.kind === 'do' && ev.iter > 1) lp.backAt = now;
           if (lp.kind === 'do' && ev.iter === 1) lp.trace.rows.push({ iter: 1, cond: null, vals: {} });
         }
         break;

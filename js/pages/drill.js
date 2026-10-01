@@ -10,7 +10,7 @@ import { store } from '../store.js';
 import { confetti } from '../ui/fx.js';
 
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const TABS = [['quiz', 'Угадай вывод'], ['daily', 'Испытание дня'], ['bugs', 'Найди ошибку'], ['ascii', 'Таблица ASCII'], ['prec', 'Приоритет операций']];
+const TABS = [['quiz', 'Угадай вывод'], ['daily', 'Испытание дня'], ['bugs', 'Найди ошибку'], ['blitz', 'Блиц 60 с'], ['ascii', 'Таблица ASCII'], ['prec', 'Приоритет операций']];
 const DAILY_N = 5;
 const today = () => new Date().toLocaleDateString('sv');
 
@@ -22,7 +22,12 @@ export class DrillPage {
     this.cats = store.get('drill.cats', null);
     root.addEventListener('click', (e) => this.onClick(e));
     document.addEventListener('keydown', (e) => {
-      if (root.hidden || !['quiz', 'daily', 'bugs'].includes(this.tab) || e.ctrlKey || e.metaKey || e.altKey || /input|textarea/i.test(e.target.tagName) || document.querySelector('.pal:not([hidden])')) return;
+      if (root.hidden || !['quiz', 'daily', 'bugs', 'blitz'].includes(this.tab) || e.ctrlKey || e.metaKey || e.altKey || /input|textarea/i.test(e.target.tagName) || document.querySelector('.pal:not([hidden])')) return;
+      if (this.tab === 'blitz') {
+        if (/^[1-4]$/.test(e.key) && this.blitz?.running) { e.preventDefault(); this.blitzAnswer(+e.key - 1); }
+        else if (e.key === 'Enter' && !this.blitz?.running) { e.preventDefault(); this.blitzStart(); }
+        return;
+      }
       if (/^[1-4]$/.test(e.key) && !this.answered && this.tab !== 'bugs') { e.preventDefault(); this.answer(+e.key - 1); }
       else if (e.key === 'Enter' && this.answered) { e.preventDefault(); this.next(); }
     });
@@ -41,6 +46,7 @@ export class DrillPage {
     if (this.tab === 'quiz') this.renderQuiz();
     if (this.tab === 'daily') this.renderDaily();
     if (this.tab === 'bugs') this.renderBugs();
+    if (this.tab === 'blitz') this.renderBlitz();
     if (this.tab === 'ascii') this.renderAscii();
     if (this.tab === 'prec') this.renderPrec();
   }
@@ -67,6 +73,9 @@ export class DrillPage {
     const o = e.target.closest('[data-opt]');
     if (o && !this.answered) { this.answer(+o.dataset.opt); return; }
     if (e.target.closest('[data-next]')) { this.next(); return; }
+    if (e.target.closest('[data-bstart]')) { this.blitzStart(); return; }
+    const bo = e.target.closest('[data-bo]');
+    if (bo && this.blitz?.running) { this.blitzAnswer(+bo.dataset.bo); return; }
     const bl = e.target.closest('[data-bl]');
     if (bl && !this.answered) { this.answerBug(+bl.dataset.bl); return; }
     if (e.target.closest('[data-lab]') && this.q) { this.opts.openInLab(this.q.code, '', 'Тренажёр'); return; }
@@ -167,6 +176,81 @@ export class DrillPage {
       <div class="dr-act"><button class="btn primary" data-next>${this.tab === 'daily' && this.dailyState().answers.length >= DAILY_N ? 'Итоги дня' : 'Следующая'} <kbd>Enter</kbd></button><button class="btn ghost" data-lab>Посмотреть по шагам во вселенной</button></div>`;
     if (this.tab === 'daily') this.renderDailyDots(); else this.renderStats();
     why.querySelector('[data-next]').focus({ preventScroll: true });
+  }
+
+  // ——— блиц: сколько успеете за 60 секунд ———
+  renderBlitz() {
+    clearInterval(this.blitz?.timer);
+    const best = store.get('drill.blitzBest', 0);
+    this.body.innerHTML = `<div class="bz-start">
+        <div class="bz-ring"><b>60</b><small>секунд</small></div>
+        <h2>Сколько выводов угадаете за минуту?</h2>
+        <p class="muted">Короткие программы одна за другой. Отвечайте клавишами 1–4. Верный ответ — +1, ошибка — минус 3 секунды. В конце покажем разбор ошибок.</p>
+        <button class="btn primary big" data-bstart>Старт <kbd>Enter</kbd></button>
+        ${best ? `<div class="bz-best">Ваш рекорд: <b>${best}</b></div>` : ''}
+      </div>`;
+  }
+  blitzStart() {
+    clearInterval(this.blitz?.timer);
+    this.blitz = { running: true, score: 0, total: 0, misses: [], end: Date.now() + 60000 };
+    this.body.innerHTML = `<div class="bz-top"><div class="bz-time"><i data-bbar></i></div><span class="bz-sec" data-bsec>60</span><span class="bz-score">✓ <b data-bscore>0</b></span></div><div class="dr-card bz-card" data-bcard></div>`;
+    this.blitz.timer = setInterval(() => this.blitzTick(), 100);
+    this.blitzNext();
+  }
+  blitzTick() {
+    const b = this.blitz;
+    if (!b?.running || this.root.hidden || !this.body.querySelector('[data-bbar]')) { if (b && this.root.hidden) { clearInterval(b.timer); b.running = false; } return; }
+    const left = Math.max(0, b.end - Date.now());
+    this.body.querySelector('[data-bbar]').style.width = (left / 600) + '%';
+    this.body.querySelector('[data-bsec]').textContent = Math.ceil(left / 1000);
+    this.body.querySelector('.bz-top').classList.toggle('low', left < 10000);
+    if (!left) this.blitzEnd();
+  }
+  blitzNext() {
+    let q, r;
+    for (let i = 0; i < 20; i++) { q = makeQuestion(Math.random); r = runToEnd(q.code); if (!r.compileError && !r.error) break; }
+    const b = this.blitz;
+    b.q = q; b.ans = r.output.replace(/\n$/, ''); b.opts = choices(q, r.output); b.lock = false;
+    const card = this.body.querySelector('[data-bcard]');
+    card.className = 'dr-card bz-card';
+    card.innerHTML = `<div class="dr-code"><div class="dr-code-h"><span class="dr-tag">${DRILL_CATS[q.cat]}</span><span class="muted">#${b.total + 1}</span></div>
+        <pre>${highlight(q.code).split('\n').slice(3, -3).map((l) => l.replace(/^ {4}/, '')).join('\n')}</pre></div>
+      <div class="dr-q"><div class="dr-opts">${b.opts.map((o, i) => `<button class="dr-opt" data-bo="${i}"><kbd>${i + 1}</kbd><code>${esc(o)}</code></button>`).join('')}</div></div>`;
+    void card.offsetWidth; card.classList.add('enter');
+  }
+  blitzAnswer(i) {
+    const b = this.blitz;
+    if (!b?.running || b.lock) return;
+    b.lock = true;
+    b.total++;
+    const ok = b.opts[i] === b.ans;
+    const btns = this.body.querySelectorAll('[data-bo]');
+    btns[i].classList.add(ok ? 'right' : 'wrong');
+    if (ok) { b.score++; this.body.querySelector('[data-bscore]').textContent = b.score; }
+    else {
+      b.end -= 3000;
+      b.misses.push({ q: b.q, ans: b.ans, got: b.opts[i] });
+      btns.forEach((x, k) => { if (b.opts[k] === b.ans) x.classList.add('right'); });
+      const card = this.body.querySelector('[data-bcard]'); card.classList.remove('enter'); void card.offsetWidth; card.classList.add('is-bad');
+    }
+    setTimeout(() => { if (b.running) this.blitzNext(); }, ok ? 160 : 700);
+  }
+  blitzEnd() {
+    const b = this.blitz;
+    clearInterval(b.timer);
+    b.running = false;
+    const best = store.get('drill.blitzBest', 0);
+    const record = b.score > best;
+    if (record) store.set('drill.blitzBest', b.score);
+    award('blitz', { score: b.score });
+    this.body.innerHTML = `<div class="bz-end">
+        <div class="bz-ring done"><b>${b.score}</b><small>верных</small></div>
+        <h2>${record ? 'Новый рекорд!' : b.score >= best - 1 ? 'Почти рекорд!' : 'Время вышло'}</h2>
+        <p class="muted">Ответов: ${b.total} · точность ${b.total ? Math.round((b.score / b.total) * 100) : 0}% · рекорд ${Math.max(best, b.score)}</p>
+        <div class="dr-act"><button class="btn primary" data-bstart>Ещё раз <kbd>Enter</kbd></button><a class="btn ghost" href="#/drill/quiz">Спокойный режим с объяснениями</a></div>
+      </div>
+      ${b.misses.length ? `<h3 class="bz-h">Разбор ошибок</h3><div class="bz-miss">${b.misses.map(m => `<div class="bz-m"><pre>${highlight(m.q.code).split('\n').slice(3, -3).map((l) => l.replace(/^ {4}/, '')).join('\n')}</pre><div><div class="bz-ans"><span class="bad">вы: <code>${esc(m.got)}</code></span><span class="ok">верно: <code>${esc(m.ans)}</code></span></div><p>${esc(m.q.why)}</p></div></div>`).join('')}</div>` : ''}`;
+    if (record && b.score > 0) confetti(innerWidth / 2, innerHeight / 3);
   }
 
   // ——— испытание дня: 5 одинаковых для всех вопросов в день ———

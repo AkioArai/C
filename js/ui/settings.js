@@ -9,7 +9,7 @@ const ACCENTS = [
 
 export const SCHEMA = [
   { id: 'ui', title: 'Интерфейс', icon: 'M4 5h16v14H4zM4 9h16', items: [
-    { key: 'ui.theme', label: 'Тема', desc: 'Оформление всего приложения, подсветки кода и поля памяти.', type: 'seg', options: [['graphite', 'Графит'], ['midnight', 'Полночь'], ['light', 'Светлая']], def: 'graphite' },
+    { key: 'ui.theme', label: 'Тема', desc: 'Оформление всего приложения, подсветки кода и поля памяти.', type: 'seg', options: [['graphite', 'Графит'], ['midnight', 'Полночь'], ['light', 'Светлая'], ['sepia', 'Сепия'], ['contrast', 'Контраст']], def: 'graphite' },
     { key: 'ui.density', label: 'Плотность', desc: 'Размер кнопок, отступов и панелей.', type: 'seg', options: [['compact', 'Компактная'], ['normal', 'Обычная'], ['touch', 'Для пальцев']], def: 'normal' },
     { key: 'ui.fontSize', label: 'Размер текста интерфейса', desc: 'Меню, панели, пояснения.', type: 'range', min: 11, max: 16, step: 0.5, unit: 'px', def: 13 },
     { key: 'ui.accent', label: 'Акцентный цвет', desc: 'Цвет кнопки запуска, выделений и текущей строки.', type: 'swatch', options: ACCENTS, def: '#c8f05a' },
