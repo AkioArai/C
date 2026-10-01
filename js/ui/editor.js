@@ -138,8 +138,23 @@ export class Editor {
       const w = Math.max(1, d.len) * this.cw;
       h += `<div class="sq sq-${d.severity}" style="top:${top}px;left:${left}px;width:${w}px" title="${d.message.replace(/"/g, '&quot;')}"></div>`;
     }
+    // значения переменных справа от строки (как в отладчике)
+    if (this.inline?.size) {
+      const lines = this.ta.value.split('\n');
+      for (const [ln, vals] of this.inline) {
+        const src = lines[ln - 1];
+        if (src == null) continue;
+        const width = src.replace(/\t/g, '    ').length;
+        const txt = [...vals.entries()].map(([k, v]) => `${k} = ${v}`).join('   ');
+        const fresh = this.inlineFresh === ln ? ' fresh' : '';
+        h += `<div class="ed-inl${fresh}" style="top:${this.pad + (ln - 1) * this.lh}px;left:${this.padL + (width + 3) * this.cw}px;height:${this.lh}px;line-height:${this.lh}px">${txt.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</div>`;
+      }
+    }
     this.marks.innerHTML = h;
   }
+
+  /** map: номер строки -> Map(имя -> значение); fresh — строка последней записи (подсвечивается). */
+  setInline(map, fresh) { this.inline = map; this.inlineFresh = fresh; this.renderMarks(); }
 
   renderBg() {
     let h = '';

@@ -36,6 +36,7 @@ export class Lab {
       onBreakpoints: (bp) => { this.breakpoints = bp; },
     });
     this.breakpoints = this.editor.breakpoints;
+    this.inlineVals = new Map();
     this.stdinEl = this.el('[data-stdin]');
     this.console = new ConsolePanel(this.el('[data-console]'), {
       onInput: (v) => this.submitInput(v),
@@ -252,6 +253,7 @@ export class Lab {
     if (k === 'run.follow') { this.renderer.follow = settings.get(k); this.el('[data-u="follow"]').classList.toggle('on', this.renderer.follow); }
     if (k === 'run.speed') { this.speed = settings.get(k); this.el('[data-speed]').value = this.speed; this.updateSpeedLabel(); }
     if (k === 'editor.liveCheck' || k.startsWith('editor.')) this.onCodeChange(true, true);
+    if (k === 'editor.inlineValues') this.editor.setInline(settings.get(k) ? this.inlineVals : null);
     if (k === 'run.opAuto') { this.op.classList.toggle('mini', !settings.get(k)); this.syncInsets(); }
   }
 
@@ -304,6 +306,19 @@ export class Lab {
     });
     b('legend', () => { const l = this.el('[data-legend]'); l.hidden = !l.hidden; });
     b('op', () => this.togglePane('op'));
+    b('snap', () => {
+      // картинка поля памяти: удобно отправить преподавателю или вставить в отчёт
+      const cv = this.el('[data-canvas]');
+      cv.toBlob((blob) => {
+        if (!blob) return;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `вселенная-${(this.ws.current?.name || 'main.c').replace(/\.c$/, '')}-шаг-${this.stepNo || 0}.png`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        this.ws.toast('Картинка поля памяти сохранена');
+      }, 'image/png');
+    });
     b('full', () => {
       const pane = this.el('.p-universe');
       if (document.fullscreenElement) document.exitFullscreen();
@@ -361,6 +376,7 @@ export class Lab {
 
   // ——— живая проверка кода ———
   onCodeChange(immediate, noEdit) {
+    if (!noEdit && this.inlineVals?.size) { this.inlineVals = new Map(); this.editor.setInline(null); }
     if (!noEdit && !this._loading) { this.ws?.edited(); this.renderFileStatus(); }
     if (!settings.get('editor.liveCheck') && !immediate) return;
     clearTimeout(this._chk);
@@ -452,6 +468,7 @@ export class Lab {
   }
 
   startProgram(c, mode) {
+    this.inlineVals = new Map(); this.editor.setInline(null);
     this.scene.reset();
     this.scene.setProgram(c);
     const stdin = this.stdinEl.value;
@@ -540,6 +557,7 @@ export class Lab {
     this.console.clear(); this.console.clearLogs();
     for (const [h, cls] of this.runHeader) this.console.line(h, cls);
     this.scene.reset(); this.scene.setProgram(c);
+    this.inlineVals = new Map();
     this.interp = new Interpreter(c.program, c.pp, this.runOpts());
     this.gen = this.interp.run();
     this.stepNo = 0; this.inputLog = [];
@@ -601,6 +619,13 @@ export class Lab {
     const logFull = this.console.logCount >= maxLogs;
     for (const ev of step.events) {
       this.scene.apply(ev, dur);
+      if (ev.type === 'write' && ev.line && ev.path && settings.get('editor.inlineValues') !== false) {
+        const m = this.inlineVals.get(ev.line) || new Map();
+        m.set(ev.path, String(ev.display ?? '…').slice(0, 24));
+        if (m.size > 3) m.delete(m.keys().next().value);
+        this.inlineVals.set(ev.line, m);
+        this._inlDirty = ev.line;
+      }
       this.consoleEvent(ev);
       if (!fast || !logFull) {
         const x = explain(ev);
@@ -613,6 +638,7 @@ export class Lab {
       this.updateBack();
       this.updateTimeline();
       this.editor.setExecLine(step.line, step.kind === 'input' ? 'input' : '');
+      if (this._inlDirty) { this.editor.setInline(this.inlineVals, this._inlDirty); this._inlDirty = 0; }
       this.showStep(step);
       this.refreshProcesses();
     }
@@ -695,6 +721,7 @@ export class Lab {
   }
 
   finish() {
+    if (this.inlineVals?.size) this.editor.setInline(this.inlineVals, 0);
     const code = this.interp?.exitCode ?? 0;
     this.gen = null;
     this.console.askInput(false);

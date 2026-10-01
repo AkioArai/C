@@ -144,9 +144,14 @@ export class Scene {
           curLine: span.start, visited: new Set([span.start]), loops: new Map(), ifs: new Map(), vars: [],
           args: ev.args, callLine: ev.callLine, ret: null, retType: ev.ret, born: now,
         };
+        const caller = this.current;
         this.frames.set(fr.id, fr);
         this.frameOrder.push(fr.id);
         this.frameStack.push(fr.id);
+        if (caller && fr.func !== 'main') {
+          const label = `${fr.func}(${(ev.args || []).map(x => shortVal(x.display)).join(', ')})`;
+          this.anim({ type: 'beam', from: { frameLine: caller }, to: { frame: fr.id }, color: '#d9a6f0', dur, label, delay: 60 });
+        }
         this.focus = fr.id;
         break;
       }
@@ -158,6 +163,7 @@ export class Scene {
           fr.ended = true;
           if (fr.func !== 'main') {
             fr.dying = now + dur * 1.2;
+            fr.closeAt = now;
             for (const id of fr.vars) { const o = this.objects.get(id); if (o) o.dying = now + dur; }
             const parent = this.current;
             if (parent && ev.ret != null) this.anim({ type: 'beam', from: { frame: fr.id }, to: { frameLine: parent }, color: '#8fd46a', dur, label: ev.ret });
@@ -181,6 +187,14 @@ export class Scene {
       case 'write': {
         const o = this.objects.get(ev.objId);
         if (!o) break;
+        const before = o.shape === 'scalar' && o.cells[0]?.init ? o.cells[0].display : null;
+        if (o.shape === 'array' && ev.cell >= 0) {
+          // курсор индекса: переезжает от прошлой записанной ячейки к новой
+          o.ui.curFrom = o.ui.curTo ?? ev.cell;
+          o.ui.curTo = ev.cell;
+          o.ui.curAt = now;
+          o.ui.curLabel = (ev.path || '').replace(/^[^[]*/, '') || `[${ev.cell}]`;
+        }
         if (ev.snap) Object.assign(o, { ...ev.snap, ui: o.ui });
         else if (ev.cell >= 0 && o.cells[ev.cell]) {
           const c = o.cells[ev.cell];
@@ -188,6 +202,16 @@ export class Scene {
           if (ev.target !== undefined) { c.target = ev.target; c.targetPath = ev.targetPath; c.desc = ev.desc; c.ptr = 1; }
         }
         o.garbage = false;
+        if (o.shape === 'scalar') {
+          // «одометр»: старое значение уезжает вверх, новое въезжает, рядом — на сколько изменилось
+          const after = o.cells[0]?.display;
+          if (before !== null && after !== before) {
+            o.ui.prevVal = before;
+            o.ui.rollAt = now;
+            const a = Number(String(before).replace(',', '.')), b = Number(String(after).replace(',', '.'));
+            o.ui.delta = Number.isFinite(a) && Number.isFinite(b) && !/['"]/.test(String(after)) ? Math.round((b - a) * 1e6) / 1e6 : null;
+          } else o.ui.rollAt = 0;
+        }
         this.lastWriteId = ev.objId;
         o.ui.flash = now;
         o.ui.flashCell = ev.cell;
