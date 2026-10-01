@@ -117,6 +117,10 @@ export function award(kind, data = {}) {
   unlock('daily5', kind === 'daily' && data.score === 5);
   for (const a of got) state.xp += 10;
   unlock('level5', levelOf(state.xp) >= 5);
+  // опыт по дням — для графика активности на главной
+  state.dayXp ||= {};
+  state.dayXp[t] = (state.dayXp[t] || 0) + gain + got.length * 10;
+  for (const k of Object.keys(state.dayXp)) if (k < new Date(Date.now() - 60 * 864e5).toLocaleDateString('sv')) delete state.dayXp[k];
   store.set(KEY, state);
 
   const after = levelOf(state.xp);

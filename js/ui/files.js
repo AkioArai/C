@@ -18,6 +18,70 @@ const I = {
   x: '<svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
 };
 
+const TEMPLATES = [
+  { title: 'Ввод и вывод', desc: 'scanf два числа → printf результат', name: 'input.c', stdin: '3 4', code: `#include <stdio.h>
+
+int main(void) {
+    int a, b;
+    printf("Введите два числа: ");
+    scanf("%d %d", &a, &b);
+    printf("Сумма: %d\\n", a + b);
+    return 0;
+}
+` },
+  { title: 'Цикл for', desc: 'сумма чисел от 1 до n', name: 'loop.c', stdin: '10', code: `#include <stdio.h>
+
+int main(void) {
+    int n, s = 0;
+    scanf("%d", &n);
+    for (int i = 1; i <= n; i++)
+        s += i;
+    printf("%d\\n", s);
+    return 0;
+}
+` },
+  { title: 'Условие if / else', desc: 'чётное или нечётное', name: 'if.c', stdin: '7', code: `#include <stdio.h>
+
+int main(void) {
+    int x;
+    scanf("%d", &x);
+    if (x % 2 == 0)
+        printf("чётное\\n");
+    else
+        printf("нечётное\\n");
+    return 0;
+}
+` },
+  { title: 'Массив', desc: 'ввод n чисел, максимум', name: 'array.c', stdin: '5\n3 8 1 9 4', code: `#include <stdio.h>
+
+int main(void) {
+    int n, a[100];
+    scanf("%d", &n);
+    for (int i = 0; i < n; i++)
+        scanf("%d", &a[i]);
+    int max = a[0];
+    for (int i = 1; i < n; i++)
+        if (a[i] > max)
+            max = a[i];
+    printf("max = %d\\n", max);
+    return 0;
+}
+` },
+  { title: 'Своя функция', desc: 'функция и её вызов', name: 'func.c', stdin: '5', code: `#include <stdio.h>
+
+int square(int x) {
+    return x * x;
+}
+
+int main(void) {
+    int n;
+    scanf("%d", &n);
+    printf("%d^2 = %d\\n", n, square(n));
+    return 0;
+}
+` },
+];
+
 export class Workspace {
   /**
    * opts: { side, tabs, examples, getCode(), setCode(code), getStdin(), setStdin(v), onSwitch(file) }
@@ -191,7 +255,7 @@ export class Workspace {
         e.stopPropagation();
         const id = act.closest('[data-fid]')?.dataset.fid;
         const a = act.dataset.fa;
-        if (a === 'new') this.startNew();
+        if (a === 'new') this.showTemplates(act);
         else if (a === 'upload') this.upload();
         else if (a === 'hideside') this.o.hideSide?.();
         else if (a === 'download') this.download(id);
@@ -212,7 +276,8 @@ export class Workspace {
       const t = e.target.closest('[data-tab]');
       if (x && t) { e.stopPropagation(); this.close(t.dataset.tab); return; }
       if (t) this.switchTo(t.dataset.tab);
-      if (e.target.closest('[data-fa="new"]')) this.startNew();
+      const nb = e.target.closest('[data-fa="new"]');
+      if (nb) this.showTemplates(nb);
     });
     tabs.addEventListener('auxclick', (e) => { const t = e.target.closest('[data-tab]'); if (t && e.button === 1) this.close(t.dataset.tab); });
     document.addEventListener('keydown', (e) => {
@@ -221,6 +286,27 @@ export class Workspace {
       if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); this.save(); }
       else if (mod && e.altKey && e.key.toLowerCase() === 'n') { e.preventDefault(); this.startNew(); }
       else if (e.key === 'F2' && this.current && !this.current.preview) { e.preventDefault(); this.startRename(this.active); }
+    });
+  }
+  /** Меню «новый файл»: пустой с выбором имени или готовый шаблон. */
+  showTemplates(anchor) {
+    document.querySelector('.tpl-menu')?.remove();
+    const m = document.createElement('div');
+    m.className = 'menu tpl-menu';
+    m.innerHTML = `<button data-tpl="-1"><b>Пустой файл…</b><small>ввести имя, Ctrl+Alt+N</small></button>` + TEMPLATES.map((t, i) => `<button data-tpl="${i}"><b>${t.title}</b><small>${t.desc}</small></button>`).join('');
+    document.body.appendChild(m);
+    const r = anchor.getBoundingClientRect();
+    m.style.top = Math.min(innerHeight - m.offsetHeight - 8, r.bottom + 6) + 'px';
+    m.style.left = Math.min(innerWidth - m.offsetWidth - 8, Math.max(8, r.left)) + 'px';
+    const close = (e) => { if (!m.contains(e.target)) { m.remove(); document.removeEventListener('mousedown', close, true); } };
+    setTimeout(() => document.addEventListener('mousedown', close, true), 0);
+    m.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-tpl]');
+      if (!b) return;
+      m.remove(); document.removeEventListener('mousedown', close, true);
+      const i = +b.dataset.tpl;
+      if (i < 0) this.startNew();
+      else this.create(TEMPLATES[i].name, TEMPLATES[i].code, TEMPLATES[i].stdin || '');
     });
   }
   startNew() {

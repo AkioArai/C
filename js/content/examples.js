@@ -470,6 +470,27 @@ int main(void) {
 `,
   },
   {
+    id: 'bubble', group: 'Математика', title: 'Сортировка пузырьком',
+    code: `#include <stdio.h>
+
+int main(void) {
+    int a[6] = {5, 2, 9, 1, 7, 3};
+    int n = 6;
+    for (int i = 0; i < n - 1; i++)          /* проход по массиву */
+        for (int j = 0; j < n - 1 - i; j++)  /* сравниваем соседей */
+            if (a[j] > a[j + 1]) {
+                int t = a[j];                /* обмен через t */
+                a[j] = a[j + 1];
+                a[j + 1] = t;
+            }
+    for (int i = 0; i < n; i++)
+        printf("%d ", a[i]);
+    printf("\\n");
+    return 0;
+}
+`,
+  },
+  {
     id: 'ptr-swap', group: 'Указатели и память', title: 'Указатели: обмен через swap',
     code: `#include <stdio.h>
 

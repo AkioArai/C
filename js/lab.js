@@ -1,5 +1,5 @@
 // Лаборатория: связывает редактор, компилятор, интерпретатор, вселенную и консоль.
-import { compile, Interpreter, RuntimeError, HEADERS } from './compiler/index.js';
+import { compile, Interpreter, RuntimeError, HEADERS, runToEnd } from './compiler/index.js';
 import { Editor } from './ui/editor.js';
 import { ConsolePanel } from './ui/console.js';
 import { Scene } from './universe/scene.js';
@@ -89,6 +89,8 @@ export class Lab {
     this.stdinEl.value = this.ws.current.stdin || '';
     this.ws.render();
     this.stdinEl.addEventListener('input', () => this.ws.edited());
+    this.el('[data-tsets]').addEventListener('click', (e) => this.onTestSets(e));
+    this.renderTestSets();
     document.addEventListener('keydown', (e) => {
       if (this.root.hidden || !(e.ctrlKey || e.metaKey)) return;
       const k = e.key.toLowerCase();
@@ -183,7 +185,51 @@ export class Lab {
     this.console.line(`<span class="muted">Открыта программа${title ? ' «' + esc(title) + '»' : ''}. Нажмите «Запуск» (F5).</span>`);
   }
 
+  // ——— наборы входных данных: сохранить несколько вариантов ввода и прогнать все разом ———
+  testSets() { return store.get('fs.tests', {})[this.ws.current?.id] || []; }
+  saveTestSets(list) { const all = store.get('fs.tests', {}); all[this.ws.current.id] = list; store.set('fs.tests', all); this.renderTestSets(); }
+  renderTestSets() {
+    const el = this.el('[data-tsets]');
+    if (!el) return;
+    const list = this.testSets();
+    const pv = this.ws.current?.preview;
+    el.innerHTML = `<span class="ts-l">Наборы ввода</span>${list.map((t, i) => `<span class="ts-chip" data-ts="${i}" title="Подставить этот ввод"><code>${esc(t.replace(/\n/g, ' ⏎ ').slice(0, 24))}</code><button data-tsdel="${i}" title="Удалить набор">×</button></span>`).join('')}
+      ${pv ? '' : '<button class="ts-add" data-tsadd title="Сохранить текущий ввод как набор">+ сохранить</button>'}
+      ${list.length ? `<button class="ts-run" data-tsrun title="Запустить программу на всех наборах сразу">▶ прогнать все (${list.length})</button>` : ''}`;
+  }
+  onTestSets(e) {
+    const del = e.target.closest('[data-tsdel]');
+    if (del) { const l = this.testSets(); l.splice(+del.dataset.tsdel, 1); this.saveTestSets(l); return; }
+    const chip = e.target.closest('[data-ts]');
+    if (chip) { this.stdinEl.value = this.testSets()[+chip.dataset.ts]; this.ws.edited(); return; }
+    if (e.target.closest('[data-tsadd]')) {
+      const v = this.stdinEl.value.trim();
+      if (!v) { this.ws.toast('Сначала впишите ввод в поле выше'); return; }
+      const l = this.testSets();
+      if (!l.includes(v)) { l.push(v); this.saveTestSets(l.slice(-12)); this.ws.toast('Набор сохранён'); }
+      return;
+    }
+    if (e.target.closest('[data-tsrun]')) this.runAllSets();
+  }
+  runAllSets() {
+    const list = this.testSets();
+    const code = this.editor.value;
+    const c = compile(code);
+    this.togglePane('panel', true);
+    this.console.show?.('term');
+    if (!c.ok) { this.console.line('<span class="bad">Ошибка компиляции — наборы не запускались. Откройте вкладку «Проблемы».</span>'); return; }
+    let h = `<div class="ts-res"><div class="ts-rh">Прогон на ${list.length} наборах ввода</div>`;
+    list.forEach((inp, i) => {
+      let r;
+      try { r = runToEnd(code, inp + '\n', { stepLimit: 2_000_000 }); } catch (err) { r = { output: '', error: { message: String(err.message || err) } }; }
+      const out = (r.output || '').replace(/\n$/, '');
+      h += `<div class="ts-row"><span class="ts-n">${i + 1}</span><div><small>ввод</small><pre>${esc(inp)}</pre></div><div><small>вывод</small><pre class="${r.error ? 'bad' : ''}">${esc(out) || '<span class="muted">(пусто)</span>'}${r.error ? `\n${esc(r.error.message)}` : ''}</pre></div></div>`;
+    });
+    this.console.line(h + '</div>');
+  }
+
   onFileSwitch(f) {
+    this.renderTestSets?.();
     this.el('.lab').classList.remove('side-open');
     this.stop(true);
     this.onCodeChange(true, true);

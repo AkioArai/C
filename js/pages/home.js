@@ -41,7 +41,10 @@ export class HomePage {
     const dstat = store.get('drill.stats', { ok: 0, all: 0 });
     // последние 14 дней: были ли занятия
     const days = new Set(xp.days);
-    const cal = Array.from({ length: 14 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (13 - i)); const k = d.toLocaleDateString('sv'); return `<i class="${days.has(k) ? 'on' : ''}${i === 13 ? ' today' : ''}" title="${d.toLocaleDateString('ru', { day: 'numeric', month: 'long' })}"></i>`; }).join('');
+    const dx = xp.dayXp || {};
+    const days14 = Array.from({ length: 14 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (13 - i)); return d; });
+    const maxXp = Math.max(20, ...days14.map(d => dx[d.toLocaleDateString('sv')] || 0));
+    const cal = days14.map((d, i) => { const k = d.toLocaleDateString('sv'), v = dx[k] || 0, on = days.has(k); return `<div class="act-col${i === 13 ? ' today' : ''}" title="${d.toLocaleDateString('ru', { weekday: 'short', day: 'numeric', month: 'long' })}: ${v} опыта"><i class="${on ? 'on' : ''}" style="height:${on ? Math.max(10, (v / maxXp) * 100) : 4}%"></i><small>${d.getDate()}</small></div>`; }).join('');
     const gotN = ACHIEVEMENTS.filter(a => xp.got[a.id]).length;
     const achs = ACHIEVEMENTS.map(a => `<div class="ach ${xp.got[a.id] ? 'got' : ''}" title="${a.desc}${xp.got[a.id] ? ' — получено ' + new Date(xp.got[a.id]).toLocaleDateString('ru') : ''}"><i>${icon(a.icon)}</i><b>${a.title}</b><small>${a.desc}</small></div>`).join('');
 
@@ -88,8 +91,8 @@ export class HomePage {
           </div>
         </div>
         <div class="hm-lv-streak">
-          <div class="hm-lv-row"><b>${xp.streak} ${xp.streak % 10 === 1 && xp.streak % 100 !== 11 ? 'день' : xp.streak % 10 >= 2 && xp.streak % 10 <= 4 && (xp.streak % 100 < 10 || xp.streak % 100 >= 20) ? 'дня' : 'дней'} подряд</b><span class="muted">2 недели</span></div>
-          <div class="hm-cal">${cal}</div>
+          <div class="hm-lv-row"><b>${xp.streak} ${xp.streak % 10 === 1 && xp.streak % 100 !== 11 ? 'день' : xp.streak % 10 >= 2 && xp.streak % 10 <= 4 && (xp.streak % 100 < 10 || xp.streak % 100 >= 20) ? 'дня' : 'дней'} подряд</b><span class="muted">опыт за 2 недели</span></div>
+          <div class="hm-act">${cal}</div>
         </div>
       </section>
 
