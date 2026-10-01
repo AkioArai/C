@@ -1780,3 +1780,29 @@ pre.code-sch { margin: 10px 0 14px; padding: 12px 16px; border-radius: var(--r);
 .fb-row { min-width: 0; }
 .fbar input { flex: 1 1 200px; width: auto; min-width: 70px; }
 .fb-n { min-width: 0; flex: none; }
+
+/* ——— 39. сообщение о сбое ——— */
+.crash { position: fixed; left: 50%; bottom: calc(var(--sb-h) + 16px); transform: translateX(-50%); z-index: 200; display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px); padding: 10px 10px 10px 16px; background: var(--panel); border: 1px solid color-mix(in srgb, var(--red) 55%, transparent); border-left: 3px solid var(--red); border-radius: var(--r-lg); box-shadow: 0 16px 40px var(--shadow); animation: visIn .2s ease; font-size: 12.5px; }
+.crash b { color: var(--red); white-space: nowrap; }
+.crash span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* ——— 40. что нового ——— */
+.wn { position: fixed; inset: 0; z-index: 135; display: grid; place-items: center; padding: 16px; background: var(--scrim); animation: visIn .2s ease; }
+.wn-card { width: min(620px, 100%); max-height: calc(100% - 32px); display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line2); border-radius: 18px; box-shadow: 0 30px 80px var(--shadow); overflow: hidden; }
+.wn-head { display: flex; justify-content: space-between; align-items: flex-start; padding: 22px 24px 8px; }
+.wn-head h2 { margin: 4px 0 0; font-size: 22px; font-weight: 600; }
+.wn-head .in-close { position: static; }
+.wn-list { overflow: auto; padding: 4px 24px 8px; }
+.wn-list section { padding: 10px 0; border-top: 1px solid var(--line); }
+.wn-list section:first-child { border-top: 0; }
+.wn-list section.old { opacity: .7; }
+.wn-list h4 { margin: 0 0 8px; font-size: 13px; }
+.wn-list h4 small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+.wn-list ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.wn-list li { display: grid; grid-template-columns: 92px 1fr; gap: 10px; font-size: 13px; line-height: 1.5; color: var(--text2); }
+.wn-tag { align-self: start; text-align: center; font-size: 10.5px; font-weight: 600; padding: 2px 0; border-radius: 99px; text-transform: uppercase; letter-spacing: .5px; }
+.wn-tag.fix { color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent); }
+.wn-tag.anim { color: var(--violet); background: color-mix(in srgb, var(--violet) 12%, transparent); }
+.wn-tag.new { color: var(--accent); background: var(--accent-dim); }
+.wn-foot { display: flex; justify-content: flex-end; padding: 12px 24px 18px; border-top: 1px solid var(--line); }
+@media (max-width: 640px) { .wn-list li { grid-template-columns: 1fr; gap: 2px; } .wn-tag { justify-self: start; padding: 2px 8px; } }

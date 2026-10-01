@@ -51,7 +51,9 @@ export class Scene {
     this.frameOrder = [];
     this.frameStack = [];
     this.anims = [];
-    this.derefs = [];                // импульсы по стрелкам указателей (*p = …)
+    this.derefs = [];
+    this.bpHit = null;
+    this.crashed = null;                // импульсы по стрелкам указателей (*p = …)
     this.swap = null;                // последний обнаруженный обмен значений
     this.lastScalarW = null;
     this.headers = [];
@@ -366,7 +368,7 @@ export class Scene {
           fr.jump = { from: ev.line, to: ev.kind === 'break' ? Math.min(lp.endLine + 1, fr.span.end) : lp.line, kind: ev.kind, at: now };
         break;
       }
-      case 'exit': this.finished = { code: ev.code }; break;
+      case 'exit': this.finished = { code: ev.code, at: now }; break;
       case 'locale': this.locale = ev.comma ? 'ru' : 'C'; break;
     }
   }

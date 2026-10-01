@@ -8,6 +8,7 @@ import { stats as xpStats, onXp } from './ui/xp.js';
 import { initPwa, install, canInstall, isStandalone, onInstallChange } from './ui/install.js';
 import { exportAll, importAll } from './ui/backup.js';
 import { Welcome } from './ui/welcome.js';
+import { showWhatsNew } from './ui/whatsnew.js';
 import { Tour } from './ui/tour.js';
 import { Palette } from './ui/palette.js';
 import { settings, applyUi, SettingsDialog } from './ui/settings.js';
@@ -19,6 +20,34 @@ import { store } from './store.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// ——— защита от «смеси версий»: страница и код должны быть из одного обновления ———
+export const APP_VERSION = '13';
+{
+  const pageVer = document.querySelector('meta[name="app-version"]')?.content;
+  if (pageVer !== APP_VERSION && !sessionStorage.getItem('cu.verfix')) {
+    sessionStorage.setItem('cu.verfix', '1');
+    Promise.resolve(self.caches?.keys()).then((ks) => Promise.all((ks || []).map((k) => caches.delete(k)))).finally(() => location.reload());
+  }
+}
+// если что-то всё же сломалось — показываем понятное сообщение, а не «мёртвые» кнопки
+function showCrash(msg) {
+  if (document.querySelector('.crash')) return;
+  const el = document.createElement('div');
+  el.className = 'crash';
+  el.innerHTML = `<b>Что-то пошло не так</b><span>${String(msg).replace(/</g, '&lt;').slice(0, 160)}</span><button class="btn primary small" data-crash-reload>Перезагрузить</button><button class="btn small" data-crash-copy title="Скопировать техническую информацию, чтобы отправить разработчику">Скопировать отчёт</button><button class="btn ghost small" data-crash-close>×</button>`;
+  const report = { version: APP_VERSION, page: document.querySelector('meta[name="app-version"]')?.content, url: location.href, ua: navigator.userAgent, message: String(msg), stack: lastStack, time: new Date().toISOString() };
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('[data-crash-reload]')) Promise.resolve(self.caches?.keys()).then((ks) => Promise.all((ks || []).map((k) => caches.delete(k)))).finally(() => location.reload());
+    if (e.target.closest('[data-crash-close]')) el.remove();
+    const cp = e.target.closest('[data-crash-copy]');
+    if (cp) navigator.clipboard?.writeText(JSON.stringify(report, null, 2)).then(() => { cp.textContent = 'Скопировано'; }).catch(() => prompt('Скопируйте отчёт:', JSON.stringify(report)));
+  });
+  document.body.appendChild(el);
+}
+let lastStack = '';
+addEventListener('error', (e) => { if (e.error) { lastStack = String(e.error.stack || '').slice(0, 1500); showCrash(e.message); } });
+addEventListener('unhandledrejection', (e) => { const m = e.reason?.message || ''; if (m && !/fetch|network|abort/i.test(m)) showCrash(m); });
 
 applyUi();
 initPwa();
@@ -88,7 +117,7 @@ function crumb() {
 function route() {
   const [, name = 'home', ...rest] = (location.hash || '#/home').split('/');
   const view = ['home', 'lab', 'learn', 'practice', 'drill'].includes(name) ? name : 'home';
-  ensure(view);
+  try { ensure(view); } catch (err) { console.error(err); lastStack = String(err.stack || '').slice(0, 1500); showCrash(err.message); if (view === 'lab') lab = null; return; }
   currentView = view;
   document.body.dataset.view = view;
   document.querySelectorAll('[data-view]').forEach(v => { v.hidden = v.dataset.view !== view; });
@@ -216,6 +245,8 @@ function commands() {
     C('Сохранить прогресс и файлы в файл', () => exportAll(), '', 'export backup резервная копия'),
     C('Загрузить прогресс из файла', () => importAll(toast), '', 'import restore восстановить'),
     C('Показать знакомство заново', () => showWelcome(), '', 'welcome onboarding мастер'),
+    C('Что нового в обновлении', () => showWhatsNew(true, APP_VERSION), '', 'changelog обновление версия'),
+    C('Сбросить кэш и перезагрузить', () => { Promise.resolve(self.caches?.keys()).then((ks) => Promise.all((ks || []).map((k) => caches.delete(k)))).finally(() => location.reload()); }, '', 'cache кэш reload обновить сломалось'),
     C('Очистить терминал', () => L().console.clear?.(), '', 'clear'),
     C('Открыть настройки', () => settingsDlg.open(), 'Ctrl+,', 'settings preferences'),
     C('Настройки терминала', () => settingsDlg.open('term'), '', 'terminal settings шрифт'),
@@ -257,7 +288,10 @@ function showWelcome() {
   });
 }
 if (!Welcome.seen() && !Tour.seen()) setTimeout(showWelcome, 300);
-else if (!Welcome.seen()) localStorage.setItem('cuniverse.welcome.done', 'true');
+else {
+  if (!Welcome.seen()) localStorage.setItem('cuniverse.welcome.done', 'true');
+  setTimeout(() => showWhatsNew(false, APP_VERSION), 900);
+}
 onInstallChange(() => { if (currentView === 'home') home.open(); });
 window.__app_install = { canInstall, isStandalone };
 

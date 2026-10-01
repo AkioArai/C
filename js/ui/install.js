@@ -6,7 +6,12 @@ const emit = () => listeners.forEach((fn) => fn(canInstall()));
 
 export function initPwa() {
   if ('serviceWorker' in navigator && location.protocol !== 'file:' && !/claudeusercontent|claude\.ai/.test(location.hostname)) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    const had = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});
+    // новая версия офлайн-режима взяла управление — перезагружаемся один раз, чтобы все файлы были одной версии
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (had && !sessionStorage.getItem('cu.swreload')) { sessionStorage.setItem('cu.swreload', '1'); location.reload(); }
+    });
   }
   addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e; emit(); });
   addEventListener('appinstalled', () => { deferred = null; emit(); });
