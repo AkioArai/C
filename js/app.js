@@ -9,6 +9,7 @@ import { initPwa, install, canInstall, isStandalone, onInstallChange } from './u
 import { exportAll, importAll } from './ui/backup.js';
 import { Welcome } from './ui/welcome.js';
 import { showWhatsNew } from './ui/whatsnew.js';
+import { FocusTimer } from './ui/focus.js';
 import { Tour } from './ui/tour.js';
 import { Palette } from './ui/palette.js';
 import { settings, applyUi, SettingsDialog } from './ui/settings.js';
@@ -22,7 +23,7 @@ const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // ——— защита от «смеси версий»: страница и код должны быть из одного обновления ———
-export const APP_VERSION = '13';
+export const APP_VERSION = '14';
 {
   const pageVer = document.querySelector('meta[name="app-version"]')?.content;
   if (pageVer !== APP_VERSION && !sessionStorage.getItem('cu.verfix')) {
@@ -245,6 +246,8 @@ function commands() {
     C('Сохранить прогресс и файлы в файл', () => exportAll(), '', 'export backup резервная копия'),
     C('Загрузить прогресс из файла', () => importAll(toast), '', 'import restore восстановить'),
     C('Показать знакомство заново', () => showWelcome(), '', 'welcome onboarding мастер'),
+    C('Таймер фокуса: старт / пауза', () => $('[data-focus]').click(), '', 'pomodoro помодоро фокус таймер'),
+    C('Распечатать урок / сохранить в PDF', () => { location.hash.startsWith('#/learn') ? print() : toast('Откройте урок в разделе «Теория»'); }, '', 'print pdf печать'),
     C('Что нового в обновлении', () => showWhatsNew(true, APP_VERSION), '', 'changelog обновление версия'),
     C('Сбросить кэш и перезагрузить', () => { Promise.resolve(self.caches?.keys()).then((ks) => Promise.all((ks || []).map((k) => caches.delete(k)))).finally(() => location.reload()); }, '', 'cache кэш reload обновить сломалось'),
     C('Очистить терминал', () => L().console.clear?.(), '', 'clear'),
@@ -270,6 +273,18 @@ function commands() {
 }
 let lessonText;
 const palette = new Palette(commands);
+new FocusTimer($('[data-focus]'), toast);
+// масштаб кода: Ctrl+= / Ctrl+− / Ctrl+0
+document.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey || currentView !== 'lab') return;
+  const k = e.key;
+  if (k !== '=' && k !== '+' && k !== '-' && k !== '0') return;
+  e.preventDefault();
+  const cur = settings.get('editor.fontSize');
+  const v = k === '0' ? 13.5 : Math.max(11, Math.min(22, cur + (k === '-' ? -1 : 1)));
+  settings.set('editor.fontSize', v);
+  toast(`Размер кода: ${v}px · Ctrl+0 — сбросить`);
+});
 $('[data-cmdk]').addEventListener('click', () => palette.open());
 
 window.addEventListener('hashchange', route);

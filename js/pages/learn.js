@@ -86,7 +86,7 @@ export class LearnPage {
     this.content.innerHTML = `<div class="read-bar"><i></i></div><div class="lesson-wrap"><article class="article">
       <div class="kicker">${topic.title}</div>
       <h1>${lesson.num !== '★' && lesson.num !== '0' ? lesson.num + '. ' : ''}${lesson.title}</h1>
-      <div class="lesson-meta">${meta.map(m => `<span>${m}</span>`).join('')}<button class="ls-mark ${store.get('learn.marks', {})[lesson.id] ? 'on' : ''}" data-mark title="Добавить в закладки">${store.get('learn.marks', {})[lesson.id] ? '★ в закладках' : '☆ в закладки'}</button><button class="ls-mark" data-to="notes">✎ заметка</button></div>
+      <div class="lesson-meta">${meta.map(m => `<span>${m}</span>`).join('')}<button class="ls-mark ${store.get('learn.marks', {})[lesson.id] ? 'on' : ''}" data-mark title="Добавить в закладки">${store.get('learn.marks', {})[lesson.id] ? '★ в закладках' : '☆ в закладки'}</button><button class="ls-mark" data-to="notes">✎ заметка</button><button class="ls-mark" data-print title="Распечатать или сохранить в PDF">⎙ печать</button></div>
       ${html}
       ${quiz}
       <section class="notes" id="notes">
@@ -122,6 +122,7 @@ export class LearnPage {
   }
 
   onClick(e) {
+    if (e.target.closest('[data-print]')) { print(); return; }
     if (e.target.closest('[data-mark]')) {
       const m = store.get('learn.marks', {});
       if (m[this.lesson.id]) delete m[this.lesson.id]; else m[this.lesson.id] = Date.now();
