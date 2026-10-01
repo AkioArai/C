@@ -1,0 +1,23 @@
+{
+  "name": "Вселенная Си",
+  "short_name": "Вселенная Си",
+  "description": "Визуальная лаборатория языка C: компилятор, пошаговая визуализация памяти, теория, задачи и тренажёр.",
+  "lang": "ru",
+  "start_url": "./#/home",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0c0a",
+  "theme_color": "#090a08",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "shortcuts": [
+    { "name": "Код", "url": "./#/lab" },
+    { "name": "Задачи", "url": "./#/practice" },
+    { "name": "Тренажёр", "url": "./#/drill/quiz" }
+  ]
+}

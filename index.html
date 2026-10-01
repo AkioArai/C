@@ -6,7 +6,13 @@
   <title>Вселенная Си</title>
   <meta name="description" content="Визуальная лаборатория языка C: код превращается во вселенную — переменные, лучи ввода-вывода, орбиты циклов. Встроенный компилятор, теория и задачи.">
   <meta name="theme-color" content="#0a0b09">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230a0b09'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23c8f05a' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23c8f05a'/%3E%3C/svg%3E">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Вселенная Си">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -67,6 +73,7 @@
           <div class="ed-top"><div class="tabs" data-tabs role="tablist" aria-label="Открытые файлы"></div>
             <div class="ed-acts">
               <button class="tb-b" data-ed="format" title="Выровнять отступы (Shift+Alt+F)"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M8 10h12M8 14h12M4 18h16"/></svg></button>
+              <button class="tb-b" data-ed="history" title="История версий файла"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg></button>
               <button class="tb-b" data-ed="share" title="Скопировать ссылку на этот код"><svg class="ic" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/></svg></button>
               <button class="tb-b" data-ed="zen" title="Режим дзен: только код и поле памяти (Alt+Z)"><svg class="ic" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
             </div></div>
@@ -123,15 +130,17 @@
           <aside class="inspector" data-inspector hidden></aside>
           <div class="splash" data-splash>
             <div class="splash-card">
-              <h2>Память пока пуста</h2>
-              <p>После запуска здесь появятся компьютер с экраном и клавиатурой, кадры функций с их кодом и карточки переменных. Каждый шаг будет разобран в панели «Операция».</p>
-              <ol>
-                <li><b>#include</b> — подключает библиотеку (видно на панели компьютера);</li>
-                <li><b>объявление</b> — в кадре функции появляется карточка: имя, тип, байты, значение;</li>
-                <li><b>scanf</b> — символы из буфера клавиатуры превращаются в значение, <b>printf</b> — формат %d/%f/\n превращается в текст на экране.</li>
+              <div class="sp-orb" aria-hidden="true"><i></i><i></i><i></i></div>
+              <h2>Здесь появится память программы</h2>
+              <p>Запустите код — и увидите компьютер с экраном и клавиатурой, кадры функций и карточки переменных. Каждый шаг будет разобран в панели «Операция».</p>
+              <ol class="sp-steps">
+                <li><b>#include</b><span>подключает библиотеку — видно на панели компьютера</span></li>
+                <li><b>int a = 5;</b><span>в кадре функции появляется карточка: имя, тип, байты, значение</span></li>
+                <li><b>scanf / printf</b><span>символы из клавиатуры превращаются в число, формат %d — в текст на экране</span></li>
               </ol>
               <div class="splash-btns">
-                <button class="btn primary" data-act="splash-run">Запустить программу</button>
+                <button class="btn primary" data-act="splash-run"><svg class="ic" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>Запустить <kbd>F5</kbd></button>
+                <button class="btn" data-act="splash-step"><svg class="ic" viewBox="0 0 24 24"><path d="M6 5l9 7-9 7z"/><path d="M18 5v14"/></svg>По шагам <kbd>F10</kbd></button>
                 <button class="btn ghost" data-act="splash-close">Осмотреться</button>
               </div>
             </div>

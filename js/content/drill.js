@@ -250,3 +250,96 @@ export function choices(q, answer, rnd = Math.random) {
 
 export const GENERATOR_COUNT = GEN.length;
 export { GEN as _GEN };
+
+// ——— «Найди ошибку»: программа с одной типичной ошибкой ———
+// Каждый генератор возвращает строки тела main, номер строки с ошибкой (в теле), исправление и объяснение.
+const NAMES = [['n', 'k'], ['a', 'b'], ['x', 'y'], ['m', 'p']];
+const BUG = [
+  (rnd) => {
+    const [v] = pick(NAMES, rnd);
+    return { kind: 'Ввод', body: [`int ${v};`, `printf("Введите число: ");`, `scanf("%d", ${v});`, `printf("Квадрат: %d\\n", ${v} * ${v});`], bug: 2, fix: `scanf("%d", &${v});`,
+      why: `scanf нужно передать адрес переменной, куда записать число: &${v}. Без & функция получит мусорное значение ${v} вместо адреса и запишет число неизвестно куда.` };
+  },
+  (rnd) => {
+    const [v] = pick(NAMES, rnd), c = R(2, 9, rnd);
+    return { kind: 'Условие', body: [`int ${v};`, `scanf("%d", &${v});`, `if (${v} = ${c})`, `    printf("Угадали!\\n");`, `else`, `    printf("Мимо\\n");`], bug: 2, fix: `if (${v} == ${c})`,
+      why: `= — это присваивание, а не сравнение. Условие ${v} = ${c} записывает ${c} в ${v} и всегда истинно. Сравнение пишется двумя знаками: ==.` };
+  },
+  (rnd) => {
+    const [v] = pick(NAMES, rnd);
+    return { kind: 'Условие', body: [`int ${v};`, `scanf("%d", &${v});`, `if (${v} < 0);`, `    ${v} = -${v};`, `printf("Модуль: %d\\n", ${v});`], bug: 2, fix: `if (${v} < 0)`,
+      why: 'Точка с запятой сразу после if — это пустой оператор. Он и становится телом условия, а следующая строка выполняется всегда, при любом знаке числа.' };
+  },
+  (rnd) => {
+    const n = R(4, 8, rnd);
+    return { kind: 'Массив', body: [`int a[${n}];`, `for (int i = 0; i <= ${n}; i++)`, `    a[i] = i * i;`, `printf("%d\\n", a[${n} - 1]);`], bug: 1, fix: `for (int i = 0; i < ${n}; i++)`,
+      why: `У массива из ${n} элементов индексы от 0 до ${n - 1}. Условие i <= ${n} делает лишний шаг и пишет за границу массива в a[${n}].` };
+  },
+  (rnd) => {
+    const n = R(5, 20, rnd);
+    return { kind: 'Переменные', body: [`int s;`, `for (int i = 1; i <= ${n}; i++)`, `    s += i;`, `printf("Сумма: %d\\n", s);`], bug: 0, fix: 'int s = 0;',
+      why: 'Переменная s не инициализирована: в ней «мусор» из памяти. Прибавление начинается с непредсказуемого значения, поэтому сумма получается случайной.' };
+  },
+  (rnd) => {
+    const a = R(2, 9, rnd), b = R(2, 9, rnd);
+    return { kind: 'Формат', body: [`double avg = (${a} + ${b}) / 2.0;`, `printf("Среднее: %d\\n", avg);`], bug: 1, fix: 'printf("Среднее: %f\\n", avg);',
+      why: 'Спецификатор %d ждёт int, а передано число double. Для double в printf используется %f (или %.2f и т. п.), иначе выводится мусор.' };
+  },
+  (rnd) => {
+    const n = R(3, 6, rnd);
+    return { kind: 'Типы', body: [`int sum = 0, n = ${n};`, `for (int i = 1; i <= n; i++)`, `    sum += i;`, `double avg = sum / n;`, `printf("%.2f\\n", avg);`], bug: 3, fix: 'double avg = (double)sum / n;',
+      why: 'sum и n — целые, поэтому sum / n — целочисленное деление, дробная часть теряется ещё до записи в double. Нужно привести одно из чисел: (double)sum / n.' };
+  },
+  (rnd) => {
+    const d = R(1, 3, rnd);
+    return { kind: 'switch', body: [`int d = ${d};`, `switch (d) {`, `    case 1: printf("один\\n");`, `    case 2: printf("два\\n"); break;`, `    default: printf("много\\n");`, `}`], bug: 2, fix: '    case 1: printf("один\\n"); break;',
+      why: 'После case 1 нет break, поэтому выполнение «проваливается» в case 2 и печатает лишнюю строку. Каждую ветку switch обычно завершают break.' };
+  },
+  (rnd) => {
+    const n = R(3, 9, rnd);
+    return { kind: 'Цикл', body: [`int i = 0;`, `while (i < ${n}) {`, `    printf("%d\\n", i);`, `}`], bug: 2, fix: `    printf("%d\\n", i++);`,
+      why: 'Внутри цикла i не меняется, условие i < n всегда истинно — цикл бесконечный. Нужно увеличивать i в теле (i++).' };
+  },
+  (rnd) => {
+    const r = R(2, 9, rnd);
+    return { kind: 'Типы', body: [`double r = ${r};`, `double v = 4 / 3 * 3.14159 * r * r * r;`, `printf("Объём: %.2f\\n", v);`], bug: 1, fix: 'double v = 4.0 / 3 * 3.14159 * r * r * r;',
+      why: '4 / 3 — деление двух целых, получается 1, а не 1.333. Чтобы деление было дробным, хотя бы одно число должно быть вещественным: 4.0 / 3.' };
+  },
+  (rnd) => {
+    const c = pick(['y', 'n', 'q'], rnd);
+    return { kind: 'Символы', body: [`char c;`, `scanf(" %c", &c);`, `if (c == "${c}")`, `    printf("Да\\n");`], bug: 2, fix: `if (c == '${c}')`,
+      why: `"${c}" в двойных кавычках — строка (адрес массива символов), а символ пишется в одинарных: '${c}'. Сравнивать char со строкой нельзя.` };
+  },
+  (rnd) => {
+    const n = R(3, 8, rnd);
+    return { kind: 'Цикл', body: [`int f = 1;`, `for (int i = 1; i <= ${n}; i++);`, `    f *= i;`, `printf("%d\\n", f);`], bug: 1, fix: `for (int i = 1; i <= ${n}; i++)`,
+      why: 'Точка с запятой после for(...) — пустое тело цикла. Цикл «прокручивается» впустую, а строка f *= i выполняется один раз после него (и i там уже не видна).' };
+  },
+  (rnd) => {
+    const [v] = pick(NAMES, rnd);
+    return { kind: 'Условие', body: [`int ${v};`, `scanf("%d", &${v});`, `if (0 < ${v} < 10)`, `    printf("Однозначное\\n");`], bug: 2, fix: `if (0 < ${v} && ${v} < 10)`,
+      why: `0 < ${v} < 10 вычисляется как (0 < ${v}) < 10: слева получается 0 или 1, а это всегда меньше 10. Двойное неравенство в C пишут через &&.` };
+  },
+  (rnd) => {
+    const n = R(10, 20, rnd);
+    return { kind: 'Типы', body: [`int big = ${n}00000;`, `long long sq = big * big;`, `printf("%lld\\n", sq);`], bug: 1, fix: 'long long sq = (long long)big * big;',
+      why: `big * big считается в типе int (оба множителя int) и переполняется: ${n}00000² больше предела int ≈ 2.1·10⁹. Запись в long long уже не спасает — нужно умножать в long long: (long long)big * big.` };
+  },
+];
+
+/** Вопрос «найди ошибку»: полный текст программы, номер строки с ошибкой (с 1) и пояснения. */
+export function makeBug(rnd = Math.random) {
+  const g = pick(BUG, rnd)(rnd);
+  const head = ['#include <stdio.h>', '', 'int main(void) {'];
+  const lines = [...head, ...g.body.map(l => '    ' + l), '    return 0;', '}'];
+  return { kind: g.kind, code: lines.join('\n') + '\n', line: head.length + g.bug + 1, fix: '    ' + g.fix, why: g.why, lines };
+}
+export { BUG as _BUG };
+
+/** Детерминированный генератор по строке (для «испытания дня»). */
+export function seeded(str) {
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); }
+  let a = h >>> 0;
+  return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}

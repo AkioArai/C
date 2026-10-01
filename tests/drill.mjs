@@ -23,3 +23,24 @@ _GEN.forEach((g, gi) => {
 });
 console.log(`\ndrill: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
+
+// «Найди ошибку»: исправленная программа компилируется без ошибок и завершается
+import { _BUG, makeBug, seeded } from '../js/content/drill.js';
+let bp = 0, bf = 0;
+_BUG.forEach((g, gi) => {
+  for (let k = 0; k < 6; k++) {
+    const r = seeded(`bug${gi}-${k}`);
+    const one = g(r);
+    const q = makeBug(() => 0); // форма вопроса
+    const head = ['#include <stdio.h>', '', 'int main(void) {'];
+    const lines = [...head, ...one.body.map(l => '    ' + l), '    return 0;', '}'];
+    const ln = head.length + one.bug;
+    const fixed = lines.slice(); fixed[ln] = '    ' + one.fix;
+    const res = runToEnd(fixed.join('\n') + '\n', '5\ny\n', { stepLimit: 200000 });
+    const errs = (res.diagnostics || []).filter(d => d.severity === 'error');
+    if (!q.code || res.compileError || errs.length || res.error) { bf++; console.log('FAIL bug', gi, one.kind, errs.map(e => e.message), res.error?.message); }
+    else bp++;
+  }
+});
+console.log(`bugs: ${bp} passed, ${bf} failed`);
+if (bf) process.exit(1);

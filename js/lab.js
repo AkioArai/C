@@ -13,6 +13,7 @@ import { settings } from './ui/settings.js';
 import { Workspace } from './ui/files.js';
 import { award } from './ui/xp.js';
 import { formatC } from './ui/format.js';
+import { snapshot, HistoryDialog } from './ui/history.js';
 
 const PLAY = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>';
 const SPEEDS = [2200, 1500, 1050, 750, 520, 340, 200, 110, 50, 16];
@@ -100,6 +101,7 @@ export class Lab {
       if (b.dataset.ed === 'format') this.formatCode();
       if (b.dataset.ed === 'share') this.share();
       if (b.dataset.ed === 'zen') this.opts.toggleZen?.();
+      if (b.dataset.ed === 'history') this.showHistory();
     });
     document.addEventListener('keydown', (e) => {
       if (this.root.hidden) return;
@@ -129,6 +131,19 @@ export class Lab {
     const pos = lines.slice(0, line - 1).reduce((s, l) => s + l.length + 1, 0) + (lines[line - 1] || '').match(/^\s*/)[0].length;
     ta.setSelectionRange(pos, pos);
     this.ws.toast('Отступы выровнены · Ctrl+Z — вернуть как было');
+  }
+  /** Окно истории версий текущего файла. */
+  showHistory() {
+    const f = this.ws.current;
+    if (!f || f.preview) { this.ws.toast('У примеров нет истории — начните его менять, и он станет вашим файлом'); return; }
+    this.ws.capture();
+    (this.hist ||= new HistoryDialog()).open(f, this.editor.value, (code) => {
+      const ta = this.editor.ta;
+      ta.focus(); ta.select();
+      this.editor.insert(code);
+      ta.setSelectionRange(0, 0);
+      this.ws.toast('Версия восстановлена · Ctrl+Z — отменить');
+    });
   }
   /** Ссылка, по которой откроется этот код (код сжимается прямо в адрес). */
   async share() {
@@ -305,6 +320,7 @@ export class Lab {
     this.splash.addEventListener('click', (e) => {
       if (e.target.closest('[data-act="splash-run"]')) this.run('anim');
       if (e.target.closest('[data-act="splash-close"]')) this.splash.hidden = true;
+      if (e.target.closest('[data-act="splash-step"]')) this.stepOnce();
     });
   }
 
@@ -432,6 +448,7 @@ export class Lab {
     if (!c) return;
     this.startProgram(c, mode);
     award('run');
+    this.ws.capture(); snapshot(this.ws.current, 'запуск');
   }
 
   startProgram(c, mode) {

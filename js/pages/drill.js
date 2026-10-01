@@ -1,5 +1,5 @@
 // Тренажёр: «Угадай вывод», таблица ASCII и приоритет операций с расстановкой скобок.
-import { makeQuestion, choices, DRILL_CATS } from '../content/drill.js';
+import { makeQuestion, choices, DRILL_CATS, makeBug, seeded } from '../content/drill.js';
 import { runToEnd, HEADERS } from '../compiler/index.js';
 import { tokenize, preprocess } from '../compiler/lexer.js';
 import { parse } from '../compiler/parser.js';
@@ -10,7 +10,9 @@ import { store } from '../store.js';
 import { confetti } from '../ui/fx.js';
 
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const TABS = [['quiz', 'Угадай вывод'], ['ascii', 'Таблица ASCII'], ['prec', 'Приоритет операций']];
+const TABS = [['quiz', 'Угадай вывод'], ['daily', 'Испытание дня'], ['bugs', 'Найди ошибку'], ['ascii', 'Таблица ASCII'], ['prec', 'Приоритет операций']];
+const DAILY_N = 5;
+const today = () => new Date().toLocaleDateString('sv');
 
 export class DrillPage {
   constructor(root, opts) {
@@ -20,8 +22,8 @@ export class DrillPage {
     this.cats = store.get('drill.cats', null);
     root.addEventListener('click', (e) => this.onClick(e));
     document.addEventListener('keydown', (e) => {
-      if (root.hidden || this.tab !== 'quiz' || e.ctrlKey || e.metaKey || e.altKey || /input|textarea/i.test(e.target.tagName) || document.querySelector('.pal:not([hidden])')) return;
-      if (/^[1-4]$/.test(e.key) && !this.answered) { e.preventDefault(); this.answer(+e.key - 1); }
+      if (root.hidden || !['quiz', 'daily', 'bugs'].includes(this.tab) || e.ctrlKey || e.metaKey || e.altKey || /input|textarea/i.test(e.target.tagName) || document.querySelector('.pal:not([hidden])')) return;
+      if (/^[1-4]$/.test(e.key) && !this.answered && this.tab !== 'bugs') { e.preventDefault(); this.answer(+e.key - 1); }
       else if (e.key === 'Enter' && this.answered) { e.preventDefault(); this.next(); }
     });
   }
@@ -37,6 +39,8 @@ export class DrillPage {
     </div></div>`;
     this.body = this.root.querySelector('[data-body]');
     if (this.tab === 'quiz') this.renderQuiz();
+    if (this.tab === 'daily') this.renderDaily();
+    if (this.tab === 'bugs') this.renderBugs();
     if (this.tab === 'ascii') this.renderAscii();
     if (this.tab === 'prec') this.renderPrec();
   }
@@ -63,6 +67,8 @@ export class DrillPage {
     const o = e.target.closest('[data-opt]');
     if (o && !this.answered) { this.answer(+o.dataset.opt); return; }
     if (e.target.closest('[data-next]')) { this.next(); return; }
+    const bl = e.target.closest('[data-bl]');
+    if (bl && !this.answered) { this.answerBug(+bl.dataset.bl); return; }
     if (e.target.closest('[data-lab]') && this.q) { this.opts.openInLab(this.q.code, '', 'Тренажёр'); return; }
     const a = e.target.closest('[data-ch]');
     if (a) { this.showChar(+a.dataset.ch); return; }
@@ -95,17 +101,25 @@ export class DrillPage {
   }
   next() {
     if (!this.body.querySelector('[data-card]')) return;
+    if (this.tab === 'bugs') { this.nextBug(); return; }
     this.answered = false;
     let q, r;
-    for (let i = 0; i < 20; i++) {
-      q = makeQuestion(Math.random, this.cats);
-      r = runToEnd(q.code);
-      if (!r.compileError && !r.error) break;
+    if (this.tab === 'daily') {
+      const st = this.dailyState();
+      if (st.answers.length >= DAILY_N) { this.renderDailyDone(); return; }
+      ({ q, r, opts: this.opts4 } = this.dailyQs[st.answers.length]);
+      this.renderDailyDots();
+    } else {
+      for (let i = 0; i < 20; i++) {
+        q = makeQuestion(Math.random, this.cats);
+        r = runToEnd(q.code);
+        if (!r.compileError && !r.error) break;
+      }
+      this.opts4 = choices(q, r.output);
+      this.renderStats();
     }
     this.q = q;
     this.ans = r.output.replace(/\n$/, '');
-    this.opts4 = choices(q, r.output);
-    this.renderStats();
     const card = this.body.querySelector('[data-card]');
     card.className = 'dr-card';
     card.innerHTML = `
@@ -126,6 +140,14 @@ export class DrillPage {
     const d = store.get('drill.stats', { ok: 0, all: 0 });
     d.all++; if (ok) d.ok++;
     store.set('drill.stats', d);
+    if (this.tab === 'daily') {
+      const all = store.get('drill.daily', {});
+      const st = this.dailyState();
+      st.answers.push(ok);
+      all[today()] = st;
+      store.set('drill.daily', all);
+      if (st.answers.length === DAILY_N) award('daily', { score: st.answers.filter(Boolean).length });
+    }
     const ev = award(ok ? 'drill' : 'drillMiss');
     if (ok && (stats().combo % 5 === 0 || ev.levelUp)) { const r = this.body.querySelectorAll('[data-opt]')[i].getBoundingClientRect(); confetti(r.left + r.width / 2, r.top); }
     const btns = this.body.querySelectorAll('[data-opt]');
@@ -142,8 +164,100 @@ export class DrillPage {
     why.hidden = false;
     why.innerHTML = `<div class="dr-verdict ${ok ? 'ok' : 'bad'}">${ok ? 'Верно!' : 'Не совсем.'} <span>Программа выводит:</span> <code>${esc(this.ans)}</code></div>
       <p>${esc(this.q.why)}</p>
-      <div class="dr-act"><button class="btn primary" data-next>Следующая <kbd>Enter</kbd></button><button class="btn ghost" data-lab>Посмотреть по шагам во вселенной</button></div>`;
-    this.renderStats();
+      <div class="dr-act"><button class="btn primary" data-next>${this.tab === 'daily' && this.dailyState().answers.length >= DAILY_N ? 'Итоги дня' : 'Следующая'} <kbd>Enter</kbd></button><button class="btn ghost" data-lab>Посмотреть по шагам во вселенной</button></div>`;
+    if (this.tab === 'daily') this.renderDailyDots(); else this.renderStats();
+    why.querySelector('[data-next]').focus({ preventScroll: true });
+  }
+
+  // ——— испытание дня: 5 одинаковых для всех вопросов в день ———
+  dailyState() { return store.get('drill.daily', {})[today()] || { answers: [] }; }
+  renderDaily() {
+    const rnd = seeded('daily-' + today());
+    this.dailyQs = [];
+    while (this.dailyQs.length < DAILY_N) {
+      const q = makeQuestion(rnd);
+      const r = runToEnd(q.code);
+      if (r.compileError || r.error || this.dailyQs.some(x => x.q.code === q.code)) continue;
+      this.dailyQs.push({ q, r, opts: choices(q, r.output, rnd) });
+    }
+    const d = new Date();
+    this.body.innerHTML = `<div class="dl-head">
+        <div><b>${d.toLocaleDateString('ru', { weekday: 'long', day: 'numeric', month: 'long' })}</b><span class="muted">Пять вопросов — одни и те же у всех сегодня. Ответ даётся с первой попытки.</span></div>
+        <div class="dl-dots" data-dots></div>
+      </div>
+      <div class="dr-card" data-card></div>`;
+    this.next();
+  }
+  renderDailyDots() {
+    const a = this.dailyState().answers;
+    const el = this.body.querySelector('[data-dots]');
+    if (el) el.innerHTML = Array.from({ length: DAILY_N }, (_, i) => `<i class="${i < a.length ? (a[i] ? 'ok' : 'no') : i === a.length ? 'cur' : ''}"></i>`).join('');
+  }
+  renderDailyDone() {
+    const all = store.get('drill.daily', {});
+    const a = this.dailyState().answers;
+    const score = a.filter(Boolean).length;
+    const msg = ['Бывает! Завтра будет новый шанс.', 'Начало положено.', 'Неплохо — почти половина.', 'Хороший результат!', 'Отлично, почти идеально!', 'Идеально! Все пять из пяти.'][score];
+    const cal = Array.from({ length: 21 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (20 - i)); const k = d.toLocaleDateString('sv'); const s = all[k]; const n = s ? s.answers.filter(Boolean).length : -1; return `<i class="${n < 0 ? '' : 's' + n}" title="${d.toLocaleDateString('ru', { day: 'numeric', month: 'long' })}${n < 0 ? '' : ': ' + n + ' из ' + DAILY_N}">${n < 0 ? '' : n}</i>`; }).join('');
+    this.renderDailyDots();
+    const card = this.body.querySelector('[data-card]');
+    card.className = 'dr-card dl-done enter';
+    card.innerHTML = `<div class="dl-score"><div class="dl-big">${score}<small>/${DAILY_N}</small></div><p>${msg}</p>
+        <div class="dl-res">${a.map((ok, i) => `<span class="${ok ? 'ok' : 'no'}">${i + 1}</span>`).join('')}</div>
+        <div class="dr-act"><a class="btn primary" href="#/drill/quiz">Тренироваться дальше</a><a class="btn ghost" href="#/drill/bugs">Найди ошибку</a></div></div>
+      <div class="dl-cal"><b>Последние 3 недели</b><div class="dl-grid">${cal}</div><small class="muted">Новое испытание появится завтра.</small></div>`;
+    if (score === DAILY_N) { const r = card.getBoundingClientRect(); confetti(r.left + r.width / 4, r.top + 60); }
+  }
+
+  // ——— найди ошибку ———
+  renderBugs() {
+    this.body.innerHTML = `<div class="dr-stats" data-bstats></div><div class="dr-card bug" data-card></div>`;
+    this.nextBug();
+  }
+  nextBug() {
+    this.answered = false;
+    const q = this.bq = makeBug();
+    this.q = { code: q.code };
+    this.renderBugStats();
+    const card = this.body.querySelector('[data-card]');
+    card.className = 'dr-card bug';
+    const hl = highlight(q.code).split('\n');
+    card.innerHTML = this.bugHtml(q, hl);
+    void card.offsetWidth;
+    card.classList.add('enter');
+  }
+  renderBugStats() {
+    const s = store.get('drill.bugs', { ok: 0, all: 0 });
+    this.body.querySelector('[data-bstats]').innerHTML = `<span class="dr-st"><b>${s.ok}<i>/${s.all}</i></b><small>найдено ошибок</small></span><span class="dr-st"><b>${stats().combo}</b><small>серия</small></span>`;
+  }
+  bugHtml(q, hl) {
+    return `<div class="dr-code"><div class="dr-code-h"><span class="dr-tag">${esc(q.kind)}</span><span class="muted">нажмите на строку с ошибкой</span></div>
+        <div class="bg-code">${q.lines.map((l, i) => `<div class="bg-ln" data-bl="${i + 1}"><span class="dr-ln">${i + 1}</span><code>${hl[i] || ''}</code></div>`).join('')}</div></div>
+      <div class="dr-q"><h3>В какой строке ошибка?</h3><p class="muted">Программа компилируется (или почти), но работает не так, как задумано. Найдите строку, которую нужно исправить.</p><div class="dr-why" data-why hidden></div></div>`;
+  }
+  answerBug(line) {
+    this.answered = true;
+    const q = this.bq;
+    const ok = line === q.line;
+    const s = store.get('drill.bugs', { ok: 0, all: 0 });
+    s.all++; if (ok) s.ok++;
+    store.set('drill.bugs', s);
+    award(ok ? 'drill' : 'drillMiss');
+    this.renderBugStats();
+    const card = this.body.querySelector('[data-card]');
+    card.querySelectorAll('[data-bl]').forEach(el => {
+      const n = +el.dataset.bl;
+      el.classList.add('done');
+      if (n === q.line) el.classList.add('right');
+      else if (n === line) el.classList.add('wrong');
+    });
+    card.classList.remove('enter'); void card.offsetWidth; card.classList.add(ok ? 'is-good' : 'is-bad');
+    const why = card.querySelector('[data-why]');
+    why.hidden = false;
+    why.innerHTML = `<div class="dr-verdict ${ok ? 'ok' : 'bad'}">${ok ? 'Нашли!' : `Ошибка в строке ${q.line}.`}</div>
+      <div class="bg-diff"><div class="del"><span>−</span><code>${highlight(q.lines[q.line - 1].trim())}</code></div><div class="add"><span>+</span><code>${highlight(q.fix.trim())}</code></div></div>
+      <p>${esc(q.why)}</p>
+      <div class="dr-act"><button class="btn primary" data-next>Следующая <kbd>Enter</kbd></button><button class="btn ghost" data-lab>Открыть в редакторе</button></div>`;
     why.querySelector('[data-next]').focus({ preventScroll: true });
   }
 

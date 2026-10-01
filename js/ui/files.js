@@ -2,6 +2,7 @@
 import { store, confirmClick } from '../store.js';
 import { settings } from './settings.js';
 import { award } from './xp.js';
+import { snapshot, forget } from './history.js';
 
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -75,6 +76,8 @@ export class Workspace {
     f.code = this.o.getCode();
     f.stdin = this.o.getStdin();
     f.mtime = Date.now();
+    this._snapT ||= {};
+    if (!this._snapT[f.id] || Date.now() - this._snapT[f.id] > 120000) { this._snapT[f.id] = Date.now(); snapshot(f, 'правка'); }
     if (settings.get('editor.autoSave')) { clearTimeout(this._sv); this._sv = setTimeout(() => this.persist(), 300); this.dirty.delete(f.id); }
     else if (!this.dirty.has(f.id)) { this.dirty.add(f.id); this.renderTabs(); }
   }
@@ -84,6 +87,7 @@ export class Workspace {
     if (f?.preview) this.promote(f);
     this.dirty.clear();
     this.persist();
+    snapshot(this.current, 'сохранение');
     this.render();
     this.toast('Сохранено в браузере');
   }
@@ -138,6 +142,7 @@ export class Workspace {
     this.render();
   }
   remove(id) {
+    forget(id);
     this.files = this.files.filter(f => f.id !== id);
     if (!this.files.length) this.files.push({ id: uid(), name: 'main.c', code: BLANK, stdin: '', mtime: Date.now() });
     this.dirty.delete(id);
