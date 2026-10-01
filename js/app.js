@@ -5,6 +5,9 @@ import { PracticePage, updateProgressPill } from './pages/practice.js';
 import { HomePage } from './pages/home.js';
 import { DrillPage } from './pages/drill.js';
 import { stats as xpStats, onXp } from './ui/xp.js';
+import { initPwa, install, canInstall, isStandalone, onInstallChange } from './ui/install.js';
+import { exportAll, importAll } from './ui/backup.js';
+import { Welcome } from './ui/welcome.js';
 import { Tour } from './ui/tour.js';
 import { Palette } from './ui/palette.js';
 import { settings, applyUi, SettingsDialog } from './ui/settings.js';
@@ -18,6 +21,7 @@ const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 applyUi();
+initPwa();
 settings.on((k) => { if (k.startsWith('ui.') || k.startsWith('editor.')) applyUi(); });
 const settingsDlg = new SettingsDialog();
 $('[data-settings]').addEventListener('click', () => settingsDlg.open());
@@ -56,7 +60,10 @@ function homeAction(act, arg) {
   else if (act === 'file') openFile(arg);
   else if (act === 'example') { const ex = EXAMPLES.find(e => e.id === arg); if (ex) openExample(ex); }
   else if (act === 'tour') startTour();
-  else if (act === 'drill') location.hash = '#/drill/quiz';
+  else if (act === 'drill') location.hash = '#/drill/' + (arg || 'quiz');
+  else if (act === 'install') install().then(toast);
+  else if (act === 'export') exportAll();
+  else if (act === 'import') importAll(toast);
 }
 
 // ——— «хлебные крошки» в заголовке: где я и что открыто ———
@@ -202,6 +209,13 @@ function commands() {
     C('Тренажёр: угадай вывод', () => { location.hash = '#/drill/quiz'; }, '', 'drill quiz викторина'),
     C('Таблица ASCII', () => { location.hash = '#/drill/ascii'; }, '', 'ascii коды символов'),
     C('Приоритет операций и расстановка скобок', () => { location.hash = '#/drill/prec'; }, '', 'precedence приоритет скобки'),
+    C('История версий файла', () => L().showHistory(), '', 'history версии откат restore'),
+    C('Испытание дня', () => { location.hash = '#/drill/daily'; }, '', 'daily challenge ежедневное'),
+    C('Тренажёр: найди ошибку', () => { location.hash = '#/drill/bugs'; }, '', 'bugs ошибки debug'),
+    C('Установить как приложение (работает без интернета)', () => install().then(toast), '', 'install pwa офлайн offline'),
+    C('Сохранить прогресс и файлы в файл', () => exportAll(), '', 'export backup резервная копия'),
+    C('Загрузить прогресс из файла', () => importAll(toast), '', 'import restore восстановить'),
+    C('Показать знакомство заново', () => showWelcome(), '', 'welcome onboarding мастер'),
     C('Очистить терминал', () => L().console.clear?.(), '', 'clear'),
     C('Открыть настройки', () => settingsDlg.open(), 'Ctrl+,', 'settings preferences'),
     C('Настройки терминала', () => settingsDlg.open('term'), '', 'terminal settings шрифт'),
@@ -227,6 +241,22 @@ $('[data-cmdk]').addEventListener('click', () => palette.open());
 window.addEventListener('hashchange', route);
 updateProgressPill();
 route();
+
+// ——— первое знакомство ———
+function showWelcome() {
+  new Welcome({
+    onFinish(where) {
+      if (where === 'learn') location.hash = '#/learn/universe';
+      else if (where === 'drill') location.hash = '#/drill/quiz';
+      else if (where === 'lab') startTour();
+      else if (where === 'home') go('home');
+    },
+  });
+}
+if (!Welcome.seen() && !Tour.seen()) setTimeout(showWelcome, 300);
+else if (!Welcome.seen()) localStorage.setItem('cuniverse.welcome.done', 'true');
+onInstallChange(() => { if (currentView === 'home') home.open(); });
+window.__app_install = { canInstall, isStandalone };
 
 const tour = new Tour({
   before() {

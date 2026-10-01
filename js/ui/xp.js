@@ -19,6 +19,8 @@ export const ACHIEVEMENTS = [
   { id: 'drill10', title: 'Зоркий глаз', desc: '10 верных ответов в тренажёре', icon: 'eye' },
   { id: 'combo5', title: 'Серия ×5', desc: '5 верных ответов в тренажёре подряд', icon: 'bolt' },
   { id: 'combo15', title: 'Серия ×15', desc: '15 верных ответов подряд', icon: 'bolt' },
+  { id: 'daily1', title: 'Испытание дня', desc: 'Пройти ежедневное испытание', icon: 'star' },
+  { id: 'daily5', title: 'Пять из пяти', desc: 'Ответить верно на все вопросы испытания дня', icon: 'star' },
   { id: 'streak3', title: 'Три дня подряд', desc: 'Заниматься 3 дня подряд', icon: 'flame' },
   { id: 'streak7', title: 'Неделя', desc: 'Заниматься 7 дней подряд', icon: 'flame' },
   { id: 'share1', title: 'Поделился', desc: 'Скопировать ссылку на свой код', icon: 'share' },
@@ -85,6 +87,7 @@ export function award(kind, data = {}) {
   if (kind === 'drill') { state.combo++; state.drill++; state.best = Math.max(state.best, state.combo); gain = 4 + Math.min(state.combo, 10); }
   if (kind === 'drillMiss') state.combo = 0;
   if (kind === 'file') gain = 3;
+  if (kind === 'daily') gain = 10 + data.score * 4;
   state.xp += gain;
 
   const got = [];
@@ -107,6 +110,8 @@ export function award(kind, data = {}) {
   unlock('streak3', s >= 3);
   unlock('streak7', s >= 7);
   unlock('share1', kind === 'share');
+  unlock('daily1', kind === 'daily');
+  unlock('daily5', kind === 'daily' && data.score === 5);
   for (const a of got) state.xp += 10;
   unlock('level5', levelOf(state.xp) >= 5);
   store.set(KEY, state);

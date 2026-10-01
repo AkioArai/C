@@ -36,6 +36,8 @@ export class HomePage {
     const hello = hour < 5 ? 'Доброй ночи' : hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : 'Добрый вечер';
     const last = files[0];
     const xp = xpStats();
+    const dd = (store.get('drill.daily', {})[new Date().toLocaleDateString('sv')] || { answers: [] }).answers;
+    const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
     const dstat = store.get('drill.stats', { ok: 0, all: 0 });
     // последние 14 дней: были ли занятия
     const days = new Set(xp.days);
@@ -107,10 +109,11 @@ export class HomePage {
           <h3>Угадай, что выведет программа</h3>
           <p>${dstat.all ? `Верно ${dstat.ok} из ${dstat.all} · лучшая серия ${xp.best}` : 'Короткие задачки на деление, ++, приоритеты, форматы printf. Минута — и вы разогрелись.'}</p>
         </button>
-        <button class="hm-card" data-home="tour">
-          <div class="hm-card-k">${I('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><path d="M12 17.5v.01"/>')}Впервые здесь?</div>
-          <h3>Короткое обучение</h3>
-          <p>За минуту покажем, где что находится и как запускать программы по шагам.</p>
+        <button class="hm-card ${dd.length >= 5 ? 'done' : 'hot'}" data-home="drill:daily">
+          <div class="hm-card-k">${icon('star')}Испытание дня</div>
+          <h3>${dd.length >= 5 ? `Пройдено: ${dd.filter(Boolean).length} из 5` : dd.length ? `Осталось ${5 - dd.length} из 5` : '5 вопросов на сегодня'}</h3>
+          <div class="hm-dd">${Array.from({ length: 5 }, (_, i) => `<i class="${i < dd.length ? (dd[i] ? 'ok' : 'no') : ''}"></i>`).join('')}</div>
+          <p>${dd.length >= 5 ? 'Новое испытание появится завтра.' : 'Одинаковые для всех, каждый день новые.'}</p>
         </button>
       </section>
 
@@ -139,6 +142,16 @@ export class HomePage {
       <section class="hm-sec">
         <h2>Достижения <span class="muted">${gotN} из ${ACHIEVEMENTS.length}</span></h2>
         <div class="hm-achs">${achs}</div>
+      </section>
+
+      <section class="hm-sec">
+        <h2>Полезное</h2>
+        <div class="hm-util">
+          <button class="hm-u" data-home="tour"><i>${I('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><path d="M12 17.5v.01"/>')}</i><b>Обучение интерфейсу</b><small>Минутная экскурсия по экрану с кодом</small></button>
+          ${standalone ? '' : `<button class="hm-u" data-home="install"><i>${I('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>')}</i><b>Установить приложение</b><small>Иконка на рабочем столе, работает без интернета</small></button>`}
+          <button class="hm-u" data-home="export"><i>${I('<path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 21h14"/>')}</i><b>Резервная копия</b><small>Прогресс, файлы и настройки — в один файл</small></button>
+          <button class="hm-u" data-home="import"><i>${I('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>')}</i><b>Восстановить из копии</b><small>Перенести прогресс на другое устройство</small></button>
+        </div>
       </section>
 
       <section class="hm-sec hm-keys">

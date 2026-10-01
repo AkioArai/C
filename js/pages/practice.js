@@ -51,12 +51,13 @@ export class PracticePage {
               <button class="chip" data-t="4">Тема 4</button>
               <button class="chip" data-t="sr">Самостоятельные</button>
             </div>
-            <div class="prac-filters" data-flevel>
-              <button class="chip" data-l="all">Любая</button>
-              <button class="chip" data-l="easy">Лёгкие</button>
-              <button class="chip" data-l="hard">Сложные</button>
-              <button class="chip" data-l="extreme">Экстрим</button>
+            <div class="seg prac-lv" data-flevel>
+              <button data-l="all">Любые</button>
+              <button data-l="easy">Лёгкие</button>
+              <button data-l="hard">Сложные</button>
+              <button data-l="extreme">Экстрим</button>
             </div>
+            <div class="prac-prog" data-pprog></div>
           </div>
           <div class="task-list" data-list></div>
         </div>
@@ -71,14 +72,18 @@ export class PracticePage {
 
   renderList() {
     this.root.querySelectorAll('[data-t]').forEach(b => b.classList.toggle('active', b.dataset.t === this.topic));
-    this.root.querySelectorAll('[data-l]').forEach(b => b.classList.toggle('active', b.dataset.l === this.level));
+    this.root.querySelectorAll('[data-l]').forEach(b => b.classList.toggle('on', b.dataset.l === this.level));
     const solved = store.get('practice.solved', {});
     const items = TASKS.filter(t => (this.topic === 'all' || String(t.topic) === this.topic) && (this.level === 'all' || t.level === this.level));
+    const done = items.filter(t => solved[t.id]).length;
+    this.root.querySelector('[data-pprog]').innerHTML = `<div class="pp-row"><span>Решено <b>${done}</b> из ${items.length}</span><span class="muted">${items.length ? Math.round((done / items.length) * 100) : 0}%</span></div><div class="bar"><i style="width:${items.length ? (done / items.length) * 100 : 0}%"></i></div>`;
     this.list.innerHTML = items.map(t => `
-      <a class="task-item ${this.current?.id === t.id ? 'active' : ''}" href="#/practice/${t.id}">
-        <div class="tt">${esc(t.title)} ${solved[t.id] ? '<span class="solved-mark">решено</span>' : ''}</div>
-        <div class="tm"><span class="lvl lvl-${t.level}">${LEVELS[t.level].name}</span><span>${t.topic === 'sr' ? 'Самостоятельная' : 'Тема ' + t.topic}</span></div>
+      <a class="task-item ${this.current?.id === t.id ? 'active' : ''} ${solved[t.id] ? 'solved' : ''}" href="#/practice/${t.id}">
+        <span class="ti-st" title="${solved[t.id] ? 'Решено' : 'Ещё не решено'}">${solved[t.id] ? '<svg class="ic" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : TASKS.indexOf(t) + 1}</span>
+        <span class="ti-b"><span class="tt">${esc(t.title)}</span>
+        <span class="tm"><span class="lvl lvl-${t.level}">${LEVELS[t.level].name}</span><span>${t.topic === 'sr' ? 'Самостоятельная' : 'Тема ' + t.topic}</span></span></span>
       </a>`).join('') || '<div class="empty">Нет задач с такими фильтрами.</div>';
+    this.list.querySelector('.task-item.active')?.scrollIntoView({ block: 'nearest' });
   }
 
   open(id) {
@@ -123,9 +128,10 @@ export class PracticePage {
     this.main.innerHTML = `
       <div class="task-view">
         <div class="task-desc"><article class="article">
-          <div class="kicker">${TASK_TOPICS[t.topic]}</div>
+          <div class="task-top"><div class="kicker">${TASK_TOPICS[t.topic]}</div>
+            <nav class="task-nav">${(() => { const i = TASKS.indexOf(t), p = TASKS[i - 1], n = TASKS[i + 1]; return `${p ? `<a class="tb-b" href="#/practice/${p.id}" title="Предыдущая: ${esc(p.title)}">‹</a>` : '<span class="tb-b" aria-disabled="true">‹</span>'}<span>${i + 1} / ${TASKS.length}</span>${n ? `<a class="tb-b" href="#/practice/${n.id}" title="Следующая: ${esc(n.title)}">›</a>` : '<span class="tb-b" aria-disabled="true">›</span>'}`; })()}</nav></div>
           <h1>${esc(t.title)}</h1>
-          <p><span class="lvl lvl-${t.level}">${LEVELS[t.level].name}</span> ${solved[t.id] ? '<span class="ok"> · решено</span>' : ''}</p>
+          <div class="task-badges"><span class="pill lvl-${t.level}">${LEVELS[t.level].name}</span>${solved[t.id] ? '<span class="pill ok">✓ решено</span>' : ''}<span class="pill">${t.tests.length} тестов</span></div>
           ${t.text}
           <h3>Входные данные</h3><p>${t.input}</p>
           <h3>Выходные данные</h3><p>${t.output}</p>
@@ -138,9 +144,9 @@ export class PracticePage {
         </article></div>
         <div class="task-work">
           <div class="toolbar">
-            <button class="btn success" data-act="check">Проверить</button>
-            <button class="btn" data-act="visual" title="Открыть в лаборатории с входными данными первого примера"><span>Во вселенной</span></button>
-            <button class="btn ghost" data-act="reset" title="Вернуть шаблон">⟲ <span>Сброс</span></button>
+            <button class="btn success" data-act="check" title="Проверить на всех тестах (Ctrl+Enter)"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Проверить</button>
+            <button class="btn" data-act="visual" title="Открыть в лаборатории с входными данными первого примера"><svg class="ic" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg><span>Во вселенной</span></button>
+            <button class="btn ghost" data-act="reset" title="Вернуть шаблон"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span>Сброс</span></button>
             <span class="muted" style="margin-left:auto;font-size:12px" data-diag-sum></span>
           </div>
           <div class="task-editor" data-ted></div>
@@ -223,7 +229,8 @@ export class PracticePage {
       this.renderList();
     }
     const firstFail = results.findIndex(r => !r.pass);
-    res.innerHTML = `<div class="res-sum ${all ? 'ok' : 'bad'}">${all ? 'Все тесты пройдены! Задача решена.' : `Пройдено ${passed} из ${results.length} тестов`}</div>` +
+    res.innerHTML = `<div class="res-head"><div class="res-sum ${all ? 'ok' : 'bad'}">${all ? 'Все тесты пройдены! Задача решена.' : `Пройдено ${passed} из ${results.length} тестов`}</div>
+      <div class="res-chips">${results.map((r, i) => `<button class="${r.pass ? 'ok' : 'no'}" data-rt="${i}" title="Тест ${i + 1}">${r.pass ? '✓' : '✗'}</button>`).join('')}</div></div>` +
       results.map((r, i) => `<details class="res-test ${r.pass ? 'pass' : 'fail'}" ${i === firstFail ? 'open' : ''}>
         <summary>${r.pass ? '' : ''} Тест ${i + 1}${r.error ? ' — ошибка выполнения' : r.pass ? '' : ' — неверный ответ'}</summary>
         <div class="res-grid">
@@ -233,5 +240,12 @@ export class PracticePage {
         </div>
       </details>`).join('') +
       (!all ? `<p class="muted" style="font-size:12.5px;margin:6px 2px">Совет: нажмите «Во вселенной» и выполните программу пошагово на этом входе, чтобы увидеть, где значения расходятся с ожидаемыми.</p>` : '');
+    res.onclick = (e) => {
+      const c = e.target.closest('[data-rt]');
+      if (!c) return;
+      const d = res.querySelectorAll('.res-test')[+c.dataset.rt];
+      res.querySelectorAll('.res-test').forEach(x => { x.open = x === d; });
+      d.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    };
   }
 }
