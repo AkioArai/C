@@ -11,9 +11,14 @@ import { EXAMPLES } from './content/examples.js';
 import { store, confirmClick } from './store.js';
 import { settings } from './ui/settings.js';
 import { Workspace } from './ui/files.js';
+import { award } from './ui/xp.js';
+import { formatC } from './ui/format.js';
 
 const PLAY = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>';
 const SPEEDS = [2200, 1500, 1050, 750, 520, 340, 200, 110, 50, 16];
+
+const b64 = (u8) => { let s = ''; for (const b of u8) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const unb64 = (t) => Uint8Array.from(atob(t.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
 
 export class Lab {
   constructor(root, opts = {}) {
@@ -89,6 +94,17 @@ export class Lab {
       else if (k === 'j' && !e.shiftKey) { e.preventDefault(); this.togglePane('panel'); }
       else if (k === 'm' && e.shiftKey) { e.preventDefault(); this.togglePane('uni'); }
     });
+    this.el('.ed-acts').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-ed]');
+      if (!b) return;
+      if (b.dataset.ed === 'format') this.formatCode();
+      if (b.dataset.ed === 'share') this.share();
+      if (b.dataset.ed === 'zen') this.opts.toggleZen?.();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (this.root.hidden) return;
+      if (e.shiftKey && e.altKey && e.code === 'KeyF') { e.preventDefault(); this.formatCode(); }
+    });
     this.applyLayout();
     this.el('.p-side').addEventListener('click', () => this.renderFileStatus());
     settings.on((k) => this.onSetting(k));
@@ -97,6 +113,52 @@ export class Lab {
     this.renderFileStatus();
     this.console.line('<span class="muted">Вселенная Си · встроенный компилятор-интерпретатор C (стандарт C99/C11, модель gcc x86-64).</span>');
     this.console.line('<span class="muted">Нажмите <b>Запуск</b> (или Ctrl+Enter), чтобы скомпилировать и выполнить программу.</span>');
+  }
+
+  /** Выровнять отступы (с возможностью отменить через Ctrl+Z). */
+  formatCode() {
+    const src = this.editor.value;
+    const out = formatC(src, ' '.repeat(settings.get('editor.tabSize') || 4));
+    if (out === src) { this.ws.toast('Код уже аккуратно выровнен'); return; }
+    const ta = this.editor.ta;
+    const line = src.slice(0, ta.selectionStart).split('\n').length;
+    ta.focus();
+    ta.select();
+    this.editor.insert(out);
+    const lines = out.split('\n');
+    const pos = lines.slice(0, line - 1).reduce((s, l) => s + l.length + 1, 0) + (lines[line - 1] || '').match(/^\s*/)[0].length;
+    ta.setSelectionRange(pos, pos);
+    this.ws.toast('Отступы выровнены · Ctrl+Z — вернуть как было');
+  }
+  /** Ссылка, по которой откроется этот код (код сжимается прямо в адрес). */
+  async share() {
+    const f = this.ws.current;
+    const data = JSON.stringify({ n: f?.name || 'main.c', c: this.editor.value, s: this.stdinEl.value || '' });
+    let enc;
+    try {
+      const stream = new Blob([data]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+      const buf = new Uint8Array(await new Response(stream).arrayBuffer());
+      enc = 'z' + b64(buf);
+    } catch { enc = 'u' + b64(new TextEncoder().encode(data)); }
+    const url = `${location.origin}${location.pathname}#/lab/s/${enc}`;
+    try { await navigator.clipboard.writeText(url); this.ws.toast('Ссылка на код скопирована — отправьте её кому угодно'); }
+    catch { prompt('Скопируйте ссылку:', url); }
+    award('share');
+  }
+  async openShared(enc) {
+    try {
+      const bytes = unb64(enc.slice(1));
+      let text;
+      if (enc[0] === 'z') {
+        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+        text = await new Response(stream).text();
+      } else text = new TextDecoder().decode(bytes);
+      const d = JSON.parse(text);
+      this.ws.openText((d.n || 'shared').replace(/\.c$/, ''), d.c || '', d.s || '');
+      this.console.line('<span class="muted">Открыт код по ссылке. Чтобы сохранить его у себя, просто начните редактировать или нажмите Ctrl+S.</span>');
+    } catch {
+      this.ws.toast('Не удалось открыть ссылку: она повреждена или обрезана');
+    }
   }
 
   // ——— загрузка кода извне (теория/практика) ———
@@ -369,6 +431,7 @@ export class Lab {
     const c = this.prepare();
     if (!c) return;
     this.startProgram(c, mode);
+    award('run');
   }
 
   startProgram(c, mode) {
@@ -419,6 +482,7 @@ export class Lab {
       const c = this.prepare();
       if (!c) return;
       this.startProgram(c, 'step');
+      award('run');
       return;
     }
     if (this.state === 'paused') this.advance(false);
@@ -450,6 +514,7 @@ export class Lab {
   }
   stepBack(to) {
     if (!this.canStepBack()) return;
+    award('back');
     const target = Math.max(1, to ?? this.stepNo - 1);
     const inputs = (this.inputLog || []).slice();
     const c = this.runCompile;

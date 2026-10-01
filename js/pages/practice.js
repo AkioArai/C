@@ -4,6 +4,8 @@ import { compile, Interpreter, RuntimeError, formatDiag } from '../compiler/inde
 import { Editor } from '../ui/editor.js';
 import { esc } from '../universe/explain.js';
 import { store, confirmClick } from '../store.js';
+import { award } from '../ui/xp.js';
+import { confetti } from '../ui/fx.js';
 
 const expectedCache = new Map();
 
@@ -212,8 +214,11 @@ export class PracticePage {
     const all = passed === results.length;
     if (all) {
       const solved = store.get('practice.solved', {});
+      const first = !solved[t.id];
       solved[t.id] = true;
       store.set('practice.solved', solved);
+      award('task', { first, level: t.level });
+      if (first) { const r = btn.getBoundingClientRect(); confetti(r.left + r.width / 2, r.top + r.height / 2); }
       updateProgressPill();
       this.renderList();
     }

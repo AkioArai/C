@@ -1,6 +1,7 @@
 // Файлы пользователя: проводник, вкладки, сохранение в браузере, скачивание и открытие с диска.
 import { store, confirmClick } from '../store.js';
 import { settings } from './settings.js';
+import { award } from './xp.js';
 
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -92,6 +93,7 @@ export class Workspace {
     this.files.push(f);
     this.persist();
     this.switchTo(f.id);
+    award('file');
     return f;
   }
   /** Пример, открытый для просмотра, стал настоящим файлом (его начали менять). */
