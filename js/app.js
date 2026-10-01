@@ -230,11 +230,14 @@ function commands() {
   const files = (lab ? lab.ws.files : store.get('fs.files', [])).map(f => ({ kind: 'file', title: f.name, sub: f.code.split('\n').find(l => l.trim() && !l.startsWith('#'))?.trim().slice(0, 50) || '', run: () => openFile(f.id) }));
   const ex = EXAMPLES.map(e => ({ kind: 'ex', title: e.title, sub: e.group, run: () => openExample(e) }));
   const read = store.get('learn.read', {});
-  const les = LESSONS.map(l => ({ kind: 'lesson', title: `${l.num}. ${l.title}`, sub: (read[l.id] ? '✓ ' : '') + (TOPICS.find(t => t.id === l.topic)?.title || ''), run: () => { location.hash = '#/learn/' + l.id; } }));
+  lessonText ||= new Map(LESSONS.map(l => [l.id, l.html.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').toLowerCase()]));
+  const marks = store.get('learn.marks', {});
+  const les = LESSONS.map(l => ({ kind: 'lesson', title: `${marks[l.id] ? '★ ' : ''}${l.num}. ${l.title}`, sub: (read[l.id] ? '✓ ' : '') + (TOPICS.find(t => t.id === l.topic)?.title || ''), body: lessonText.get(l.id) + ' ' + (store.get('learn.notes', {})[l.id] || '').toLowerCase(), run: () => { location.hash = '#/learn/' + l.id; } }));
   const solved = store.get('practice.solved', {});
   const tasks = TASKS.map(t => ({ kind: 'task', title: t.title, sub: (solved[t.id] ? '✓ решена · ' : '') + LEVELS[t.level].name, run: () => { location.hash = '#/practice/' + t.id; } }));
   return [...list, ...files, ...ex, ...les, ...tasks];
 }
+let lessonText;
 const palette = new Palette(commands);
 $('[data-cmdk]').addEventListener('click', () => palette.open());
 

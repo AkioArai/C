@@ -78,7 +78,12 @@ export class Palette {
     let q = this.input.value.trim();
     let pool = this.all;
     if (q.startsWith('>')) { pool = pool.filter(x => x.kind === 'cmd'); q = q.slice(1).trim(); }
-    const scored = pool.map(x => ({ x, s: score(q, x.title + ' ' + (x.sub || '') + ' ' + (x.tags || '')) })).filter(o => o.s > 0);
+    const scored = pool.map(x => {
+      let s = score(q, x.title + ' ' + (x.sub || '') + ' ' + (x.tags || ''));
+      // поиск по тексту урока: совпадение внутри текста весит меньше, чем в названии
+      if (!s && q && x.body && q.length > 2) { const w = q.toLowerCase().split(/\s+/); if (w.every(t => x.body.includes(t))) s = 3; }
+      return { x, s };
+    }).filter(o => o.s > 0);
     if (q) scored.sort((a, b) => b.s - a.s);
     const order = ['cmd', 'file', 'ex', 'lesson', 'task'];
     if (!q) scored.sort((a, b) => order.indexOf(a.x.kind) - order.indexOf(b.x.kind));
@@ -86,7 +91,16 @@ export class Palette {
     let last = null, h = '';
     this.items.forEach((x, i) => {
       if (!q && x.kind !== last) { h += `<div class="pal-g">${GROUP[x.kind]}</div>`; last = x.kind; }
-      h += `<div class="pal-it${i === this.sel ? ' on' : ''}" data-i="${i}" role="option"><svg class="ic k-${x.kind}" viewBox="0 0 24 24">${ICONS[x.kind]}</svg><span class="pal-t">${esc(x.title)}</span>${x.sub ? `<span class="pal-s">${esc(x.sub)}</span>` : ''}${x.keys ? `<kbd>${esc(x.keys)}</kbd>` : q ? `<span class="pal-k">${GROUP[x.kind]}</span>` : ''}</div>`;
+      let sub = x.sub ? `<span class="pal-s">${esc(x.sub)}</span>` : '';
+      if (q && x.body && q.length > 2) {
+        const w = q.toLowerCase().split(/\s+/)[0], at = x.body.indexOf(w);
+        if (at >= 0) {
+          const a = Math.max(0, at - 30), frag = x.body.slice(a, at + w.length + 40);
+          const k = at - a;
+          sub = `<span class="pal-s pal-snip">${a ? '…' : ''}${esc(frag.slice(0, k))}<mark>${esc(frag.slice(k, k + w.length))}</mark>${esc(frag.slice(k + w.length))}…</span>`;
+        }
+      }
+      h += `<div class="pal-it${i === this.sel ? ' on' : ''}" data-i="${i}" role="option"><svg class="ic k-${x.kind}" viewBox="0 0 24 24">${ICONS[x.kind]}</svg><span class="pal-t">${esc(x.title)}</span>${sub}${x.keys ? `<kbd>${esc(x.keys)}</kbd>` : q ? `<span class="pal-k">${GROUP[x.kind]}</span>` : ''}</div>`;
     });
     this.list.innerHTML = h || '<div class="pal-empty">Ничего не найдено</div>';
     const on = this.list.querySelector('.pal-it.on');

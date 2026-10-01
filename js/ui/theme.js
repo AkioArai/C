@@ -45,6 +45,33 @@ export const THEMES = {
     types: { int: '#4b6f00', long: '#2f7d32', char: '#b05a12', dbl: '#8a6d00', bool: '#1f7a5c' },
     screenText: '#e7eae0',
   },
+  sepia: {
+    name: 'Сепия', dark: false,
+    css: {
+      '--bg': '#f4ecdc', '--bg2': '#efe5d1', '--panel': '#fbf6ea', '--panel2': '#ebe0c8', '--panel3': '#e2d5b8', '--chrome': '#e9dec7',
+      '--line': '#ddd0b3', '--line2': '#cbbb98', '--text': '#3b3125', '--text2': '#5a4d3b', '--muted': '#857559', '--faint': '#ab9b7c',
+      '--yellow': '#8a6400', '--green': '#4d7a1f', '--red': '#b0412e', '--blue': '#2f5f9a', '--violet': '#7c4a9a', '--orange': '#a65318',
+      '--shadow': 'rgba(70,50,20,.18)', '--hover': 'rgba(60,40,10,.04)', '--code-bg': '#f8f1e2',
+      '--syn-kw': '#7a3e8f', '--syn-type': '#2f6f5e', '--syn-str': '#8a5a00', '--syn-fmt': '#a86b00', '--syn-chr': '#a65318', '--syn-com': '#a69575',
+      '--syn-pre': '#857559', '--syn-num': '#a65318', '--syn-fn': '#3b3125', '--syn-const': '#7c4a9a', '--syn-op': '#857559', '--syn-id': '#46392b',
+    },
+    canvas: { bg: '#f1e8d6', panel: '#f8f1e2', card: '#fdf9ef', line: '#ddd0b3', line2: '#cbbb98', line3: '#b8a682', faint: '#ab9b7c', muted: '#857559', text: '#3b3125', text2: '#5a4d3b', yellow: '#8a6400', green: '#4d7a1f', red: '#b0412e', amber: '#a65318', screen: '#2b241b', code: '#f6eedd', cell: '#f1e7d2', zebra: 'rgba(60,40,10,0.03)', ptr: '#5a7a4a', star: '150,130,95' },
+    types: { int: '#7a3e8f', long: '#4d7a1f', char: '#a65318', dbl: '#8a6400', bool: '#2f6f5e' },
+    screenText: '#efe4cc',
+  },
+  contrast: {
+    name: 'Контраст', dark: true,
+    css: {
+      '--bg': '#000000', '--bg2': '#050505', '--panel': '#0b0b0b', '--panel2': '#151515', '--panel3': '#202020', '--chrome': '#000000',
+      '--line': '#3a3a3a', '--line2': '#5a5a5a', '--text': '#ffffff', '--text2': '#e6e6e6', '--muted': '#bdbdbd', '--faint': '#8a8a8a',
+      '--yellow': '#ffe14d', '--green': '#5dff7a', '--red': '#ff5c5c', '--blue': '#6ab8ff', '--violet': '#e29bff', '--orange': '#ffab4d',
+      '--shadow': 'rgba(0,0,0,.8)', '--hover': 'rgba(255,255,255,.08)', '--code-bg': '#000000',
+      '--syn-kw': '#6ab8ff', '--syn-type': '#5dffd0', '--syn-str': '#ffe14d', '--syn-fmt': '#fff27a', '--syn-chr': '#ffab4d', '--syn-com': '#9a9a9a',
+      '--syn-pre': '#d0d0d0', '--syn-num': '#ffab4d', '--syn-fn': '#ffffff', '--syn-const': '#e29bff', '--syn-op': '#d0d0d0', '--syn-id': '#ffffff',
+    },
+    canvas: { bg: '#000000', panel: '#080808', card: '#0e0e0e', line: '#3a3a3a', line2: '#5a5a5a', line3: '#7a7a7a', faint: '#8a8a8a', muted: '#bdbdbd', text: '#ffffff', text2: '#e6e6e6', yellow: '#ffe14d', green: '#5dff7a', red: '#ff5c5c', amber: '#ffab4d', screen: '#000000', code: '#050505', cell: '#1a1a1a', zebra: 'rgba(255,255,255,0.05)', ptr: '#7fffb0', star: '255,255,255' },
+    types: { int: '#6ab8ff', long: '#5dff7a', char: '#ffab4d', dbl: '#ffe14d', bool: '#e29bff' },
+  },
 };
 
 function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }

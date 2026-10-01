@@ -21,6 +21,7 @@ export const ACHIEVEMENTS = [
   { id: 'combo15', title: 'Серия ×15', desc: '15 верных ответов подряд', icon: 'bolt' },
   { id: 'daily1', title: 'Испытание дня', desc: 'Пройти ежедневное испытание', icon: 'star' },
   { id: 'daily5', title: 'Пять из пяти', desc: 'Ответить верно на все вопросы испытания дня', icon: 'star' },
+  { id: 'blitz10', title: 'Молния', desc: '10 верных ответов в блице за минуту', icon: 'bolt' },
   { id: 'streak3', title: 'Три дня подряд', desc: 'Заниматься 3 дня подряд', icon: 'flame' },
   { id: 'streak7', title: 'Неделя', desc: 'Заниматься 7 дней подряд', icon: 'flame' },
   { id: 'share1', title: 'Поделился', desc: 'Скопировать ссылку на свой код', icon: 'share' },
@@ -88,6 +89,7 @@ export function award(kind, data = {}) {
   if (kind === 'drillMiss') state.combo = 0;
   if (kind === 'file') gain = 3;
   if (kind === 'daily') gain = 10 + data.score * 4;
+  if (kind === 'blitz') gain = data.score * 2;
   state.xp += gain;
 
   const got = [];
@@ -111,6 +113,7 @@ export function award(kind, data = {}) {
   unlock('streak7', s >= 7);
   unlock('share1', kind === 'share');
   unlock('daily1', kind === 'daily');
+  unlock('blitz10', kind === 'blitz' && data.score >= 10);
   unlock('daily5', kind === 'daily' && data.score === 5);
   for (const a of got) state.xp += 10;
   unlock('level5', levelOf(state.xp) >= 5);

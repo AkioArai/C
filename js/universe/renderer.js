@@ -363,11 +363,30 @@ export class Renderer {
     const rf = this.flashA(sc.inputBuf.consumedAt, 1500);
     const chars = [...(rf > 0 ? recent : '')].map(ch => ({ ch, used: true })).concat([...rest].map(ch => ({ ch, used: false })));
     if (!chars.length) this.text(sc.waitingInput ? 'введите значение в терминале…' : 'пусто', bx + 10, sy + 40, { size: 10.5, color: sc.waitingInput ? C.yellow : C.faint, mono: false });
+    const live = settings.get('run.anims') !== false;
+    const nUsed = rf > 0 ? [...recent].length : 0;
+    const since = this.t - (sc.inputBuf.consumedAt || 0);
+    const eatEnd = nUsed * 70 + 380;
     chars.slice(0, perRow * 3).forEach((c, i) => {
-      const x = bx + 10 + (i % perRow) * cw, y = sy + 26 + Math.floor(i / perRow) * 20;
+      let slot = i, dy = 0, fade = 1;
+      if (live && nUsed) {
+        if (c.used) {
+          // съеденные символы по очереди взлетают и тают — их забрал scanf
+          const k = clamp((since - i * 70) / 380, 0, 1);
+          dy = -16 * ease(k); fade = 1 - k;
+          if (fade <= 0) return;
+        } else {
+          // оставшиеся съезжают влево на освободившееся место
+          const k = ease(clamp((since - eatEnd + 200) / 380, 0, 1));
+          slot = i - nUsed * k;
+        }
+      }
+      const x = bx + 10 + (slot % perRow) * cw, y = sy + 26 + Math.floor(Math.max(0, Math.round(slot * 1000) / 1000) / perRow) * 20 + dy;
+      if (fade < 1) { this.ctx.save(); this.ctx.globalAlpha *= fade; }
       this.rect(x, y, cw - 2, 18, { fill: c.used ? alpha(C.yellow, 0.15 * rf) : 'transparent', stroke: c.used ? alpha(C.yellow, 0.5 * rf + 0.1) : C.line2, r: 2 });
       const g = c.ch === '\n' ? '↵' : c.ch === ' ' ? '·' : c.ch;
       this.text(g, x + (cw - 2) / 2, y + 9, { size: 11, color: c.used ? alpha(C.yellow, 0.4 + 0.6 * rf) : c.ch === '\n' || c.ch === ' ' ? C.faint : C.screenText, align: 'center' });
+      if (fade < 1) this.ctx.restore();
     });
     // библиотеки и константы
     const ly = sy + sh + 20;
@@ -458,6 +477,24 @@ export class Renderer {
       ctx.strokeStyle = lp.active ? C.accent : C.line3;
       ctx.lineWidth = this.px(lp.active ? 1.4 : 1);
       ctx.beginPath(); ctx.moveTo(bx + 4, ya); ctx.lineTo(bx, ya); ctx.lineTo(bx, yb); ctx.lineTo(bx + 4, yb); ctx.stroke();
+      // петля возврата: огонёк бежит от конца тела вверх к заголовку цикла
+      const bk = lp.backAt && settings.get('run.anims') !== false ? (this.t - lp.backAt) / 520 : 2;
+      if (bk >= 0 && bk < 1) {
+        const e = ease(bk), hy = yb + (ya - yb) * e;
+        const grad = ctx.createLinearGradient(0, hy, 0, Math.min(yb, hy + 34));
+        grad.addColorStop(0, alpha(C.accent, 0.95)); grad.addColorStop(1, alpha(C.accent, 0));
+        ctx.strokeStyle = grad; ctx.lineWidth = this.px(2.6);
+        ctx.beginPath(); ctx.moveTo(bx, hy); ctx.lineTo(bx, Math.min(yb, hy + 34)); ctx.stroke();
+        ctx.fillStyle = C.accent;
+        ctx.beginPath(); ctx.arc(bx, hy, this.px(3.2), 0, TAU); ctx.fill();
+        ctx.fillStyle = alpha(C.accent, 0.25 * (1 - bk));
+        ctx.beginPath(); ctx.arc(bx, hy, this.px(8), 0, TAU); ctx.fill();
+        if (bk > 0.8) { // вспышка на заголовке: «снова проверяем условие»
+          const r = (bk - 0.8) / 0.2;
+          ctx.strokeStyle = alpha(C.accent, 0.6 * (1 - r)); ctx.lineWidth = this.px(1.2);
+          ctx.beginPath(); ctx.arc(bx + 2, ya, this.px(4 + r * 10), 0, TAU); ctx.stroke();
+        }
+      }
     }
     const lodText = this.lod;
     for (let i = 0; i < n; i++) {
@@ -568,11 +605,18 @@ export class Renderer {
     const o = c.o;
     const t = this.t;
     let a = clamp((t - (o.ui?.born ?? 0)) / 300, 0, 1);
-    if (o.dying) a *= clamp(1 - (t - o.dying) / 700, 0, 1);
+    const dk = o.dying && t > o.dying ? clamp((t - o.dying) / 700, 0, 1) : 0;
+    if (o.dying) a *= 1 - dk;
     if (a <= 0) return;
     const ctx = this.ctx;
+    if (dk > 0 && settings.get('run.anims') !== false) this.drawDust(c, o, dk);
     ctx.save();
     ctx.globalAlpha = a;
+    if (dk > 0) {
+      // карточка сжимается к центру — переменная перестаёт существовать
+      const s = 1 - 0.18 * ease(dk), cx = c.x + c.w / 2, cy = c.y + c.h / 2;
+      ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-cx, -cy);
+    }
     const col = o.freed ? C.faint : colorForType(o.typeName);
     const sel = this.scene.selected === 'obj:' + o.id || this.hover === 'obj:' + o.id;
     const fl = this.flashA(o.ui?.flash, 900);
@@ -580,6 +624,28 @@ export class Renderer {
     if (o.shape === 'scalar') this.drawScalar(c, o, col);
     else if (o.shape === 'array') this.drawArray(c, o, col);
     else this.drawRecord(c, o, col);
+    ctx.restore();
+  }
+
+  /** Переменная «рассыпается» на частицы, когда кончается её область видимости или вызывается free. */
+  drawDust(c, o, dk) {
+    const ctx = this.ctx;
+    let seed = 0;
+    for (const ch of String(o.id)) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    const col = o.freed ? C.red : colorForType(o.typeName);
+    const e = ease(dk);
+    ctx.save();
+    for (let i = 0; i < 26; i++) {
+      const side = rnd(), along = rnd(), ang = rnd() * TAU, sp = 18 + rnd() * 30, sz = 1.2 + rnd() * 2.2;
+      const px = side < 0.5 ? c.x + along * c.w : side < 0.75 ? c.x : c.x + c.w;
+      const py = side < 0.5 ? (side < 0.25 ? c.y : c.y + c.h) : c.y + along * c.h;
+      ctx.globalAlpha = (1 - dk) * 0.85;
+      ctx.fillStyle = col;
+      ctx.fillRect(px + Math.cos(ang) * sp * e, py + Math.sin(ang) * sp * e - 10 * e, this.px(sz), this.px(sz));
+    }
+    ctx.globalAlpha = 1 - dk;
+    this.text(o.freed ? 'free: память освобождена' : 'конец области видимости', c.x + c.w / 2, c.y - 8 - 6 * e, { size: 10, color: o.freed ? C.red : C.muted, align: 'center', mono: false });
     ctx.restore();
   }
 
