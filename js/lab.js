@@ -90,6 +90,15 @@ export class Lab {
     this.ws.render();
     this.stdinEl.addEventListener('input', () => this.ws.edited());
     this.el('[data-tsets]').addEventListener('click', (e) => this.onTestSets(e));
+    this.el('[data-console]').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-tsexp]');
+      if (!b || !this.lastRun) return;
+      const i = +b.dataset.tsexp, l = this.testSets();
+      if (!l[i]) return;
+      l[i].out = this.lastRun[i];
+      this.saveTestSets(l);
+      b.outerHTML = '<span class="ts-ok">✓ запомнено</span>';
+    });
     this.renderTestSets();
     document.addEventListener('keydown', (e) => {
       if (this.root.hidden || !(e.ctrlKey || e.metaKey)) return;
@@ -109,6 +118,8 @@ export class Lab {
     document.addEventListener('keydown', (e) => {
       if (this.root.hidden) return;
       if (e.shiftKey && e.altKey && e.code === 'KeyF') { e.preventDefault(); this.formatCode(); }
+      // Ctrl+F / Ctrl+H — поиск по коду, даже если фокус не в редакторе
+      else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && /^[fh]$/i.test(e.key) && !/input|textarea/i.test(document.activeElement?.tagName || '')) { e.preventDefault(); this.editor.find.open(/h/i.test(e.key)); }
     });
     this.applyLayout();
     this.el('.p-side').addEventListener('click', () => this.renderFileStatus());
@@ -186,14 +197,14 @@ export class Lab {
   }
 
   // ——— наборы входных данных: сохранить несколько вариантов ввода и прогнать все разом ———
-  testSets() { return store.get('fs.tests', {})[this.ws.current?.id] || []; }
+  testSets() { return (store.get('fs.tests', {})[this.ws.current?.id] || []).map(t => (typeof t === 'string' ? { in: t } : t)); }
   saveTestSets(list) { const all = store.get('fs.tests', {}); all[this.ws.current.id] = list; store.set('fs.tests', all); this.renderTestSets(); }
   renderTestSets() {
     const el = this.el('[data-tsets]');
     if (!el) return;
     const list = this.testSets();
     const pv = this.ws.current?.preview;
-    el.innerHTML = `<span class="ts-l">Наборы ввода</span>${list.map((t, i) => `<span class="ts-chip" data-ts="${i}" title="Подставить этот ввод"><code>${esc(t.replace(/\n/g, ' ⏎ ').slice(0, 24))}</code><button data-tsdel="${i}" title="Удалить набор">×</button></span>`).join('')}
+    el.innerHTML = `<span class="ts-l">Наборы ввода</span>${list.map((t, i) => `<span class="ts-chip ${t.out != null ? 'has-out' : ''}" data-ts="${i}" title="${t.out != null ? 'Есть ожидаемый вывод · ' : ''}Подставить этот ввод"><code>${esc(t.in.replace(/\n/g, ' ⏎ ').slice(0, 24))}</code><button data-tsdel="${i}" title="Удалить набор">×</button></span>`).join('')}
       ${pv ? '' : '<button class="ts-add" data-tsadd title="Сохранить текущий ввод как набор">+ сохранить</button>'}
       ${list.length ? `<button class="ts-run" data-tsrun title="Запустить программу на всех наборах сразу">▶ прогнать все (${list.length})</button>` : ''}`;
   }
@@ -201,12 +212,12 @@ export class Lab {
     const del = e.target.closest('[data-tsdel]');
     if (del) { const l = this.testSets(); l.splice(+del.dataset.tsdel, 1); this.saveTestSets(l); return; }
     const chip = e.target.closest('[data-ts]');
-    if (chip) { this.stdinEl.value = this.testSets()[+chip.dataset.ts]; this.ws.edited(); return; }
+    if (chip) { this.stdinEl.value = this.testSets()[+chip.dataset.ts].in; this.ws.edited(); return; }
     if (e.target.closest('[data-tsadd]')) {
       const v = this.stdinEl.value.trim();
       if (!v) { this.ws.toast('Сначала впишите ввод в поле выше'); return; }
       const l = this.testSets();
-      if (!l.includes(v)) { l.push(v); this.saveTestSets(l.slice(-12)); this.ws.toast('Набор сохранён'); }
+      if (!l.some(t => t.in === v)) { l.push({ in: v }); this.saveTestSets(l.slice(-12)); this.ws.toast('Набор сохранён'); }
       return;
     }
     if (e.target.closest('[data-tsrun]')) this.runAllSets();
@@ -218,14 +229,26 @@ export class Lab {
     this.togglePane('panel', true);
     this.console.show?.('term');
     if (!c.ok) { this.console.line('<span class="bad">Ошибка компиляции — наборы не запускались. Откройте вкладку «Проблемы».</span>'); return; }
-    let h = `<div class="ts-res"><div class="ts-rh">Прогон на ${list.length} наборах ввода</div>`;
-    list.forEach((inp, i) => {
+    const norm = (s) => String(s).replace(/[ \t]+$/gm, '').replace(/\s+$/, '');
+    this.lastRun = [];
+    let pass = 0, checked = 0;
+    let rows = '';
+    list.forEach((t, i) => {
       let r;
-      try { r = runToEnd(code, inp + '\n', { stepLimit: 2_000_000 }); } catch (err) { r = { output: '', error: { message: String(err.message || err) } }; }
+      try { r = runToEnd(code, t.in + '\n', { stepLimit: 2_000_000 }); } catch (err) { r = { output: '', error: { message: String(err.message || err) } }; }
       const out = (r.output || '').replace(/\n$/, '');
-      h += `<div class="ts-row"><span class="ts-n">${i + 1}</span><div><small>ввод</small><pre>${esc(inp)}</pre></div><div><small>вывод</small><pre class="${r.error ? 'bad' : ''}">${esc(out) || '<span class="muted">(пусто)</span>'}${r.error ? `\n${esc(r.error.message)}` : ''}</pre></div></div>`;
+      this.lastRun[i] = out;
+      let verdict = `<button class="ts-keep" data-tsexp="${i}" title="Если вывод правильный — запомнить его, и следующие прогоны будут сверяться с ним">запомнить как верный</button>`;
+      if (t.out != null) {
+        checked++;
+        const ok = !r.error && norm(out) === norm(t.out);
+        if (ok) pass++;
+        verdict = ok ? '<span class="ts-ok">✓ совпало</span>' : `<span class="ts-bad">✗ ожидалось</span><pre class="ts-exp">${esc(t.out)}</pre>`;
+      }
+      rows += `<div class="ts-row"><span class="ts-n">${i + 1}</span><div><small>ввод</small><pre>${esc(t.in)}</pre></div><div><small>вывод</small><pre class="${r.error ? 'bad' : ''}">${esc(out) || '<span class="muted">(пусто)</span>'}${r.error ? `\n${esc(r.error.message)}` : ''}</pre></div><div class="ts-v">${verdict}</div></div>`;
     });
-    this.console.line(h + '</div>');
+    const sum = checked ? `<span class="${pass === checked ? 'ts-ok' : 'ts-bad'}">совпало ${pass} из ${checked}</span>` : '<span class="muted">запомните верные ответы — и программа будет проверяться автоматически</span>';
+    this.console.line(`<div class="ts-res"><div class="ts-rh">Прогон на ${list.length} наборах ввода ${sum}</div>${rows}</div>`);
   }
 
   onFileSwitch(f) {

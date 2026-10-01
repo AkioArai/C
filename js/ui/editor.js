@@ -3,6 +3,7 @@
 import { highlight } from './highlight.js';
 import { complete, signatureAt, expandSnippet, recordUse, kindIcon, kindLabel } from './complete.js';
 import { settings } from './settings.js';
+import { FindBar } from './find.js';
 
 const escH = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -62,6 +63,7 @@ export class Editor {
     new ResizeObserver(() => this.measure()).observe(root);
     settings.on((k) => { if (k.startsWith('editor.')) setTimeout(() => { this.measure(); this.refresh(false); }, 30); });
     this.measure();
+    this.find = new FindBar(this);
   }
 
   measure() {
@@ -100,6 +102,55 @@ export class Editor {
       this.renderMarks();
       this.opts.onChange?.(v);
     }
+    this.drawMini();
+  }
+
+  /** Миникарта справа: силуэт всего кода, текущая строка, ошибки и видимая область. */
+  drawMini() {
+    if (!this.mini) {
+      this.mini = document.createElement('canvas');
+      this.mini.className = 'ed-mini';
+      this.edEl.appendChild(this.mini);
+      const jump = (e) => {
+        const r = this.mini.getBoundingClientRect();
+        const line = (e.clientY - r.top) / this.miniScale;
+        this.scroll.scrollTop = Math.max(0, line * this.lh - this.scroll.clientHeight / 2);
+      };
+      this.mini.addEventListener('pointerdown', (e) => { e.preventDefault(); this.mini.setPointerCapture(e.pointerId); jump(e); const mv = (ev) => jump(ev); this.mini.addEventListener('pointermove', mv); this.mini.addEventListener('pointerup', () => this.mini.removeEventListener('pointermove', mv), { once: true }); });
+      this.scroll.addEventListener('scroll', () => this.drawMini(), { passive: true });
+    }
+    const on = settings.get('editor.minimap') !== false;
+    this.mini.hidden = !on;
+    this.edEl.classList.toggle('has-mini', on);
+    if (!on) return;
+    const lines = this.ta.value.split('\n');
+    const W = 64, H = this.edEl.clientHeight;
+    if (!H) return;
+    const dpr = devicePixelRatio || 1;
+    if (this.mini.width !== W * dpr || this.mini.height !== H * dpr) { this.mini.width = W * dpr; this.mini.height = H * dpr; this.mini.style.height = H + 'px'; }
+    const g = this.mini.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+    const lh = Math.min(3, Math.max(1, (H - 8) / Math.max(1, lines.length)));
+    this.miniScale = lh;
+    const css = getComputedStyle(document.documentElement);
+    const c = (v) => css.getPropertyValue(v).trim();
+    // видимая область
+    const top = this.scroll.scrollTop / this.lh * lh, vis = this.scroll.clientHeight / this.lh * lh;
+    g.fillStyle = c('--tint2') || 'rgba(255,255,255,.07)';
+    g.fillRect(0, top, W, Math.max(8, vis));
+    const errs = new Set((this.diags || []).filter(d => d.severity === 'error').map(d => d.line));
+    lines.forEach((l, i) => {
+      const y = 4 + i * lh;
+      const ind = l.length - l.trimStart().length, len = l.trim().length;
+      if (!len) return;
+      g.fillStyle = errs.has(i + 1) ? c('--red') : /^\s*(\/\/|\/\*|\*)/.test(l) ? c('--syn-com') : /^\s*#/.test(l) ? c('--syn-pre') : /\b(for|while|if|else|do|switch|return)\b/.test(l) ? c('--syn-kw') : c('--muted');
+      g.globalAlpha = 0.75;
+      g.fillRect(4 + Math.min(ind, 30) * 0.9, y, Math.min(len, 60) * 0.9, Math.max(1, lh - 0.6));
+    });
+    g.globalAlpha = 1;
+    if (this.execLine) { g.fillStyle = c('--accent'); g.fillRect(0, 4 + (this.execLine - 1) * lh - 1, W, Math.max(2, lh + 1)); }
+    for (const b of this.breakpoints) { g.fillStyle = c('--red'); g.fillRect(0, 4 + (b - 1) * lh, 3, Math.max(2, lh)); }
   }
 
   renderGutter() {
@@ -126,6 +177,7 @@ export class Editor {
     this.renderGutter();
     this.renderMarks();
     this.renderBg();
+    this.drawMini?.();
   }
 
   renderMarks() {
@@ -169,6 +221,7 @@ export class Editor {
   setExecLine(line, kind = '') {
     this.execLine = line;
     this.execKind = kind;
+    this.drawMini?.();
     this.renderBg();
     this.renderGutter();
     if (line) this.reveal(line);
@@ -364,6 +417,7 @@ export class Editor {
   onKey(e) {
     const ta = this.ta;
     const mod = e.ctrlKey || e.metaKey;
+    if (mod && !e.altKey && (e.key.toLowerCase() === 'f' || e.key.toLowerCase() === 'h') && !e.shiftKey) { e.preventDefault(); this.hideComplete(); this.find.open(e.key.toLowerCase() === 'h'); return; }
     if (this.acData && !this.ac.hidden) {
       if (this.acceptKey(e)) { e.preventDefault(); this.acceptComplete(); return; }
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'PageDown' || e.key === 'PageUp') {

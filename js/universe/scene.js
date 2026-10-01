@@ -223,6 +223,18 @@ export class Scene {
           if (ev.target !== undefined) { c.target = ev.target; c.targetPath = ev.targetPath; c.desc = ev.desc; c.ptr = 1; }
         }
         o.garbage = false;
+        // переполнение: значение «перекрутилось» через край диапазона типа
+        {
+          const po = this.pendingOvf;
+          let wrap = po && po.line === ev.line && now - po.at < 5000 ? { from: po.exact, to: ev.display } : null;
+          const a = parseFloat(String(ev.old)), b = parseFloat(String(ev.display));
+          if (!wrap && Number.isFinite(a) && Number.isFinite(b) && !String(ev.typeName || '').includes('*')) {
+            const incr = ev.op === '++' || (ev.op === '+=' && !/^\s*-/.test(ev.exprText || ''));
+            const decr = ev.op === '--' || (ev.op === '-=' && !/^\s*-/.test(ev.exprText || ''));
+            if ((incr && b < a) || (decr && b > a)) wrap = { from: incr ? `${a} ${ev.op === '++' ? '+ 1' : '+ ' + ev.exprText}` : `${a} ${ev.op === '--' ? '− 1' : '− ' + ev.exprText}`, to: String(b) };
+          }
+          if (wrap) { o.ui.ovf = { ...wrap, at: now, cell: ev.cell }; this.pendingOvf = null; }
+        }
         if (o.shape === 'scalar') {
           // «одометр»: старое значение уезжает вверх, новое въезжает, рядом — на сколько изменилось
           const after = o.cells[0]?.display;
@@ -309,8 +321,10 @@ export class Scene {
         }
         break;
       }
+      case 'overflow': this.pendingOvf = { line: ev.line, exact: ev.exact, result: ev.result, at: now }; break;
       case 'switch': {
         const fr = this.frames.get(this.current);
+        if (fr && ev.caseLine && ev.caseLine !== ev.line) fr.jump = { kind: 'switch', from: ev.line, to: ev.caseLine, at: now };
         if (fr) fr.ifs.set(ev.line, { value: true, sw: ev.display, hits: (fr.ifs.get(ev.line)?.hits || 0) + 1, at: now, text: ev.text, caseLine: ev.caseLine });
         break;
       }
