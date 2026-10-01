@@ -51,6 +51,9 @@ export class Scene {
     this.frameOrder = [];
     this.frameStack = [];
     this.anims = [];
+    this.derefs = [];                // импульсы по стрелкам указателей (*p = …)
+    this.swap = null;                // последний обнаруженный обмен значений
+    this.lastScalarW = null;
     this.headers = [];
     this.defines = [];
     this.files = new Map();
@@ -195,9 +198,27 @@ export class Scene {
           o.ui.curAt = now;
           o.ui.curLabel = (ev.path || '').replace(/^[^[]*/, '') || `[${ev.cell}]`;
         }
+        // обмен значений: a[i] и a[j] (или x и y) поменялись местами через временную переменную
+        if (o.shape === 'array' && ev.cell >= 0) {
+          const lw = o.ui.lastW;
+          if (lw && lw.cell !== ev.cell && now - lw.at < 15000 && ev.display === lw.old && o.cells[lw.cell]?.display === ev.old && ev.old !== ev.display)
+            this.swap = { a: { obj: o.id, cell: lw.cell }, b: { obj: o.id, cell: ev.cell }, at: now, x: ev.display, y: ev.old };
+          o.ui.lastW = { cell: ev.cell, old: ev.old, val: ev.display, at: now };
+        } else if (o.shape === 'scalar' && !ev.target) {
+          const lw = this.lastScalarW;
+          if (lw && lw.obj !== o.id && now - lw.at < 15000 && ev.display === lw.old && this.objects.get(lw.obj)?.cells[0]?.display === ev.old && ev.old !== ev.display)
+            this.swap = { a: { obj: lw.obj }, b: { obj: o.id }, at: now, x: ev.display, y: ev.old };
+          this.lastScalarW = { obj: o.id, old: ev.old, val: ev.display, at: now };
+        }
+        // запись через указатель: импульс бежит по стрелке от указателя к цели
+        for (const s of ev.sources || []) {
+          const po = this.objects.get(s.objId);
+          if (po && po.shape === 'scalar' && po.cells[0]?.target === o.id) { this.derefs.push({ from: po.id, to: o.id, at: now }); if (this.derefs.length > 8) this.derefs.shift(); }
+        }
         if (ev.snap) Object.assign(o, { ...ev.snap, ui: o.ui });
         else if (ev.cell >= 0 && o.cells[ev.cell]) {
           const c = o.cells[ev.cell];
+          if (ev.target !== undefined && c.target !== ev.target) c.ptrAt = now; // стрелка будет «прорисовываться»
           c.display = ev.display; c.init = true;
           if (ev.target !== undefined) { c.target = ev.target; c.targetPath = ev.targetPath; c.desc = ev.desc; c.ptr = 1; }
         }

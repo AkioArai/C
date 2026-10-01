@@ -1707,3 +1707,31 @@ pre.code-sch { margin: 10px 0 14px; padding: 12px 16px; border-radius: var(--r);
 .notes small { font-size: 11px; }
 .pal-snip mark { background: rgba(var(--accent-rgb), .25); color: var(--text); border-radius: 2px; padding: 0 1px; }
 @media (max-width: 900px) { .bz-m { grid-template-columns: 1fr; } }
+
+/* ——— 35. график активности ——— */
+.hm-act { display: grid; grid-template-columns: repeat(14, 1fr); gap: 5px; height: 76px; align-items: end; }
+.act-col { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; }
+.act-col i { width: 100%; max-width: 22px; border-radius: 4px 4px 2px 2px; background: var(--line); transition: height .6s var(--ease); }
+.act-col i.on { background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 45%, var(--green))); box-shadow: 0 0 10px rgba(var(--accent-rgb), .2); }
+.act-col small { font: 9.5px var(--mono); color: var(--faint); }
+.act-col.today small { color: var(--text); font-weight: 600; }
+
+/* ——— 36. наборы ввода ——— */
+.tsets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 0 12px 10px; }
+.ts-l { font-size: 11px; color: var(--muted); margin-right: 2px; }
+.ts-chip { display: inline-flex; align-items: center; gap: 2px; height: 24px; padding: 0 2px 0 8px; border: 1px solid var(--line2); border-radius: 99px; cursor: pointer; background: var(--bg); }
+.ts-chip:hover { border-color: var(--accent-line); }
+.ts-chip code { font-size: 11px; color: var(--text2); white-space: pre; }
+.ts-chip button { width: 18px; height: 18px; border: 0; border-radius: 50%; background: transparent; color: var(--faint); cursor: pointer; line-height: 1; }
+.ts-chip button:hover { background: var(--tint2); color: var(--red); }
+.ts-add, .ts-run { height: 24px; padding: 0 10px; border-radius: 99px; border: 1px dashed var(--line2); background: transparent; color: var(--muted); font-size: 11.5px; cursor: pointer; }
+.ts-add:hover { color: var(--text); border-color: var(--faint); }
+.ts-run { border-style: solid; border-color: var(--accent-line); color: var(--accent); background: var(--accent-dim); }
+.ts-res { margin: 8px 0; border: 1px solid var(--line2); border-radius: var(--r-lg); overflow: hidden; font-family: var(--sans); white-space: normal; }
+.ts-rh { padding: 6px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); background: var(--panel2); }
+.ts-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) minmax(0, 1.4fr); gap: 10px; padding: 6px 12px; border-top: 1px solid var(--line); align-items: start; }
+.ts-n { font: 600 11px var(--mono); color: var(--accent); padding-top: 14px; }
+.ts-row small { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: .5px; }
+.ts-row pre { margin: 2px 0 0; font: var(--t-fs, 14px)/1.45 var(--mono); color: var(--text); white-space: pre-wrap; word-break: break-word; }
+.ts-row pre.bad { color: var(--red); }
+.tpl-menu { min-width: 280px; }

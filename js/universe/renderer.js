@@ -276,6 +276,7 @@ export class Renderer {
     if (L.files) this.drawFiles(L.files);
     for (const c of L.cards.values()) this.drawCard(c);
     this.drawPointers(L);
+    this.drawSwap(L);
     for (const a of this.scene.anims) this.drawAnim(a, L);
     ctx.restore();
   }
@@ -522,6 +523,26 @@ export class Renderer {
       if (fsrc && settings.get('run.flashes')) {
         const cf = this.flashA(fsrc.at, 900);
         if (cf > 0) this.rect(x + 1, ly, w - 2, G.lineH, { fill: alpha(fsrc.col, 0.16 * cf), r: 2 });
+      }
+      // развилка if: точка уходит по выбранной ветке «да» или «нет»
+      if (s && s.sw === undefined && settings.get('run.anims') !== false) {
+        const fa = this.t - (s.at || 0);
+        if (fa >= 0 && fa < 1400) {
+          const ctx = this.ctx, fx = x + w - tagW - 38, fy = ly + G.lineH / 2;
+          const k = ease(clamp(fa / 500, 0, 1)), fade = fa > 1000 ? 1 - (fa - 1000) / 400 : 1;
+          ctx.save(); ctx.globalAlpha *= fade; ctx.lineWidth = this.px(1.4);
+          const br = (dy, on, col) => {
+            ctx.strokeStyle = on ? col : alpha(C.faint, 0.6);
+            ctx.beginPath(); ctx.moveTo(fx + 8, fy); ctx.lineTo(fx + 22, fy + dy); ctx.stroke();
+            if (!on) { this.text('×', fx + 26, fy + dy, { size: 9, color: C.faint, align: 'center' }); return; }
+            const px2 = k < 0.4 ? fx + 8 * (k / 0.4) : fx + 8 + 14 * ((k - 0.4) / 0.6), py2 = k < 0.4 ? fy : fy + dy * ((k - 0.4) / 0.6);
+            ctx.fillStyle = col; ctx.beginPath(); ctx.arc(px2, py2, this.px(2.6), 0, TAU); ctx.fill();
+          };
+          ctx.strokeStyle = C.text2; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx + 8, fy); ctx.stroke();
+          br(-6, !!s.value, C.green);
+          br(6, !s.value, C.red);
+          ctx.restore();
+        }
       }
       if (tag) {
         const fl = this.flashA(s?.at ?? lp?.at, 700);
@@ -853,10 +874,32 @@ export class Renderer {
         ctx.strokeStyle = sel ? alpha(C.ptr, 0.95) : alpha(C.ptr, 0.45);
         ctx.lineWidth = this.px(sel ? 1.5 : 1);
         const mx = Math.max(from.x, end.x) + 40;
+        const live = settings.get('run.anims') !== false;
+        const grow = live && cell.ptrAt ? ease(clamp((this.t - cell.ptrAt) / 600, 0, 1)) : 1;
+        const bez = (u) => { const v = 1 - u; return { x: v * v * v * from.x + 3 * v * v * u * mx + 3 * v * u * u * mx + u * u * u * end.x, y: v * v * v * from.y + 3 * v * v * u * from.y + 3 * v * u * u * end.y + u * u * u * end.y }; };
         ctx.beginPath();
+        if (grow < 1) {
+          // стрелка прорисовывается от указателя к цели: p = &x
+          ctx.moveTo(from.x, from.y);
+          for (let u = 0.05; u <= grow + 1e-6; u += 0.05) { const q = bez(Math.min(u, grow)); ctx.lineTo(q.x, q.y); }
+          ctx.stroke();
+          const h = bez(grow);
+          ctx.fillStyle = C.ptr; ctx.beginPath(); ctx.arc(h.x, h.y, this.px(3.5), 0, TAU); ctx.fill();
+          return;
+        }
         ctx.moveTo(from.x, from.y);
         ctx.bezierCurveTo(mx, from.y, mx, end.y, end.x, end.y);
         ctx.stroke();
+        // запись через указатель: по стрелке бежит импульс
+        const d = live && this.scene.derefs.find(x => x.from === o.id && x.to === tc.o.id && this.t - x.at < 700);
+        if (d) {
+          const u = ease((this.t - d.at) / 700), q = bez(u);
+          ctx.fillStyle = alpha(C.yellow, 0.3); ctx.beginPath(); ctx.arc(q.x, q.y, this.px(9), 0, TAU); ctx.fill();
+          ctx.fillStyle = C.yellow; ctx.beginPath(); ctx.arc(q.x, q.y, this.px(4), 0, TAU); ctx.fill();
+          if (u > 0.85) { this.ctx.strokeStyle = alpha(C.yellow, (1 - u) * 4); this.ctx.lineWidth = this.px(1.5); this.rect(tc.x - 2, tc.y - 2, tc.w + 4, tc.h + 4, { stroke: alpha(C.yellow, (1 - u) * 5), r: 8 }); }
+          ctx.strokeStyle = sel ? alpha(C.ptr, 0.95) : alpha(C.ptr, 0.45);
+          ctx.lineWidth = this.px(sel ? 1.5 : 1);
+        }
         const ang = Math.atan2(end.y - end.y, end.x - mx);
         ctx.beginPath();
         ctx.moveTo(end.x, end.y);
@@ -866,6 +909,46 @@ export class Renderer {
         ctx.stroke();
       });
     }
+  }
+
+  /** Обмен значений: две дуги навстречу друг другу между ячейками/переменными и подпись «⇄ обмен». */
+  drawSwap(L) {
+    const sw = this.scene.swap;
+    if (!sw || settings.get('run.anims') === false) return;
+    const age = this.t - sw.at;
+    if (age < 0 || age > 1600) return;
+    const pa = this.swapPoint(sw.a, L), pb = this.swapPoint(sw.b, L);
+    if (!pa || !pb) return;
+    const ctx = this.ctx;
+    const k = ease(clamp(age / 700, 0, 1)), fade = age > 1100 ? 1 - (age - 1100) / 500 : 1;
+    const dx = pb.x - pa.x, dist = Math.max(30, Math.hypot(dx, pb.y - pa.y));
+    const lift = Math.max(28, Math.min(60, dist * 0.45));
+    const arc = (p0, p1, up, col, label) => {
+      const cx = (p0.x + p1.x) / 2, cy = (p0.y + p1.y) / 2 + (up ? -lift : lift);
+      ctx.strokeStyle = alpha(col, 0.8 * fade); ctx.lineWidth = this.px(1.6);
+      ctx.beginPath(); ctx.moveTo(p0.x, p0.y);
+      const steps = 16;
+      for (let s = 1; s <= steps * k; s++) { const u = s / steps, v = 1 - u; ctx.lineTo(v * v * p0.x + 2 * v * u * cx + u * u * p1.x, v * v * p0.y + 2 * v * u * cy + u * u * p1.y); }
+      ctx.stroke();
+      const v = 1 - k, hx = v * v * p0.x + 2 * v * k * cx + k * k * p1.x, hy = v * v * p0.y + 2 * v * k * cy + k * k * p1.y;
+      ctx.save(); ctx.globalAlpha *= fade;
+      this.font(10.5, 600);
+      const s = this.fit(String(label), 80), tw = this.ctx.measureText(s).width + 10;
+      this.rect(hx - tw / 2, hy - 9, tw, 18, { fill: C.bg, stroke: alpha(col, 0.8), r: 9 });
+      this.text(s, hx, hy, { size: 10.5, weight: 600, color: col, align: 'center' });
+      ctx.restore();
+    };
+    arc(pa, pb, true, C.yellow, sw.y);
+    arc(pb, pa, false, C.accent, sw.x);
+    ctx.save(); ctx.globalAlpha *= fade;
+    this.text('⇄ обмен', (pa.x + pb.x) / 2, Math.min(pa.y, pb.y) - lift - 14, { size: 11, weight: 600, color: C.yellow, align: 'center', mono: false });
+    ctx.restore();
+  }
+  swapPoint(ref, L) {
+    const c = L.cards.get(ref.obj);
+    if (!c) return null;
+    if (ref.cell != null && c.o.shape === 'array') { const p = this.cellAnchor(c, ref.cell); return { x: p.x, y: p.y - 4 }; }
+    return { x: c.x + c.w / 2, y: c.y + c.h / 2 };
   }
 
   cellAnchor(c, i) {
