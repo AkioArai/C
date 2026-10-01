@@ -29,6 +29,7 @@ export const SCHEMA = [
     { key: 'editor.fontSize', label: 'Размер шрифта кода', type: 'range', min: 11, max: 22, step: 0.5, unit: 'px', def: 13.5 },
     { key: 'editor.lineHeight', label: 'Высота строки', type: 'range', min: 1.2, max: 2, step: 0.05, unit: '×', def: 1.55 },
     { key: 'editor.inlineValues', label: 'Значения переменных в коде', desc: 'Во время выполнения справа от строки видно, что в неё записалось: s = 11.', type: 'bool', def: true },
+    { key: 'editor.minimap', label: 'Миникарта кода', desc: 'Справа от редактора — силуэт всего файла: текущая строка, ошибки, точки останова. Нажмите, чтобы перейти.', type: 'bool', def: true },
     { key: 'editor.tabSize', label: 'Размер отступа', desc: 'Сколько пробелов вставляет Tab.', type: 'seg', options: [[2, '2'], [4, '4'], [8, '8']], def: 4 },
     { key: 'editor.autoClose', label: 'Автозакрытие скобок и кавычек', desc: 'Набрали ( — сразу появится ). Повторный набор ) просто перешагнёт её.', type: 'bool', def: true },
     { key: 'editor.autoSave', label: 'Автосохранение файлов', desc: 'Изменения сохраняются в браузере сразу. Выключено — сохранение по Ctrl+S.', type: 'bool', def: true },

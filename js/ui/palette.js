@@ -1,5 +1,7 @@
 // Палитра команд (Ctrl+K): один поиск по командам, файлам, примерам, урокам и задачам.
 // «>» в начале — только команды (как в VS Code).
+import { store } from '../store.js';
+
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 const ICONS = {
@@ -71,6 +73,9 @@ export class Palette {
   pick(i) {
     const it = this.items[i];
     if (!it) return;
+    // запоминаем выбор — без запроса он окажется в «Недавнем»
+    const key = it.kind + ':' + it.title.replace(/^★ /, '');
+    store.set('pal.recent', [key, ...store.get('pal.recent', []).filter(k => k !== key)].slice(0, 6));
     this.close();
     setTimeout(() => it.run(), 10);
   }
@@ -88,9 +93,18 @@ export class Palette {
     const order = ['cmd', 'file', 'ex', 'lesson', 'task'];
     if (!q) scored.sort((a, b) => order.indexOf(a.x.kind) - order.indexOf(b.x.kind));
     this.items = scored.slice(0, q ? 60 : 40).map(o => o.x);
+    let recentN = 0;
+    if (!q && !this.input.value.trim().startsWith('>')) {
+      const keys = store.get('pal.recent', []);
+      const byKey = new Map(this.all.map(x => [x.kind + ':' + x.title.replace(/^★ /, ''), x]));
+      const rec = keys.map(k => byKey.get(k)).filter(Boolean);
+      recentN = rec.length;
+      this.items = [...rec, ...this.items.filter(x => !rec.includes(x))].slice(0, 46);
+    }
     let last = null, h = '';
     this.items.forEach((x, i) => {
-      if (!q && x.kind !== last) { h += `<div class="pal-g">${GROUP[x.kind]}</div>`; last = x.kind; }
+      if (i === 0 && recentN) h += '<div class="pal-g pal-rec">Недавнее</div>';
+      if (!q && i >= recentN && x.kind !== last) { h += `<div class="pal-g">${GROUP[x.kind]}</div>`; last = x.kind; }
       let sub = x.sub ? `<span class="pal-s">${esc(x.sub)}</span>` : '';
       if (q && x.body && q.length > 2) {
         const w = q.toLowerCase().split(/\s+/)[0], at = x.body.indexOf(w);

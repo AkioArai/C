@@ -272,6 +272,7 @@ export class Renderer {
     this.drawComputer(L.computer);
     if (L.globals) this.drawPanel(L.globals, 'глобальные переменные', 'видны во всех функциях, живут всю программу');
     for (const b of L.frames.values()) this.drawFrame(b);
+    this.drawCallChain(L);
     if (L.heap) this.drawPanel(L.heap, 'куча (heap)', 'память из malloc — живёт до free');
     if (L.files) this.drawFiles(L.files);
     for (const c of L.cards.values()) this.drawCard(c);
@@ -561,7 +562,7 @@ export class Renderer {
     const ctx = this.ctx;
     const y = (ln) => b.codeY + (ln - b.fr.span.start) * G.lineH + G.lineH / 2;
     const x = b.codeX + 1, y0 = y(j.from), y1 = y(j.to);
-    const col = j.kind === 'break' ? C.red : C.yellow;
+    const col = j.kind === 'break' ? C.red : j.kind === 'switch' ? '#d9a6f0' : C.yellow;
     ctx.save();
     ctx.globalAlpha = a;
     ctx.strokeStyle = col;
@@ -645,6 +646,7 @@ export class Renderer {
     if (o.shape === 'scalar') this.drawScalar(c, o, col);
     else if (o.shape === 'array') this.drawArray(c, o, col);
     else this.drawRecord(c, o, col);
+    this.drawOverflow(c, o);
     ctx.restore();
   }
 
@@ -909,6 +911,60 @@ export class Renderer {
         ctx.stroke();
       });
     }
+  }
+
+  /** Цепочка вызовов: «бегущий» пунктир от строки вызова к кадру работающей функции. */
+  drawCallChain(L) {
+    if (settings.get('run.anims') === false) return;
+    const ctx = this.ctx;
+    for (const b of L.frames.values()) {
+      const fr = b.fr;
+      if (fr.ended || !fr.parentId || fr.func === 'main' || !L.frames.get(fr.parentId)) continue;
+      const p0 = this.anchor({ frameLine: fr.parentId }, L);
+      if (!p0) continue;
+      const p1 = { x: b.x + 2, y: b.y + 20 };
+      const mx = Math.max(p0.x, p1.x) + 50;
+      ctx.save();
+      ctx.strokeStyle = alpha('#d9a6f0', 0.55);
+      ctx.lineWidth = this.px(1.4);
+      ctx.setLineDash([this.px(6), this.px(5)]);
+      ctx.lineDashOffset = -this.t / 40 / this.cam.zoom;
+      ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.bezierCurveTo(mx, p0.y, mx, p1.y - 40, p1.x, p1.y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = alpha('#d9a6f0', 0.8);
+      ctx.beginPath(); ctx.arc(p0.x, p0.y, this.px(3), 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  /** Переполнение: красное кольцо прокручивается вокруг значения, подпись «было → стало». */
+  drawOverflow(c, o) {
+    const v = o.ui?.ovf;
+    if (!v || settings.get('run.anims') === false) return;
+    const age = this.t - v.at;
+    if (age < 0 || age > 2200) return;
+    const ctx = this.ctx;
+    let cx = c.x + 24, cy = c.y + 36;
+    if (o.shape === 'array' && v.cell >= 0) { const p = this.cellAnchor(c, v.cell); cx = p.x; cy = p.y; }
+    const k = ease(clamp(age / 900, 0, 1)), fade = age > 1600 ? 1 - (age - 1600) / 600 : 1;
+    ctx.save();
+    ctx.globalAlpha *= fade;
+    // карточка вспыхивает красным
+    this.rect(c.x - 2, c.y - 2, c.w + 4, c.h + 4, { stroke: alpha(C.red, 0.7 * (1 - k * 0.6)), r: 8 });
+    // кольцо-«спидометр»: значение пробегает весь круг диапазона и начинается заново
+    const r = 15;
+    ctx.strokeStyle = alpha(C.red, 0.25); ctx.lineWidth = this.px(3);
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = C.red;
+    ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.stroke();
+    const ang = -Math.PI / 2 + TAU * k;
+    ctx.fillStyle = C.red; ctx.beginPath(); ctx.arc(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r, this.px(3), 0, TAU); ctx.fill();
+    const s = `переполнение: ${shortVal(String(v.from))} → ${shortVal(String(v.to))}`;
+    this.font(10.5, 600);
+    const tw = Math.min(this.ctx.measureText(s).width + 14, c.w + 60);
+    this.rect(c.x + c.w / 2 - tw / 2, c.y - 24, tw, 18, { fill: alpha(C.red, 0.16), stroke: alpha(C.red, 0.6), r: 9 });
+    this.text(s, c.x + c.w / 2, c.y - 15, { size: 10.5, weight: 600, color: C.red, align: 'center', maxW: tw - 10 });
+    ctx.restore();
   }
 
   /** Обмен значений: две дуги навстречу друг другу между ячейками/переменными и подпись «⇄ обмен». */
