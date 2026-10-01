@@ -257,6 +257,7 @@ export class Scene {
         if (fromIn) this.anim({ type: 'beam', from: { input: true }, to: { obj: o.id, cell: ev.cell }, color: '#e9d85c', dur, label: ev.inputText ?? ev.display });
         else {
           const srcs = [...new Map((ev.sources || []).filter(s => s.objId !== o.id && this.objects.has(s.objId)).map(s => [s.objId, s])).values()];
+          for (const s of srcs) { const so = this.objects.get(s.objId); if (so) so.ui.readAt = now; }
           for (const s of srcs.slice(0, 4)) this.anim({ type: 'beam', from: { obj: s.objId }, to: { obj: o.id, cell: ev.cell }, color: colorForType(this.objects.get(s.objId)?.typeName), dur: dur * 0.9, label: s.display != null ? String(s.display) : undefined });
         }
         break;
@@ -273,6 +274,7 @@ export class Scene {
         if (ev.stream === 'stdout') {
           this.printText(ev.text, true, dur);
           const srcs = [...new Map((ev.sources || []).filter(s => this.objects.has(s.objId)).map(s => [s.objId, s])).values()];
+          for (const s of srcs) { const so = this.objects.get(s.objId); if (so) so.ui.readAt = now; }
           for (const s of srcs.slice(0, 4)) this.anim({ type: 'beam', from: { obj: s.objId }, to: { screen: true }, color: '#8fd46a', dur, label: s.display != null ? String(s.display) : undefined });
         } else if (ev.stream === 'stderr') {
           this.stderrLines.push(ev.text);
@@ -344,7 +346,7 @@ export class Scene {
         const fr = this.frames.get(this.current);
         const lp = fr?.loops.get(ev.nodeId);
         if (lp) {
-          lp.iter = ev.iter; lp.total = (lp.total || 0) + 1;
+          lp.iter = ev.iter; lp.total = (lp.total || 0) + 1; lp.iterAt = now;
           if (lp.kind === 'do' && ev.iter > 1) lp.backAt = now;
           if (lp.kind === 'do' && ev.iter === 1) lp.trace.rows.push({ iter: 1, cond: null, vals: {} });
         }

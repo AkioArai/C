@@ -592,6 +592,16 @@ export class Renderer {
       }
       if (tag) {
         const fl = this.flashA(s?.at ?? lp?.at, 700);
+        // счётчик итераций «подпрыгивает» при каждом новом проходе
+        const ip = lp?.iterAt && settings.get('run.anims') !== false ? clamp((this.t - lp.iterAt) / 420, 0, 1) : 1;
+        if (ip < 1) {
+          const sc = 1 + Math.sin(ip * Math.PI) * 0.45, cx = x + w - tagW / 2 - 4, cy = ly + G.lineH / 2;
+          this.ctx.save(); this.ctx.translate(cx, cy); this.ctx.scale(sc, sc); this.ctx.translate(-cx, -cy);
+          this.rect(x + w - tagW - 4, ly + 3, tagW, G.lineH - 6, { fill: alpha(tagColor, 0.35 * (1 - ip)), r: 3 });
+          this.text(tag, cx, cy, { size: 10.5, weight: 700, color: tagColor, align: 'center' });
+          this.ctx.restore();
+          continue;
+        }
         this.rect(x + w - tagW - 4, ly + 3, tagW, G.lineH - 6, { fill: alpha(tagColor, 0.1 + fl * 0.25), r: 3 });
         this.text(tag, x + w - tagW / 2 - 4, ly + G.lineH / 2, { size: 10.5, color: tagColor, align: 'center' });
       }
@@ -692,6 +702,32 @@ export class Renderer {
     else if (o.shape === 'array') this.drawArray(c, o, col);
     else this.drawRecord(c, o, col);
     this.drawOverflow(c, o);
+    if (settings.get('run.anims') !== false) {
+      // «сонар»: из этой переменной сейчас читают значение
+      const ra = o.ui?.readAt ? this.t - o.ui.readAt : 1e9;
+      if (ra >= 0 && ra < 900) {
+        for (let k = 0; k < 2; k++) {
+          const q = clamp((ra - k * 220) / 680, 0, 1);
+          if (q <= 0 || q >= 1) continue;
+          const pad = 3 + q * 12;
+          this.rect(c.x - pad, c.y - pad, c.w + pad * 2, c.h + pad * 2, { stroke: alpha(C.blue || C.ptr, 0.55 * (1 - q)), lw: 1.5, r: 8 + pad });
+        }
+        if (ra < 700 && this.lod) this.text('читаем', c.x + c.w - 8, c.y - 7, { size: 9.5, weight: 600, color: C.blue || C.ptr, align: 'right', mono: false });
+      }
+      // объявление: память выделяется побайтно — квадратики заполняются слева направо
+      const ba = this.t - (o.ui?.born ?? -1e9);
+      if (ba >= 0 && ba < 1300 && o.size && this.lod) {
+        const n = Math.min(o.size, 32), bw = Math.min(9, (c.w - 24) / n - 2);
+        const k = clamp(ba / 700, 0, 1), fade = ba > 1000 ? 1 - (ba - 1000) / 300 : 1;
+        this.ctx.save(); this.ctx.globalAlpha *= fade;
+        for (let i = 0; i < n; i++) {
+          const on = i / n < k;
+          this.rect(c.x + 12 + i * (bw + 2), c.y + c.h - 9, bw, 5, { fill: on ? alpha(col, 0.85) : alpha(col, 0.15), r: 1 });
+        }
+        if (k < 1) this.text(`выделяется ${o.size} Б`, c.x + c.w - 10, c.y + c.h - 7, { size: 9, color: col, align: 'right', mono: false });
+        this.ctx.restore();
+      }
+    }
     ctx.restore();
   }
 
