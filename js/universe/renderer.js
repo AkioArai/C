@@ -475,7 +475,10 @@ export class Renderer {
       if (open < 1) { ctx.strokeStyle = alpha('#d9a6f0', 0.6 * (1 - open)); ctx.lineWidth = this.px(2); ctx.beginPath(); ctx.moveTo(b.x + 8, b.y + hh); ctx.lineTo(b.x + b.w - 8, b.y + hh); ctx.stroke(); }
     }
     const sel = sc.selected === 'frame:' + fr.id;
-    this.rect(b.x, b.y, b.w, b.h, { fill: C.panel, stroke: sel ? C.text2 : active ? alpha(C.accent, 0.4) : C.line, r: 8 });
+    // ошибка выполнения: кадр, где она случилась, «трясётся» и краснеет
+    const ca = sc.crashed && active && settings.get('run.anims') !== false ? this.t - sc.crashed.at : -1;
+    if (ca >= 0 && ca < 650) ctx.translate(Math.sin(ca / 22) * 6 * (1 - ca / 650), 0);
+    this.rect(b.x, b.y, b.w, b.h, { fill: C.panel, stroke: sel ? C.text2 : ca >= 0 ? alpha(C.red, 0.8) : active ? alpha(C.accent, 0.4) : C.line, r: 8 });
     // заголовок
     const title = `${fr.func}(${(fr.args || []).map(x => x.name + '=' + shortVal(x.display)).join(', ')})`;
     this.text(title, b.x + 14, b.y + 20, { size: 15, color: active ? C.text : C.text2, weight: 500, maxW: b.w * 0.55 });
@@ -644,6 +647,19 @@ export class Renderer {
     this.text(head, t.x + 80, t.y + 15, { size: 11, color: lp.active ? C.accent : C.text2, maxW: t.w - 240 });
     const run = lp.runs > 1 ? `проход ${lp.runs} · ` : '';
     this.text(run + (lp.active ? `итерация ${lp.iter}` : `итераций: ${lp.iters ?? lp.iter}${lp.exitReason === 'break' ? ' (break)' : ''}`), t.x + t.w - 10, t.y + 15, { size: 10.5, color: lp.active ? C.accent : C.muted, align: 'right', mono: false });
+    // выход из цикла: баннер выезжает справа и показывает причину
+    const xa = !lp.active && lp.at && settings.get('run.anims') !== false ? this.t - lp.at : -1;
+    if (xa >= 0 && xa < 1800) {
+      const k = ease(clamp(xa / 380, 0, 1)), fade = xa > 1300 ? 1 - (xa - 1300) / 500 : 1;
+      const label = lp.exitReason === 'break' ? '⤓ выход по break' : '⤓ условие ложно — выход из цикла';
+      this.font(11, 600);
+      const bw = this.ctx.measureText(label).width + 20, bx = t.x + t.w - bw - 8 + (1 - k) * 40, by = t.y + 24;
+      this.ctx.save(); this.ctx.globalAlpha *= fade * k;
+      const col = lp.exitReason === 'break' ? C.red : C.yellow;
+      this.rect(bx, by, bw, 20, { fill: alpha(col, 0.16), stroke: alpha(col, 0.7), r: 10 });
+      this.text(label, bx + bw / 2, by + 10, { size: 11, weight: 600, color: col, align: 'center', mono: false });
+      this.ctx.restore();
+    }
     if (!this.lod) return;
     const cols = lp.trace.cols;
     const colW = Math.min(110, (t.w - 70 - 90) / Math.max(1, cols.length));
@@ -833,6 +849,7 @@ export class Renderer {
     let y = c.y + 34;
     const cw = G.cellW - 4, ch = G.cellH - 8;
     const pos = {};
+    if (o.ui) o.ui.nulDrawn = false;
     const drawCell = (cell, idx, cx, cy, label) => {
       pos[idx] = { x: cx, y: cy };
       const fl = o.ui?.flashCell === idx ? this.flashA(o.ui.flash, 900) : 0;
@@ -844,6 +861,15 @@ export class Renderer {
       let v = cell.init ? shortVal(cell.ptr !== undefined ? (cell.ptr === 0 ? 'NULL' : '→') : cell.display) : '';
       if (v === "'\\0'") v = '\\0';
       if (v) this.text(v, cx + cw / 2, cy + ch / 2, { size: 11, color: v === '\\0' ? C.muted : C.text, align: 'center', maxW: G.cellW - 8 });
+      // '\0' — конец строки: флажок над первым нулевым символом строки
+      if (v === '\\0' && o.str != null && !o.ui.nulDrawn && settings.get('run.anims') !== false) {
+        o.ui.nulDrawn = true;
+        const wave = Math.sin(this.t / 300) * 1.5, fx = cx + cw - 4, fy = cy - 2;
+        this.ctx.strokeStyle = C.red; this.ctx.lineWidth = this.px(1.2);
+        this.ctx.beginPath(); this.ctx.moveTo(fx, fy); this.ctx.lineTo(fx, fy - 13); this.ctx.stroke();
+        this.ctx.fillStyle = C.red; this.ctx.beginPath(); this.ctx.moveTo(fx, fy - 13); this.ctx.lineTo(fx + 8, fy - 10 + wave); this.ctx.lineTo(fx, fy - 7); this.ctx.closePath(); this.ctx.fill();
+        if (fl > 0 || this.hover === 'obj:' + o.id) this.text('конец строки', fx + 10, fy - 10, { size: 9, color: C.red, mono: false });
+      }
       this.text(label, cx + cw / 2, cy + G.cellH + 1, { size: 9, color: C.faint, align: 'center', maxW: G.cellW });
     };
     if (multi) {

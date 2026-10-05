@@ -5,6 +5,7 @@ import { Editor } from '../ui/editor.js';
 import { esc } from '../universe/explain.js';
 import { store, confirmClick } from '../store.js';
 import { award } from '../ui/xp.js';
+import { taskLocked, lockCard } from '../license.js';
 import { confetti } from '../ui/fx.js';
 
 const expectedCache = new Map();
@@ -79,7 +80,7 @@ export class PracticePage {
     this.root.querySelector('[data-pprog]').innerHTML = `<div class="pp-row"><span>Решено <b>${done}</b> из ${items.length}</span><span class="muted">${items.length ? Math.round((done / items.length) * 100) : 0}%</span></div><div class="bar"><i style="width:${items.length ? (done / items.length) * 100 : 0}%"></i></div>`;
     this.list.innerHTML = items.map(t => `
       <a class="task-item ${this.current?.id === t.id ? 'active' : ''} ${solved[t.id] ? 'solved' : ''}" href="#/practice/${t.id}">
-        <span class="ti-st" title="${solved[t.id] ? 'Решено' : 'Ещё не решено'}">${solved[t.id] ? '<svg class="ic" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : TASKS.indexOf(t) + 1}</span>
+        <span class="ti-st" title="${solved[t.id] ? 'Решено' : 'Ещё не решено'}">${solved[t.id] ? '<svg class="ic" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : taskLocked(t) ? '🔒' : TASKS.indexOf(t) + 1}</span>
         <span class="ti-b"><span class="tt">${esc(t.title)}</span>
         <span class="tm"><span class="lvl lvl-${t.level}">${LEVELS[t.level].name}</span><span>${t.topic === 'sr' ? 'Самостоятельная' : 'Тема ' + t.topic}</span></span></span>
       </a>`).join('') || '<div class="empty">Нет задач с такими фильтрами.</div>';
@@ -122,6 +123,10 @@ export class PracticePage {
   }
 
   renderTask(t) {
+    if (taskLocked(t)) {
+      this.main.innerHTML = `<div style="padding:28px clamp(18px,4vw,56px)"><article class="article"><div class="kicker">${TASK_TOPICS[t.topic]}</div><h1>${esc(t.title)}</h1><div class="lock-teaser">${t.text}</div>${lockCard('Эта задача')}</article></div>`;
+      return;
+    }
     const solved = store.get('practice.solved', {});
     const samples = t.tests.slice(0, t.check === 'exact' ? 1 : 2);
     const mode = t.check || 'tail';

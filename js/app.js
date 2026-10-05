@@ -10,6 +10,9 @@ import { exportAll, importAll } from './ui/backup.js';
 import { Welcome } from './ui/welcome.js';
 import { showWhatsNew } from './ui/whatsnew.js';
 import { FocusTimer } from './ui/focus.js';
+import { ProPage } from './pages/pro.js';
+import { refresh as refreshLicense, onLicense, license, paywallOn, activate } from './license.js';
+import { confetti } from './ui/fx.js';
 import { Tour } from './ui/tour.js';
 import { Palette } from './ui/palette.js';
 import { settings, applyUi, SettingsDialog } from './ui/settings.js';
@@ -23,7 +26,7 @@ const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // ——— защита от «смеси версий»: страница и код должны быть из одного обновления ———
-export const APP_VERSION = '14';
+export const APP_VERSION = '15';
 {
   const pageVer = document.querySelector('meta[name="app-version"]')?.content;
   if (pageVer !== APP_VERSION && !sessionStorage.getItem('cu.verfix')) {
@@ -62,10 +65,11 @@ $('[data-explorer]').addEventListener('click', (e) => {
   if (currentView === 'lab' && lab) { e.preventDefault(); lab.toggleSide(); }
 });
 
-let lab, learn, practice, home, drill, currentView = '';
+let lab, learn, practice, home, drill, pro, currentView = '';
 
 function ensure(name) {
   if (name === 'lab' && !lab) lab = new Lab(document.getElementById('view-lab'), { openSettings: (cat) => settingsDlg.open(cat), onCrumb: () => crumb(), toggleZen });
+  if (name === 'pro' && !pro) pro = new ProPage(document.getElementById('view-pro'), { celebrate: () => confetti(innerWidth / 2, innerHeight / 3) });
   if (name === 'drill' && !drill) drill = new DrillPage(document.getElementById('view-drill'), { openInLab });
   if (name === 'learn' && !learn) learn = new LearnPage(document.getElementById('view-learn'), { openInLab });
   if (name === 'practice' && !practice) practice = new PracticePage(document.getElementById('view-practice'), { openInLab });
@@ -97,7 +101,7 @@ function homeAction(act, arg) {
 }
 
 // ——— «хлебные крошки» в заголовке: где я и что открыто ———
-const NAMES = { home: 'Главная', lab: 'Код', learn: 'Теория', practice: 'Задачи', drill: 'Тренажёр' };
+const NAMES = { home: 'Главная', lab: 'Код', learn: 'Теория', practice: 'Задачи', drill: 'Тренажёр', pro: 'Подписка' };
 function crumb() {
   const el = $('[data-crumb]');
   let tail = '';
@@ -117,7 +121,15 @@ function crumb() {
 
 function route() {
   const [, name = 'home', ...rest] = (location.hash || '#/home').split('/');
-  const view = ['home', 'lab', 'learn', 'practice', 'drill'].includes(name) ? name : 'home';
+  // ссылка активации: #/activate/CU1.… — ключ подставляется сам
+  if (name === 'activate' && rest.length) {
+    const key = decodeURIComponent(rest.join('/'));
+    history.replaceState(null, '', '#/pro');
+    activate(key).then((r) => { ensure('pro'); pro.msg = r; if (currentView === 'pro') pro.open(''); if (r.ok) confetti(innerWidth / 2, innerHeight / 3); });
+    route();
+    return;
+  }
+  const view = ['home', 'lab', 'learn', 'practice', 'drill', 'pro'].includes(name) ? name : 'home';
   try { ensure(view); } catch (err) { console.error(err); lastStack = String(err.stack || '').slice(0, 1500); showCrash(err.message); if (view === 'lab') lab = null; return; }
   currentView = view;
   document.body.dataset.view = view;
@@ -127,6 +139,7 @@ function route() {
   if (view === 'learn') learn.open(rest[0]);
   if (view === 'practice') practice.open(rest[0]);
   if (view === 'drill') drill.open(rest[0]);
+  if (view === 'pro') pro.open(rest[0] || '');
   if (view === 'lab') {
     lab.renderer.resize();
     if (rest[0] === 's' && rest[1]) { const enc = rest[1]; history.replaceState(null, '', '#/lab'); lab.openShared(enc); }
@@ -248,6 +261,7 @@ function commands() {
     C('Показать знакомство заново', () => showWelcome(), '', 'welcome onboarding мастер'),
     C('Таймер фокуса: старт / пауза', () => $('[data-focus]').click(), '', 'pomodoro помодоро фокус таймер'),
     C('Распечатать урок / сохранить в PDF', () => { location.hash.startsWith('#/learn') ? print() : toast('Откройте урок в разделе «Теория»'); }, '', 'print pdf печать'),
+    C('Подписка: ввести ключ', () => { location.hash = '#/pro'; }, '', 'pro ключ подписка лицензия оплата'),
     C('Что нового в обновлении', () => showWhatsNew(true, APP_VERSION), '', 'changelog обновление версия'),
     C('Сбросить кэш и перезагрузить', () => { Promise.resolve(self.caches?.keys()).then((ks) => Promise.all((ks || []).map((k) => caches.delete(k)))).finally(() => location.reload()); }, '', 'cache кэш reload обновить сломалось'),
     C('Очистить терминал', () => L().console.clear?.(), '', 'clear'),
@@ -289,6 +303,25 @@ $('[data-cmdk]').addEventListener('click', () => palette.open());
 
 window.addEventListener('hashchange', route);
 updateProgressPill();
+// ——— подписка: проверяем ключ до первого показа, затем раз в 6 часов ———
+function renderPro() {
+  const s = license(), el = $('[data-prochip]');
+  el.hidden = !paywallOn();
+  el.className = 'tb-pro ' + (s.pro ? 'on' : 'off');
+  el.textContent = s.pro ? `PRO · ${s.daysLeft} дн.` : 'Подписка';
+  el.title = s.pro ? `Подписка активна до ${new Date(s.until).toLocaleDateString('ru')}` : 'Бесплатная версия — открыть PRO';
+  document.documentElement.classList.toggle('is-pro', !!s.pro);
+}
+let lastPro = null;
+onLicense((s) => {
+  renderPro();
+  if (lastPro !== null && lastPro !== s.pro && currentView && currentView !== 'pro') route(); // доступ изменился — перерисовать раздел
+  lastPro = s.pro;
+  if (s.status === 'active' && s.daysLeft <= 3) toast(`Подписка заканчивается через ${s.daysLeft} дн. — продлите у продавца`);
+});
+await refreshLicense(false).catch(() => {});
+refreshLicense(true).catch(() => {});
+setInterval(() => refreshLicense(true).catch(() => {}), 6 * 3600e3);
 route();
 
 // ——— первое знакомство ———

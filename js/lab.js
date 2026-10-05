@@ -14,6 +14,7 @@ import { Workspace } from './ui/files.js';
 import { award } from './ui/xp.js';
 import { formatC } from './ui/format.js';
 import { snapshot, HistoryDialog } from './ui/history.js';
+import { featureLocked } from './license.js';
 
 const PLAY = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>';
 const SPEEDS = [2200, 1500, 1050, 750, 520, 340, 200, 110, 50, 16];
@@ -148,6 +149,7 @@ export class Lab {
   }
   /** Окно истории версий текущего файла. */
   showHistory() {
+    if (featureLocked()) { this.ws.toast('История версий — в подписке PRO'); location.hash = '#/pro'; return; }
     const f = this.ws.current;
     if (!f || f.preview) { this.ws.toast('У примеров нет истории — начните его менять, и он станет вашим файлом'); return; }
     this.ws.capture();

@@ -8,6 +8,7 @@ import { highlight } from '../ui/highlight.js';
 import { award, stats } from '../ui/xp.js';
 import { store } from '../store.js';
 import { confetti } from '../ui/fx.js';
+import { drillLocked, lockCard } from '../license.js';
 
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const TABS = [['quiz', 'Угадай вывод'], ['daily', 'Испытание дня'], ['bugs', 'Найди ошибку'], ['blitz', 'Блиц 60 с'], ['ascii', 'Таблица ASCII'], ['prec', 'Приоритет операций']];
@@ -38,11 +39,13 @@ export class DrillPage {
     this.root.innerHTML = `<div class="drill"><div class="drill-in">
       <header class="dr-head">
         <div><div class="kicker">Тренажёр</div><h1>${TABS.find(t => t[0] === this.tab)[1]}</h1></div>
-        <nav class="seg dr-tabs">${TABS.map(([k, v]) => `<button data-tab="${k}" class="${k === this.tab ? 'on' : ''}">${v}</button>`).join('')}</nav>
+        <nav class="seg dr-tabs">${TABS.map(([k, v]) => `<button data-tab="${k}" class="${k === this.tab ? 'on' : ''}">${drillLocked(k) ? '🔒 ' : ''}${v}</button>`).join('')}</nav>
       </header>
       <div class="dr-body" data-body></div>
     </div></div>`;
     this.body = this.root.querySelector('[data-body]');
+    clearInterval(this.blitz?.timer);
+    if (drillLocked(this.tab)) { this.body.innerHTML = lockCard(`«${TABS.find(t => t[0] === this.tab)[1]}»`); return; }
     if (this.tab === 'quiz') this.renderQuiz();
     if (this.tab === 'daily') this.renderDaily();
     if (this.tab === 'bugs') this.renderBugs();
