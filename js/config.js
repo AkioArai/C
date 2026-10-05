@@ -2,10 +2,10 @@
 export const CONFIG = {
   // Открытый ключ продавца (JWK). Пока null — платный режим выключен и всё доступно бесплатно.
   // Создаётся на странице продавца admin.html (кнопка «Создать ключи продавца»).
-  publicKey: null,
+  publicKey: {"kty":"EC","crv":"P-256","x":"I-Kh_qWwlzeZfZ1hpj3A7-1B9UZ8aLJfZwa22IivAX8","y":"9UrxCcN75BE9_ln_rpBCJewr_ndBrGfC5k0WbX4t25Y"},
   // Кто продаёт и как связаться — показывается в разделе «Подписка» и в договоре.
-  sellerName: 'самозанятое лицо (ФИО укажите в js/config.js)',
-  contactTg: '',            // ник в Телеграме без @, например 'my_nick'
+  sellerName: 'Бобожонов С.Ш. (самозанятое лицо, Республика Узбекистан)',
+  contactTg: 'TheFirstSomi',           // ник в Телеграме без @, например 'my_nick'
   siteUrl: 'https://akioarai.github.io/C/',
   prices: [
     { title: 'Первые 5 пользователей', price: '15 000 сум / месяц', note: 'цена закрепляется, пока продлеваете' },
