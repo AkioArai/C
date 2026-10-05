@@ -14,7 +14,7 @@ import { Workspace } from './ui/files.js';
 import { award } from './ui/xp.js';
 import { formatC } from './ui/format.js';
 import { snapshot, HistoryDialog } from './ui/history.js';
-import { featureLocked } from './license.js';
+import { featureLocked, explainLocked, freeExplainSteps, onLicense, license, paywallOn } from './license.js';
 
 const PLAY = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>';
 const SPEEDS = [2200, 1500, 1050, 750, 520, 340, 200, 110, 50, 16];
@@ -108,12 +108,12 @@ export class Lab {
       else if (k === 'j' && !e.shiftKey) { e.preventDefault(); this.togglePane('panel'); }
       else if (k === 'm' && e.shiftKey) { e.preventDefault(); this.togglePane('uni'); }
     });
+    this.el('[data-ed="files"]')?.addEventListener('click', () => this.toggleSide());
     this.el('.ed-acts')?.addEventListener('click', (e) => {
       const b = e.target.closest('[data-ed]');
       if (!b) return;
       if (b.dataset.ed === 'format') this.formatCode();
       if (b.dataset.ed === 'share') this.share();
-      if (b.dataset.ed === 'zen') this.opts.toggleZen?.();
       if (b.dataset.ed === 'history') this.showHistory();
     });
     document.addEventListener('keydown', (e) => {
@@ -125,6 +125,9 @@ export class Lab {
     this.applyLayout();
     this.el('.p-side').addEventListener('click', () => this.renderFileStatus());
     settings.on((k) => this.onSetting(k));
+    const syncPro = () => { const t = this.el('[data-protag]'); if (t) t.hidden = !(paywallOn() && !license().pro); };
+    syncPro();
+    onLicense(syncPro);
     this.setState('idle');
     this.onCodeChange(true, true);
     this.renderFileStatus();
@@ -230,7 +233,7 @@ export class Lab {
     const c = compile(code);
     this.togglePane('panel', true);
     this.console.show?.('term');
-    if (!c.ok) { this.console.line('<span class="bad">Ошибка компиляции — наборы не запускались. Откройте вкладку «Проблемы».</span>'); return; }
+    if (!c.ok) { this.console.line('<span class="bad">Ошибка компиляции — наборы не запускались. Откройте вкладку «Ошибки».</span>'); return; }
     const norm = (s) => String(s).replace(/[ \t]+$/gm, '').replace(/\s+$/, '');
     this.lastRun = [];
     let pass = 0, checked = 0;
@@ -291,7 +294,7 @@ export class Lab {
     lab.classList.toggle('no-panel', !g('panel'));
     this.el('.p-universe').classList.toggle('no-op', !g('op'));
     this.el('.p-universe').classList.toggle('no-player', !g('player'));
-    for (const b of document.querySelectorAll('[data-lay]')) b.classList.toggle('on', !!g(b.dataset.lay));
+    this.el('[data-ed="files"]')?.classList.toggle('on', !!g('side'));
     this.el('[data-u="op"]')?.classList.toggle('on', g('op'));
     clearTimeout(this._lr);
     this._lr = setTimeout(() => { this.renderer.resize(); this.syncInsets(); this.console.placeCursor?.(true); }, 40);
@@ -503,6 +506,7 @@ export class Lab {
     const src = this.editor.value;
     this.console.clear();
     this.console.clearLogs();
+    this._logLocked = false;
     this.inspector.hidden = true;
     this.splash.hidden = true;
     this.console.line(`<span class="prompt">$</span> gcc -Wall -std=c11 main.c -o main`, 'cmd');
@@ -523,7 +527,7 @@ export class Lab {
       this.editor.flash(first.line);
       return null;
     }
-    this.console.line(`Компиляция успешна${warns ? ` · предупреждений: ${warns} (см. вкладку «Проблемы»)` : ''}`, 'okl');
+    this.console.line(`Компиляция успешна${warns ? ` · предупреждений: ${warns} (см. вкладку «Ошибки»)` : ''}`, 'okl');
     this.console.line(`<span class="prompt">$</span> ./main${this.stdinEl.value.trim() ? ' &lt; input.txt' : ''}`, 'cmd');
     return c;
   }
@@ -698,7 +702,8 @@ export class Lab {
         this._inlDirty = ev.line;
       }
       this.consoleEvent(ev);
-      if (!fast || !logFull) {
+      if (explainLocked(this.stepNo)) { if (!this._logLocked) { this._logLocked = true; this.console.lockLogs(lockLogsHtml()); } }
+      else if (!fast || !logFull) {
         const x = explain(ev);
         if (x) this.console.log({ step: this.stepNo, line: ev.line || step.line, html: x.html, kind: x.kind, ent: this.entKey(ev) });
       } else if (this.console.logCount < maxLogs + 2) this.console.log({});
@@ -805,7 +810,7 @@ export class Lab {
     this.renderer.lastUser = 0;
     const leak = this.lastStep?.events?.find(e => e.type === 'leak');
     const msg = this.mode === 'instant'
-      ? `Программа выполнена мгновенно за ${this.stepNo.toLocaleString('ru')} шагов. Итоговое состояние памяти — перед вами; подробная хроника — во вкладке «Логи».`
+      ? `Программа выполнена мгновенно за ${this.stepNo.toLocaleString('ru')} шагов. Итоговое состояние памяти — перед вами; подробная хроника — во вкладке «Объяснения».`
       : `Программа завершилась с кодом <b>${code}</b>. Нажмите на любую карточку, чтобы увидеть её историю.`;
     this.showOp(renderMessage('готово', msg + (leak ? ` <span class="bad">Утечка памяти: ${leak.bytes} байт не освобождено.</span>` : ''), 'flow', 0, this.scene.srcLines));
   }
@@ -832,7 +837,15 @@ export class Lab {
 
   // ——— панель «Операция» ———
   showStep(step) {
-    this.showOp(renderStep(step, { stepNo: this.stepNo, srcLines: this.scene.srcLines, showVisuals: settings.get('run.visuals') }));
+    const opts = { stepNo: this.stepNo, srcLines: this.scene.srcLines, showVisuals: settings.get('run.visuals') };
+    if (explainLocked(this.stepNo)) { this.showOp(lockedStep(step, opts)); return; }
+    let html = renderStep(step, opts);
+    // бесплатные шаги: видно, сколько осталось до конца пробного объяснения
+    if (paywallOn() && !license().pro) {
+      const n = freeExplainSteps();
+      html += `<div class="op-free"><span>Бесплатное объяснение: шаг ${this.stepNo} из ${n}</span><i><b style="width:${Math.round((this.stepNo / n) * 100)}%"></b></i><a href="#/pro/buy">Все шаги — в PRO</a></div>`;
+    }
+    this.showOp(html);
   }
   showOp(html) {
     this.op.innerHTML = html;
@@ -982,4 +995,29 @@ export class Lab {
     const w = r.toWorld(r.mouse.x, r.mouse.y);
     this.coords.textContent = `(${Math.round(w.x)}, ${Math.round(w.y)}) · масштаб ${r.cam.zoom.toFixed(2)}`;
   }
+}
+
+// ——— объяснение строк в PRO: витрина вместо текста ———
+const LOCK_I = '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+const RU = 'абвгдеёжзиклмнопрстуфхцчшщыэюя';
+/** Текст той же длины, но из случайных букв: видно, что объяснение есть, но прочитать нельзя. */
+function scramble(html) {
+  const t = String(html).replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ');
+  let h = 0;
+  for (const ch of t) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return t.replace(/[A-Za-zА-Яа-яЁё0-9]/g, () => { h = (h * 1103515245 + 12345) >>> 0; return RU[h % RU.length]; });
+}
+function lockedStep(step, { stepNo, srcLines }) {
+  const line = step.line, code = line ? (srcLines[line - 1] || '').trim() : '';
+  const texts = (step.events || []).map(explain).filter(Boolean).slice(0, 3);
+  const fake = (texts.length ? texts : [{ html: 'объяснение того что произошло на этой строке и почему' }]).map(x => `<p>${esc(scramble(x.html))}</p>`).join('');
+  return `<div class="op-head"><span class="op-step">шаг ${stepNo}</span>${line ? `<span class="op-line" data-line="${line}">строка ${line}</span><code class="op-code">${esc(code)}</code>` : ''}<span class="op-tg"></span><button class="op-close" data-opclose title="Скрыть объяснение">×</button></div>
+    <div class="op-lock"><div class="op-lock-blur">${fake}</div>
+      <div class="op-lock-cta"><span class="ol-ic">${LOCK_I}</span><div><b>Объяснение каждой строки — в PRO</b><small>Первые ${freeExplainSteps()} шагов каждого запуска — бесплатно. Дальше: что делает строка, откуда значение и почему так вышло.</small></div><a class="btn primary small" href="#/pro/buy">Открыть</a></div>
+    </div>`;
+}
+function lockLogsHtml() {
+  return `<div class="log-lock"><span class="pro-tag">PRO</span><h4>Дальше — объяснение каждой строки</h4>
+    <p>Бесплатно объясняются первые ${freeExplainSteps()} шагов каждого запуска. С PRO здесь будет вся хроника: каждая выполненная строка простыми словами — что произошло, откуда взялось значение и почему.</p>
+    <div class="lock-act"><a class="btn primary" href="#/pro/buy">Открыть PRO</a><a class="btn ghost" href="#/pro">Ввести ключ</a></div></div>`;
 }

@@ -1,7 +1,7 @@
 // Офлайн-режим. Пока есть интернет, всегда берём свежие файлы с сервера
 // (в обход HTTP-кэша браузера), чтобы старые и новые файлы никогда не смешивались.
 // Без интернета — отдаём последнюю сохранённую копию.
-const CACHE = 'cuniverse-v2';
+const CACHE = 'cuniverse-v3';
 const CORE = ['./', './index.html', './css/style.css', './js/app.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {
@@ -19,6 +19,8 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   const same = url.origin === location.origin;
   if (!same && !/fonts\.(googleapis|gstatic)\.com$/.test(url.hostname)) return;
+  // список отозванных ключей — только из сети: старая копия не должна продлевать отозванный ключ
+  if (same && url.pathname.endsWith('/revoked.json')) return;
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
     try {

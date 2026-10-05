@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Вселенная Си</title>
-  <meta name="description" content="Визуальная лаборатория языка C: код превращается во вселенную — переменные, лучи ввода-вывода, орбиты циклов. Встроенный компилятор, теория и задачи.">
-  <meta name="app-version" content="15">
-  <meta name="theme-color" content="#0a0b09">
+  <meta name="description" content="Вселенная Си — учебник и лаборатория языка C: пишите код и смотрите, как он работает внутри. Память, каждый шаг и объяснение каждой строки.">
+  <meta name="app-version" content="16">
+  <meta name="theme-color" content="#090a14">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -16,50 +16,30 @@
   <meta name="apple-mobile-web-app-title" content="Вселенная Си">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header class="titlebar">
-    <a class="tb-logo" href="#/home" title="Главная"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="16" cy="16" r="2.8" fill="currentColor"/><circle cx="26.5" cy="11" r="1.9" fill="currentColor"/></svg><span>Вселенная&nbsp;Си</span></a>
+    <a class="tb-logo" href="#/home" title="Главная"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg-t" x1="5" y1="5" x2="27" y2="27" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#a593ff"/><stop offset="1" stop-color="#35d6e8"/></linearGradient></defs><path d="M24.4 8.9A11 11 0 1 0 24.4 23.1" fill="none" stroke="url(#lg-t)" stroke-width="3.6" stroke-linecap="round"/><circle cx="16" cy="16" r="2.7" fill="url(#lg-t)"/><g class="lg-orbit"><circle cx="27.4" cy="16" r="2.5" fill="#ffc46b"/></g></svg><span class="wm">Вселенная <b>Си</b></span></a>
     <nav class="tb-crumb" data-crumb aria-label="Где вы сейчас"></nav>
-    <button class="cmdk" data-cmdk title="Поиск и команды (Ctrl+K)"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><span>Поиск: файлы, примеры, уроки, задачи, команды</span><kbd>Ctrl K</kbd></button>
+    <button class="cmdk" data-cmdk title="Поиск по урокам, задачам, примерам и файлам (Ctrl+K)"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><span>Найти урок, задачу или пример</span><kbd>Ctrl K</kbd></button>
     <div class="tb-right">
-      <div class="tb-run" data-tbrun>
-        <button class="tb-go" data-trun="run" title="Запуск (F5)"><svg class="ic" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg><span>Запуск</span></button>
-        <button class="tb-b" data-trun="step" title="Один шаг (F10)"><svg class="ic" viewBox="0 0 24 24"><path d="M6 5l9 7-9 7z"/><path d="M18 5v14"/></svg></button>
-        <button class="tb-b" data-trun="stop" title="Остановить (Shift+F5)"><svg class="ic" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg></button>
-      </div>
-      <span class="tb-sep"></span>
-      <div class="tb-lay" role="group" aria-label="Панели">
-        <button class="tb-b" data-lay="side" title="Проводник (Ctrl+B)"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
-        <button class="tb-b" data-lay="panel" title="Нижняя панель: терминал и логи (Ctrl+J)"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18"/></svg></button>
-        <button class="tb-b" data-lay="uni" title="Поле памяти (Ctrl+Shift+M)"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M13 4v16"/></svg></button>
-        <button class="tb-b" data-laymenu title="Готовые раскладки"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></button>
-      </div>
       <a class="tb-pro" href="#/pro" data-prochip hidden></a>
       <a class="tb-xp" href="#/home" data-xpchip title="Уровень, опыт и серия дней"></a>
-      <button class="tb-b" data-themetoggle title="Сменить тему оформления"><svg class="ic" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
-    </div>
-    <div class="menu" data-laypop hidden>
-      <button data-preset="balanced"><b>Сбалансированная</b><small>код, память и терминал</small></button>
-      <button data-preset="code"><b>Фокус на коде</b><small>редактор и терминал, без поля памяти</small></button>
-      <button data-preset="visual"><b>Фокус на памяти</b><small>большое поле памяти и разбор шагов</small></button>
-      <button data-preset="study"><b>Разбор по шагам</b><small>код и память, терминал спрятан</small></button>
-      <button data-preset="terminal"><b>Терминал крупно</b><small>код и большой терминал</small></button>
-      <button data-preset="zen"><b>Режим дзен</b><small>без заголовка и боковых панелей · Alt+Z</small></button>
+      <button class="tb-b tb-theme" data-themetoggle title="Светлая / тёмная тема"><svg class="ic i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><svg class="ic i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
     </div>
   </header>
   <nav class="rail" aria-label="Разделы">
-    <a href="#/home" data-nav="home" class="rail-i" title="Главная: прогресс и быстрый старт"><svg class="ic" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/><path d="M10 20v-5h4v5"/></svg><span>Главная</span></a>
-    <a href="#/lab" data-nav="lab" class="rail-i" data-explorer title="Код и проводник файлов (Ctrl+B — скрыть/показать проводник)"><svg class="ic" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9.5 12.5l-1.5 1.5 1.5 1.5M14.5 12.5l1.5 1.5-1.5 1.5"/></svg><span>Код</span></a>
+    <i class="rail-ind" aria-hidden="true"></i>
+    <a href="#/home" data-nav="home" class="rail-i" title="Главная: ваш путь и прогресс"><svg class="ic" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/><path d="M10 20v-5h4v5"/></svg><span>Главная</span></a>
     <a href="#/learn" data-nav="learn" class="rail-i" title="Теория по методичкам"><svg class="ic" viewBox="0 0 24 24"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg><span>Теория</span></a>
     <a href="#/practice" data-nav="practice" class="rail-i" title="Задачи с автопроверкой"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6" fill="currentColor"/></svg><span>Задачи</span><em class="rail-badge" data-progress title="Решено задач"></em></a>
-    <a href="#/drill" data-nav="drill" class="rail-i" title="Тренажёр: угадай вывод, ASCII, приоритеты"><svg class="ic" viewBox="0 0 24 24"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></svg><span>Тренажёр</span></a>
+    <a href="#/lab" data-nav="lab" class="rail-i" data-explorer title="Редактор кода и поле памяти"><svg class="ic" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/><path d="M13.5 4l-3 16"/></svg><span>Код</span></a>
+    <a href="#/drill" data-nav="drill" class="rail-i" title="Тренажёр: угадай вывод"><svg class="ic" viewBox="0 0 24 24"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></svg><span>Тренажёр</span></a>
     <div class="rail-sp"></div>
-    <button class="rail-i" data-tour title="Обучение: где что находится"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><path d="M12 17.5v.01"/></svg><span>Обучение</span></button>
-    <button class="rail-i" data-keys title="Горячие клавиши"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg><span>Клавиши</span></button>
-    <button class="rail-i" data-settings title="Настройки (Ctrl+,)"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Настройки</span></button>
+    <button class="rail-i" data-tour title="Как пользоваться: короткая экскурсия"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><path d="M12 17.5v.01"/></svg><span>Помощь</span></button>
+    <button class="rail-i" data-settings title="Настройки (Ctrl+,)"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Настройки</span></button>
   </nav>
 
   <main>
@@ -72,12 +52,11 @@
         <aside class="pane p-side" data-side aria-label="Проводник"></aside>
         <div class="splitter s" data-split="s" aria-hidden="true"></div>
         <div class="pane p-editor">
-          <div class="ed-top"><div class="tabs" data-tabs role="tablist" aria-label="Открытые файлы"></div>
+          <div class="ed-top"><button class="ed-files" data-ed="files" title="Мои файлы и примеры (Ctrl+B)"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Файлы и примеры</span></button><div class="tabs" data-tabs role="tablist" aria-label="Открытые файлы"></div>
             <div class="ed-acts">
               <button class="tb-b" data-ed="format" title="Выровнять отступы (Shift+Alt+F)"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M8 10h12M8 14h12M4 18h16"/></svg></button>
               <button class="tb-b" data-ed="history" title="История версий файла"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg></button>
               <button class="tb-b" data-ed="share" title="Скопировать ссылку на этот код"><svg class="ic" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/></svg></button>
-              <button class="tb-b" data-ed="zen" title="Режим дзен: только код и поле памяти (Alt+Z)"><svg class="ic" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
             </div></div>
           <div class="editor-host" data-editor></div>
           <details class="stdin-box">
@@ -111,10 +90,8 @@
             <button class="ubtn" data-u="zout" title="Отдалить"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
             <button class="ubtn" data-u="home" title="Показать всю вселенную"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/></svg></button>
             <button class="ubtn" data-u="follow" title="Камера следует за выполнением"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
-            <button class="ubtn" data-u="op" title="Панель «Операция»: разбор шага"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18M7 17h6"/></svg></button>
+            <button class="ubtn" data-u="op" title="Объяснение строки"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18M7 17h6"/></svg></button>
             <button class="ubtn" data-u="legend" title="Легенда: что означают объекты"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><path d="M12 17.5v.01"/></svg></button>
-            <button class="ubtn" data-u="snap" title="Сохранить картинку поля памяти (PNG)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
-            <button class="ubtn" data-u="full" title="Во весь экран"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
           </div>
           <div class="u-coords" data-coords></div>
           <div class="u-legend" data-legend hidden>
@@ -135,18 +112,13 @@
           <div class="splash" data-splash>
             <div class="splash-card">
               <div class="sp-orb" aria-hidden="true"><i></i><i></i><i></i></div>
-              <h2>Здесь появится память программы</h2>
-              <p>Запустите код — и увидите компьютер с экраном и клавиатурой, кадры функций и карточки переменных. Каждый шаг будет разобран в панели «Операция».</p>
-              <ol class="sp-steps">
-                <li><b>#include</b><span>подключает библиотеку — видно на панели компьютера</span></li>
-                <li><b>int a = 5;</b><span>в кадре функции появляется карточка: имя, тип, байты, значение</span></li>
-                <li><b>scanf / printf</b><span>символы из клавиатуры превращаются в число, формат %d — в текст на экране</span></li>
-              </ol>
+              <h2>Нажмите «Запуск» — и программа оживёт</h2>
+              <p>Здесь появится память вашей программы: экран, клавиатура, функции и переменные. Каждый шаг виден, каждую строку можно разобрать.</p>
               <div class="splash-btns">
-                <button class="btn primary" data-act="splash-run"><svg class="ic" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>Запустить <kbd>F5</kbd></button>
-                <button class="btn" data-act="splash-step"><svg class="ic" viewBox="0 0 24 24"><path d="M6 5l9 7-9 7z"/><path d="M18 5v14"/></svg>По шагам <kbd>F10</kbd></button>
-                <button class="btn ghost" data-act="splash-close">Осмотреться</button>
+                <button class="btn primary big" data-act="splash-run"><svg class="ic" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>Запуск <kbd>F5</kbd></button>
+                <button class="btn big" data-act="splash-step"><svg class="ic" viewBox="0 0 24 24"><path d="M6 5l9 7-9 7z"/><path d="M18 5v14"/></svg>По шагам <kbd>F10</kbd></button>
               </div>
+              <button class="sp-close" data-act="splash-close">Просто осмотреться</button>
             </div>
           </div>
         </div>
@@ -168,18 +140,6 @@
     <section class="view" id="view-practice" data-view="practice" hidden></section>
   </main>
 
-  <footer class="statusbar" data-statusbar>
-    <span class="sb-i sb-state" data-sb="state"><i></i><b>готов</b></span>
-    <span class="sb-i" data-sb="file" title="Текущий файл"></span>
-    <span class="sb-i sb-click" data-sb="problems" title="Ошибки и предупреждения — открыть вкладку «Проблемы»"></span>
-    <span class="sb-sp"></span>
-    <span class="sb-i" data-sb="step" title="Номер шага выполнения"></span>
-    <span class="sb-i" data-sb="pos" title="Строка и столбец курсора"></span>
-    <span class="sb-i" title="Модель компилятора: стандарт C11, gcc на 64-битном Linux (int — 4 байта, long — 8)">C11 · gcc x86-64</span>
-    <span class="sb-i" title="Кодировка">UTF-8</span>
-    <button class="sb-i sb-click sb-focus" data-focus></button>
-    <button class="sb-i sb-click" data-sb="settings" title="Настройки (Ctrl+,)"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
-  </footer>
   <div class="keys" data-keysdlg hidden>
     <div class="keys-card" role="dialog" aria-label="Горячие клавиши">
       <div class="keys-h"><b>Горячие клавиши</b><button class="in-close" data-close aria-label="Закрыть">×</button></div>
@@ -202,7 +162,6 @@
         <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd></td><td>Скрыть/показать поле памяти</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>Настройки</td></tr>
         <tr><td><kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd></td><td>Выровнять отступы</td></tr>
-        <tr><td><kbd>Alt</kbd>+<kbd>Z</kbd></td><td>Режим дзен: только код и поле памяти</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Дублировать строку</td></tr>
         <tr><td><kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></td><td>Переместить строку</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>/</kbd></td><td>Закомментировать строки</td></tr>
@@ -212,8 +171,7 @@
       </table>
     </div>
   </div>
-  <button class="zen-exit" data-zenexit title="Выйти из режима дзен (Alt+Z или Esc)">Выйти из дзена <kbd>Esc</kbd></button>
-  <div class="rotate-hint">Поверните устройство горизонтально или откройте сайт на планшете/ноутбуке — на экране телефона вселенной тесно.</div>
+  <div class="rotate-hint">Поверните телефон горизонтально — так поместятся и код, и память программы.</div>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

@@ -472,13 +472,15 @@ export class Renderer {
       ctx.beginPath();
       ctx.rect(b.x - 4, b.y - 4, b.w + 8, hh + 8);
       ctx.clip();
-      if (open < 1) { ctx.strokeStyle = alpha('#d9a6f0', 0.6 * (1 - open)); ctx.lineWidth = this.px(2); ctx.beginPath(); ctx.moveTo(b.x + 8, b.y + hh); ctx.lineTo(b.x + b.w - 8, b.y + hh); ctx.stroke(); }
+      if (open < 1) { ctx.strokeStyle = alpha('#b69cff', 0.6 * (1 - open)); ctx.lineWidth = this.px(2); ctx.beginPath(); ctx.moveTo(b.x + 8, b.y + hh); ctx.lineTo(b.x + b.w - 8, b.y + hh); ctx.stroke(); }
     }
     const sel = sc.selected === 'frame:' + fr.id;
     // ошибка выполнения: кадр, где она случилась, «трясётся» и краснеет
     const ca = sc.crashed && active && settings.get('run.anims') !== false ? this.t - sc.crashed.at : -1;
     if (ca >= 0 && ca < 650) ctx.translate(Math.sin(ca / 22) * 6 * (1 - ca / 650), 0);
     this.rect(b.x, b.y, b.w, b.h, { fill: C.panel, stroke: sel ? C.text2 : ca >= 0 ? alpha(C.red, 0.8) : active ? alpha(C.accent, 0.4) : C.line, r: 8 });
+    // пока программа работает, по рамке выполняемой функции бежит «комета» — как планета по орбите
+    if (active && !fr.ended && ca < 0 && settings.get('run.anims') !== false && document.documentElement.dataset.run === 'running') this.drawOrbit(b);
     // заголовок
     const title = `${fr.func}(${(fr.args || []).map(x => x.name + '=' + shortVal(x.display)).join(', ')})`;
     this.text(title, b.x + 14, b.y + 20, { size: 15, color: active ? C.text : C.text2, weight: 500, maxW: b.w * 0.55 });
@@ -490,6 +492,31 @@ export class Renderer {
     if (!fr.vars.length && this.lod) this.text('переменных пока нет', b.x + G.varsX, b.codeY + 16, { size: 11, color: C.faint, mono: false });
     for (const t of b.traces) this.drawTrace(t, fr);
     this.drawJump(b);
+    ctx.restore();
+  }
+
+  /** Огонёк обегает рамку кадра по периметру со светящимся хвостом. */
+  drawOrbit(b) {
+    const ctx = this.ctx, P = 2 * (b.w + b.h);
+    const at = (d) => {
+      d = ((d % P) + P) % P;
+      if (d < b.w) return [b.x + d, b.y];
+      if (d < b.w + b.h) return [b.x + b.w, b.y + d - b.w];
+      if (d < 2 * b.w + b.h) return [b.x + b.w - (d - b.w - b.h), b.y + b.h];
+      return [b.x, b.y + b.h - (d - 2 * b.w - b.h)];
+    };
+    const head = (this.t / 3200) * P;
+    ctx.save();
+    for (let i = 14; i >= 0; i--) {
+      const [px, py] = at(head - i * 7);
+      const k = 1 - i / 15;
+      ctx.fillStyle = alpha(i < 5 ? (C.accent2 || C.accent) : C.accent, 0.75 * k * k);
+      ctx.beginPath(); ctx.arc(px, py, this.px(1 + 2.2 * k), 0, TAU); ctx.fill();
+    }
+    const [hx, hy] = at(head);
+    const g = ctx.createRadialGradient(hx, hy, 0, hx, hy, this.px(12));
+    g.addColorStop(0, alpha(C.accent2 || C.accent, 0.55)); g.addColorStop(1, alpha(C.accent2 || C.accent, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(hx, hy, this.px(12), 0, TAU); ctx.fill();
     ctx.restore();
   }
 
@@ -528,14 +555,31 @@ export class Renderer {
       }
     }
     const lodText = this.lod;
+    // подсветка текущей строки не прыгает, а плавно переезжает, оставляя светящийся след
+    if (!fr.ended && fr.curLine >= fr.span.start && fr.curLine <= fr.span.end) {
+      const idx = fr.curLine - fr.span.start;
+      const st = fr._hl || (fr._hl = { from: idx, to: idx, at: -1e9, cur: idx });
+      if (st.to !== idx) { st.from = st.cur; st.to = idx; st.at = this.t; }
+      const k = settings.get('run.anims') !== false ? ease(clamp((this.t - st.at) / 280, 0, 1)) : 1;
+      st.cur = st.from + (st.to - st.from) * k;
+      const hy = y0 + st.cur * G.lineH;
+      if (k < 1 && Math.abs(st.to - st.from) >= 1) {
+        const ty = y0 + st.from * G.lineH, top = Math.min(ty, hy), h = Math.abs(hy - ty) + G.lineH;
+        const g = this.ctx.createLinearGradient(0, ty + G.lineH / 2, 0, hy + G.lineH / 2);
+        g.addColorStop(0, alpha(C.accent, 0)); g.addColorStop(1, alpha(C.accent, 0.22 * (1 - k)));
+        this.ctx.fillStyle = g;
+        this.ctx.fillRect(x + 1, top, 3, h);
+        this.ctx.fillRect(x + 1, top, w - 2, h);
+      }
+      this.rect(x + 1, hy, w - 2, G.lineH, { fill: alpha(C.accent, 0.13), r: 2 });
+      this.rect(x + 1, hy, 2, G.lineH, { fill: C.accent, r: 0 });
+    }
     for (let i = 0; i < n; i++) {
       const ln = fr.span.start + i;
       const ly = y0 + i * G.lineH;
       const cur = ln === fr.curLine && !fr.ended;
       const sel = sc.selected === `line:${fr.id}:${ln}`;
-      if (cur) this.rect(x + 1, ly, w - 2, G.lineH, { fill: alpha(C.accent, 0.12), r: 2 });
-      else if (sel) this.rect(x + 1, ly, w - 2, G.lineH, { fill: alpha(C.text2, 0.08), r: 2 });
-      if (cur) this.rect(x + 1, ly, 2, G.lineH, { fill: C.accent, r: 0 });
+      if (!cur && sel) this.rect(x + 1, ly, w - 2, G.lineH, { fill: alpha(C.text2, 0.08), r: 2 });
       // остановка на точке останова: строка пульсирует красными кольцами
       const bp = sc.bpHit;
       if (bp && bp.line === ln && bp.frame === fr.id && settings.get('run.anims') !== false) {
@@ -620,7 +664,7 @@ export class Renderer {
     const ctx = this.ctx;
     const y = (ln) => b.codeY + (ln - b.fr.span.start) * G.lineH + G.lineH / 2;
     const x = b.codeX + 1, y0 = y(j.from), y1 = y(j.to);
-    const col = j.kind === 'break' ? C.red : j.kind === 'switch' ? '#d9a6f0' : C.yellow;
+    const col = j.kind === 'break' ? C.red : j.kind === 'switch' ? '#b69cff' : C.yellow;
     ctx.save();
     ctx.globalAlpha = a;
     ctx.strokeStyle = col;
@@ -705,6 +749,20 @@ export class Renderer {
     if (dk > 0 && settings.get('run.anims') !== false) this.drawDust(c, o, dk);
     ctx.save();
     ctx.globalAlpha = a;
+    // чтение «мусора»: карточка вздрагивает, вспыхивает красным и предупреждает
+    const ga = o.ui?.garbAt && settings.get('run.anims') !== false ? t - o.ui.garbAt : -1;
+    if (ga >= 0 && ga < 1600) {
+      if (ga < 500) ctx.translate(Math.sin(ga / 18) * 4 * (1 - ga / 500), 0);
+      const q = (ga % 800) / 800, fade = 1 - ga / 1600;
+      this.rect(c.x - 2 - q * 8, c.y - 2 - q * 8, c.w + 4 + q * 16, c.h + 4 + q * 16, { stroke: alpha(C.red, 0.7 * (1 - q) * fade), lw: 2, r: 9 + q * 8 });
+      const lb = '⚠ мусор!', lx = c.x + c.w / 2, ly = c.y - 12 - 6 * ease(clamp(ga / 300, 0, 1));
+      this.font(11, 700);
+      const lw = this.ctx.measureText(lb).width + 14;
+      this.ctx.save(); this.ctx.globalAlpha *= Math.min(1, fade * 1.6);
+      this.rect(lx - lw / 2, ly - 9, lw, 18, { fill: C.red, r: 9 });
+      this.text(lb, lx, ly, { size: 11, weight: 700, color: '#fff', align: 'center', mono: false });
+      this.ctx.restore();
+    }
     if (dk > 0) {
       // карточка сжимается к центру — переменная перестаёт существовать
       const s = 1 - 0.18 * ease(dk), cx = c.x + c.w / 2, cy = c.y + c.h / 2;
@@ -1032,13 +1090,13 @@ export class Renderer {
       const p1 = { x: b.x + 2, y: b.y + 20 };
       const mx = Math.max(p0.x, p1.x) + 50;
       ctx.save();
-      ctx.strokeStyle = alpha('#d9a6f0', 0.55);
+      ctx.strokeStyle = alpha('#b69cff', 0.55);
       ctx.lineWidth = this.px(1.4);
       ctx.setLineDash([this.px(6), this.px(5)]);
       ctx.lineDashOffset = -this.t / 40 / this.cam.zoom;
       ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.bezierCurveTo(mx, p0.y, mx, p1.y - 40, p1.x, p1.y); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = alpha('#d9a6f0', 0.8);
+      ctx.fillStyle = alpha('#b69cff', 0.8);
       ctx.beginPath(); ctx.arc(p0.x, p0.y, this.px(3), 0, TAU); ctx.fill();
       ctx.restore();
     }

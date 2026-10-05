@@ -17,15 +17,27 @@ function now() {
   return Math.max(t, max - DAY);
 }
 
+/** Откуда берём список отозванных ключей. Сначала — прямо из репозитория (обновляется
+ *  через секунды после правки), затем — копия на сайте (обновляется после сборки, ~1–10 мин). */
+export function revokedUrls() {
+  const u = [];
+  if (CONFIG.repo) u.push(`https://raw.githubusercontent.com/${CONFIG.repo}/${CONFIG.branch || 'main'}/revoked.json`);
+  u.push('revoked.json');
+  return u;
+}
 async function fetchRevoked() {
-  try {
-    const r = await fetch('revoked.json?t=' + Date.now(), { cache: 'no-store' });
-    if (!r.ok) throw 0;
-    const j = await r.json();
-    store.set('license.revoked', Array.isArray(j.revoked) ? j.revoked : []);
-    store.set('license.lastCheck', Date.now());
-    return true;
-  } catch { return false; }
+  for (const base of revokedUrls()) {
+    try {
+      const r = await fetch(base + '?t=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) continue;
+      const j = await r.json();
+      if (!j || !Array.isArray(j.revoked)) continue;
+      store.set('license.revoked', j.revoked.map(String));
+      store.set('license.lastCheck', Date.now());
+      return true;
+    } catch { /* следующий источник */ }
+  }
+  return false;
 }
 
 /** Пересчитать состояние. online — сходить за списком отозванных. */
@@ -48,6 +60,23 @@ export async function refresh(online = true) {
 }
 function emit() { for (const fn of listeners) fn(state); }
 
+/** Проверять ключ регулярно: при запуске, каждые 10 минут, при возвращении во вкладку и появлении сети.
+ *  Так отзыв срабатывает за минуты, даже если приложение не закрывали. */
+let lastOnline = 0;
+export function watch() {
+  const check = () => {
+    if (!paywallOn() || !store.get('license.key', '')) return;
+    if (Date.now() - lastOnline < 60e3) return;
+    lastOnline = Date.now();
+    refresh(true).catch(() => {});
+  };
+  setInterval(check, 10 * 60e3);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+  addEventListener('online', check);
+  addEventListener('focus', check);
+  return check;
+}
+
 /** Активировать ключ: проверяет подпись, срок и отзыв; сохраняет только при успехе. */
 export async function activate(str) {
   const key = String(str || '').replace(/\s+/g, '');
@@ -68,6 +97,9 @@ export function lessonLocked(l) { return !state.pro && !CONFIG.free.lessonTopics
 export function taskLocked(t) { return !state.pro && !(CONFIG.free.tasks.topics.includes(String(t.topic)) && CONFIG.free.tasks.levels.includes(t.level)); }
 export function drillLocked(tab) { return !state.pro && !CONFIG.free.drillTabs.includes(tab); }
 export function featureLocked() { return !state.pro; }
+/** Объяснение строки на шаге n: первые шаги каждого запуска — бесплатно, дальше — PRO. */
+export function explainLocked(n) { return !state.pro && n > (CONFIG.free.explainSteps ?? 8); }
+export const freeExplainSteps = () => CONFIG.free.explainSteps ?? 8;
 
 const STATUS_TEXT = {
   none: 'Это входит в подписку.',
@@ -79,6 +111,6 @@ const STATUS_TEXT = {
 /** Карточка «закрыто» для страниц. */
 export function lockCard(what = 'Этот раздел') {
   return `<div class="lock-card"><div class="lock-ic"><svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
-    <h3>${what} — в подписке</h3><p>${STATUS_TEXT[state.status] || STATUS_TEXT.none} Бесплатно остаются лаборатория с визуализацией, примеры, тема 1, лёгкие задачи темы 1 и «Угадай вывод».</p>
+    <h3>${what} — в подписке</h3><p>${STATUS_TEXT[state.status] || STATUS_TEXT.none} Бесплатно остаются редактор с полем памяти, примеры, тема 1, лёгкие задачи темы 1 и «Угадай вывод». В PRO ещё и объяснение каждой строки ваших программ.</p>
     <div class="lock-act"><a class="btn primary" href="#/pro">Ввести ключ</a><a class="btn ghost" href="#/pro/buy">Как получить</a></div></div>`;
 }

@@ -1,4 +1,4 @@
-// Панель «компьютера»: вкладки Терминал, Логи, Процессы, Проблемы.
+// Нижняя панель: Терминал, Объяснения (хроника шагов), Ошибки.
 import { esc, typeInfo } from '../universe/explain.js';
 import { formatDiag } from '../compiler/diagnostics.js';
 import { settings } from './settings.js';
@@ -26,19 +26,13 @@ export class ConsolePanel {
     root.innerHTML = `
       <div class="con-tabs" role="tablist">
         <button class="con-tab active" data-tab="term" role="tab">Терминал</button>
-        <button class="con-tab" data-tab="logs" role="tab">Логи <span class="badge" data-badge="logs"></span></button>
-        <button class="con-tab" data-tab="proc" role="tab">Процессы <span class="badge" data-badge="proc"></span></button>
-        <button class="con-tab" data-tab="prob" role="tab">Проблемы <span class="badge" data-badge="prob"></span></button>
+        <button class="con-tab" data-tab="logs" role="tab">Объяснения <span class="badge" data-badge="logs"></span><em class="pro-tag" data-protag hidden>PRO</em></button>
+        <button class="con-tab" data-tab="prob" role="tab">Ошибки <span class="badge" data-badge="prob"></span></button>
         <span class="con-status" data-status></span>
         <div class="con-tools" data-tools>
-          <button class="tbtn" data-tt="smaller" title="Уменьшить текст (Ctrl + колесо мыши, щипок двумя пальцами)">${ICON.smaller}</button>
-          <span class="tt-fs" data-fs title="Размер текста"></span>
-          <button class="tbtn" data-tt="bigger" title="Увеличить текст">${ICON.bigger}</button>
-          <button class="tbtn" data-tt="wrap" title="Перенос длинных строк. Выключен — строки не ломаются, их можно листать вправо-влево">${ICON.wrap}</button>
           <button class="tbtn" data-tt="copy" title="Скопировать вывод программы">${ICON.copy}</button>
           <button class="tbtn" data-tt="clear" title="Очистить терминал">${ICON.clear}</button>
           <button class="tbtn" data-tt="size" title="Развернуть / свернуть панель">${ICON.up}</button>
-          <button class="tbtn" data-tt="cfg" title="Настройки терминала (Ctrl+,)">${ICON.cfg}</button>
           <button class="tbtn" data-tt="hide" title="Скрыть панель (Ctrl+J)"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
       </div>
@@ -54,22 +48,13 @@ export class ConsolePanel {
           </form>
         </section>
         <section class="con-pane" data-pane="logs">
-          <div class="log-filters">
-            <button class="chip active" data-f="all">Все</button>
-            <button class="chip" data-f="var">Память</button>
-            <button class="chip" data-f="write">Присваивания</button>
-            <button class="chip" data-f="io">Ввод-вывод</button>
-            <button class="chip" data-f="flow">Управление</button>
-            <button class="chip" data-f="warn">Предупреждения</button>
-            <button class="chip" data-f="law">Законы</button>
-          </div>
-          <div class="logs" data-logs><div class="empty">Запустите программу — здесь появится подробная хроника: что, где, когда и почему произошло во вселенной.</div></div>
+          <div class="logs" data-logs><div class="empty">Запустите программу — здесь по порядку появится объяснение каждой выполненной строки: что она сделала, откуда взялось значение и почему получилось именно так.</div></div>
         </section>
-        <section class="con-pane" data-pane="proc">
+        <section class="con-pane" data-pane="proc" hidden>
           <div class="proc" data-proc><div class="empty">Пока во вселенной пусто. Процессы появятся после запуска программы.</div></div>
         </section>
         <section class="con-pane" data-pane="prob">
-          <div class="prob" data-prob><div class="empty">Проблем не найдено.</div></div>
+          <div class="prob" data-prob><div class="empty">Ошибок не найдено.</div></div>
         </section>
       </div>`;
     this.term = root.querySelector('[data-term]');
@@ -250,8 +235,8 @@ export class ConsolePanel {
     r.classList.toggle('t-logsfs', c.logsFs);
     r.classList.toggle('t-fade', c.fadeIn);
     r.classList.toggle('t-nostep', !settings.get('logs.stepNumbers'));
-    r.querySelector('[data-fs]').textContent = (c.fs % 1 ? c.fs.toFixed(1) : c.fs) + '';
-    r.querySelector('[data-tt="wrap"]').classList.toggle('on', c.wrap);
+    const fsEl = r.querySelector('[data-fs]'); if (fsEl) fsEl.textContent = (c.fs % 1 ? c.fs.toFixed(1) : c.fs) + '';
+    r.querySelector('[data-tt="wrap"]')?.classList.toggle('on', c.wrap);
     this.placeCursor(true);
   }
   tool(name, btn) {
@@ -289,6 +274,12 @@ export class ConsolePanel {
     this.logsEl.dataset.filter = this.filter;
     this.logCount = 0;
     this.badge('logs', '');
+  }
+  /** Замок в хронике: дальше объяснения — в PRO. */
+  lockLogs(html) {
+    const d = document.createElement('div');
+    d.innerHTML = html;
+    this.logsEl.appendChild(d.firstElementChild);
   }
   log(entry) {
     this.logCount++;
@@ -367,7 +358,7 @@ export class ConsolePanel {
     const n = diags.length;
     const errs = diags.filter(d => d.severity === 'error').length;
     this.badge('prob', n || '');
-    if (!n) { this.probEl.innerHTML = '<div class="empty">Проблем не найдено. Код выглядит правильно.</div>'; return; }
+    if (!n) { this.probEl.innerHTML = '<div class="empty">Ошибок не найдено. Код выглядит правильно.</div>'; return; }
     const icon = { error: '', warning: '', note: '' };
     const name = { error: 'Ошибка', warning: 'Предупреждение', note: 'Заметка' };
     this.probEl.innerHTML = diags.map(d => `

@@ -1,6 +1,7 @@
 // Подписка: статус, ввод ключа, тарифы, как купить; договор и политика конфиденциальности.
 import { CONFIG } from '../config.js';
-import { license, activate, removeKey, paywallOn } from '../license.js';
+import { license, activate, removeKey, paywallOn, freeExplainSteps } from '../license.js';
+import { demoScene } from './home.js';
 
 const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const fmt = (ms) => new Date(ms).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -37,14 +38,19 @@ export class ProPage {
         : `<div class="pro-st off"><b>${{ none: 'Бесплатная версия', expired: 'Подписка закончилась', revoked: 'Ключ отозван', invalid: 'Ключ не подходит', offline: 'Нужна проверка ключа' }[s.status] || 'Бесплатная версия'}</b><span>${s.status === 'offline' ? `Подключитесь к интернету — ключ проверяется раз в ${CONFIG.offlineDays} дней.` : s.status === 'expired' ? `Ключ действовал до ${fmt(s.until)}.` : 'Введите ключ, чтобы открыть всё.'}</span>${s.status !== 'none' ? '<button class="btn ghost small" data-rm-key>Убрать ключ</button>' : ''}</div>`;
     const m = this.msg ? `<div class="pro-msg ${this.msg.ok ? 'ok' : 'bad'}">${esc(this.msg.msg)}</div>` : '';
     this.root.innerHTML = `<div class="pro"><div class="pro-in">
-      <div class="kicker">Подписка</div><h1>Вселенная Си PRO</h1>
+      <section class="pro-hero">
+        <div><div class="pro-kick"><span>PRO</span>Вселенная Си</div>
+          <h1>Объяснение <span class="grad-t">каждой строки</span> вашей программы</h1>
+          <p>Запускаете код — и каждая выполненная строка объясняется простыми словами: что она сделала, откуда взялось значение, почему получилось именно так. Как преподаватель рядом, только в 3 часа ночи перед контрольной тоже.</p></div>
+        ${demoScene('pro')}
+      </section>
       ${st}
       <section class="pro-card"><h3>Ввести ключ</h3>
         <div class="pro-key"><input data-key placeholder="CU1.…" spellcheck="false" autocomplete="off" autocapitalize="off"><button class="btn primary" data-act-key>Активировать</button></div>
         ${m}<small class="muted">Проще всего — открыть ссылку активации, которую прислал продавец: ключ подставится сам.</small></section>
       <section class="pro-grid">
-        <div class="pro-card"><h3>Бесплатно</h3><ul><li>Лаборатория: редактор, компилятор, поле памяти и все анимации</li><li>Все примеры, свои файлы, поиск, наборы ввода</li><li>Теория: «Начало», тема 1 и справочник</li><li>Лёгкие задачи темы 1</li><li>«Угадай вывод», таблица ASCII, приоритеты</li></ul></div>
-        <div class="pro-card hl"><h3>PRO</h3><ul><li>Вся теория: темы 2–4 и новые темы</li><li>Все ${'60+'} задач с автопроверкой и подсказками</li><li>Испытание дня, «Найди ошибку», блиц 60 с</li><li>История версий файлов</li><li>Все новые возможности по мере выхода</li></ul></div>
+        <div class="pro-card"><h3>Бесплатно</h3><ul><li>Редактор, компилятор и поле памяти со всеми анимациями</li><li>Объяснение первых ${freeExplainSteps()} шагов каждого запуска</li><li>Все примеры и свои файлы</li><li>Теория: «Начало», тема 1 и справочник</li><li>Лёгкие задачи темы 1, «Угадай вывод»</li></ul></div>
+        <div class="pro-card hl"><h3>PRO</h3><ul><li><b>Объяснение каждой строки</b> — на любом шаге, любой программы</li><li>Полная хроника выполнения во вкладке «Объяснения»</li><li>Вся теория: темы 2–4 и новые темы</li><li>Все 60+ задач с автопроверкой и подсказками</li><li>Испытание дня, «Найди ошибку», блиц, история версий</li></ul></div>
       </section>
       <section class="pro-card" id="buy"><h3>Как получить ключ</h3>
         <div class="pro-prices">${CONFIG.prices.map(p => `<div><b>${esc(p.price)}</b><span>${esc(p.title)}</span><small>${esc(p.note)}</small></div>`).join('')}</div>
