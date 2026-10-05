@@ -206,7 +206,7 @@ export function renderStep(step, { stepNo, srcLines, showVisuals = true }) {
   if (vis) blocks.push(`<div class="vis-row">${vis}</div>`);
   if (!used.has('trace') && step.trace?.length && blocks.length < 4) blocks.push(traceBlock(step.trace));
   const texts = evs.map(explain).filter(Boolean);
-  const textHtml = texts.slice(0, 3).map(x => `<div class="op-x k-${x.kind}"><span class="kind-dot"></span><span>${x.html}</span></div>`).join('') + (texts.length > 3 ? `<div class="op-more">ещё ${texts.length - 3} — во вкладке «Логи»</div>` : '');
+  const textHtml = texts.slice(0, 2).map(x => `<div class="op-x k-${x.kind}"><span class="kind-dot"></span><span>${x.html}</span></div>`).join('') + (texts.length > 2 ? `<div class="op-more">ещё ${texts.length - 2} — во вкладке «Объяснения»</div>` : '');
   return head + (blocks.length ? `<div class="op-blocks">${blocks.join('')}</div>` : '') + `<div class="op-texts">${textHtml}</div>`;
 }
 

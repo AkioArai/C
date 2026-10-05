@@ -9,14 +9,13 @@ import { initPwa, install, canInstall, isStandalone, onInstallChange } from './u
 import { exportAll, importAll } from './ui/backup.js';
 import { Welcome } from './ui/welcome.js';
 import { showWhatsNew } from './ui/whatsnew.js';
-import { FocusTimer } from './ui/focus.js';
 import { ProPage } from './pages/pro.js';
-import { refresh as refreshLicense, onLicense, license, paywallOn, activate } from './license.js';
+import { refresh as refreshLicense, onLicense, license, paywallOn, activate, watch as watchLicense } from './license.js';
 import { confetti } from './ui/fx.js';
 import { Tour } from './ui/tour.js';
 import { Palette } from './ui/palette.js';
 import { settings, applyUi, SettingsDialog } from './ui/settings.js';
-import { THEMES } from './ui/theme.js';
+import { THEMES, themeId } from './ui/theme.js';
 import { EXAMPLES } from './content/examples.js';
 import { LESSONS, TOPICS } from './content/lessons.js';
 import { TASKS, LEVELS } from './content/tasks.js';
@@ -26,7 +25,7 @@ const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // ——— защита от «смеси версий»: страница и код должны быть из одного обновления ———
-export const APP_VERSION = '15';
+export const APP_VERSION = '16';
 {
   const pageVer = document.querySelector('meta[name="app-version"]')?.content;
   if (pageVer !== APP_VERSION && !sessionStorage.getItem('cu.verfix')) {
@@ -58,8 +57,6 @@ initPwa();
 settings.on((k) => { if (k.startsWith('ui.') || k.startsWith('editor.')) applyUi(); });
 const settingsDlg = new SettingsDialog();
 $('[data-settings]').addEventListener('click', () => settingsDlg.open());
-$('[data-sb="settings"]').addEventListener('click', () => settingsDlg.open());
-$('[data-sb="problems"]').addEventListener('click', () => { go('lab'); setTimeout(() => lab?.console.show('prob'), 30); });
 // «Код» в панели активности: повторное нажатие прячет/показывает проводник
 $('[data-explorer]').addEventListener('click', (e) => {
   if (currentView === 'lab' && lab) { e.preventDefault(); lab.toggleSide(); }
@@ -68,7 +65,7 @@ $('[data-explorer]').addEventListener('click', (e) => {
 let lab, learn, practice, home, drill, pro, currentView = '';
 
 function ensure(name) {
-  if (name === 'lab' && !lab) lab = new Lab(document.getElementById('view-lab'), { openSettings: (cat) => settingsDlg.open(cat), onCrumb: () => crumb(), toggleZen });
+  if (name === 'lab' && !lab) lab = new Lab(document.getElementById('view-lab'), { openSettings: (cat) => settingsDlg.open(cat), onCrumb: () => crumb() });
   if (name === 'pro' && !pro) pro = new ProPage(document.getElementById('view-pro'), { celebrate: () => confetti(innerWidth / 2, innerHeight / 3) });
   if (name === 'drill' && !drill) drill = new DrillPage(document.getElementById('view-drill'), { openInLab });
   if (name === 'learn' && !learn) learn = new LearnPage(document.getElementById('view-learn'), { openInLab });
@@ -135,6 +132,7 @@ function route() {
   document.body.dataset.view = view;
   document.querySelectorAll('[data-view]').forEach(v => { v.hidden = v.dataset.view !== view; });
   document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('active', a.dataset.nav === view));
+  moveRailInd();
   if (view === 'home') home.open();
   if (view === 'learn') learn.open(rest[0]);
   if (view === 'practice') practice.open(rest[0]);
@@ -150,43 +148,26 @@ function route() {
   crumb();
 }
 
-// ——— заголовок: запуск, панели, раскладки, тема ———
-$('[data-tbrun]').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-trun]');
-  if (!b) return;
-  ensure('lab');
-  if (currentView !== 'lab') go('lab');
-  const a = b.dataset.trun;
-  if (a === 'run') { if (lab.state === 'running') lab.pause(); else if (lab.state === 'paused') lab.resume(); else lab.run('anim'); }
-  if (a === 'step') lab.stepOnce();
-  if (a === 'stop') lab.stop();
-});
-document.querySelectorAll('[data-lay]').forEach(b => b.addEventListener('click', () => {
-  ensure('lab'); go('lab');
-  if (b.dataset.lay === 'side') lab.toggleSide(); else lab.togglePane(b.dataset.lay);
-}));
-const layPop = $('[data-laypop]');
-$('[data-laymenu]').addEventListener('click', (e) => {
-  e.stopPropagation();
-  const r = e.currentTarget.getBoundingClientRect();
-  layPop.style.top = r.bottom + 6 + 'px';
-  layPop.style.right = Math.max(8, innerWidth - r.right) + 'px';
-  layPop.hidden = !layPop.hidden;
-});
-layPop.addEventListener('click', (e) => {
-  const p = e.target.closest('[data-preset]');
-  if (!p) return;
-  layPop.hidden = true;
-  ensure('lab'); go('lab');
-  if (p.dataset.preset === 'zen') toggleZen(true); else lab.preset(p.dataset.preset);
-});
-document.addEventListener('click', (e) => { if (!layPop.hidden && !e.target.closest('[data-laypop]')) layPop.hidden = true; });
+// ——— подсветка раздела в боковой панели плавно переезжает к выбранному ———
+function moveRailInd() {
+  const ind = $('.rail-ind'), a = $('.rail-i.active');
+  if (!ind) return;
+  if (!a || !a.offsetHeight) { ind.style.opacity = '0'; return; }
+  ind.style.opacity = '1';
+  ind.style.transform = `translateY(${a.offsetTop}px)`;
+  ind.style.height = a.offsetHeight + 'px';
+}
+addEventListener('resize', () => moveRailInd());
+
+// ——— заголовок: тема ———
 const THEME_ORDER = Object.keys(THEMES);
 function cycleTheme(name) {
-  const cur = settings.get('ui.theme');
-  settings.set('ui.theme', name || THEME_ORDER[(THEME_ORDER.indexOf(cur) + 1) % THEME_ORDER.length]);
-  lab?.renderer.resize();
-  toast(`Тема: ${THEMES[settings.get('ui.theme')].name}`);
+  const cur = themeId(settings.get('ui.theme'));
+  const next = name || THEME_ORDER[(THEME_ORDER.indexOf(cur) + 1) % THEME_ORDER.length];
+  const flip = () => { settings.set('ui.theme', next); lab?.renderer.resize(); };
+  // плавная смена темы: новая тема раскрывается кругом от кнопки
+  if (document.startViewTransition && !settings.get('ui.reduceMotion')) document.startViewTransition(flip);
+  else flip();
 }
 $('[data-themetoggle]').addEventListener('click', () => cycleTheme());
 
@@ -198,18 +179,6 @@ function toast(text) {
   clearTimeout(t._h);
   t._h = setTimeout(() => t.classList.remove('show'), 1600);
 }
-
-// ——— режим дзен: только рабочая область ———
-function toggleZen(force) {
-  const on = document.documentElement.classList.toggle('zen', force);
-  if (on) { ensure('lab'); go('lab'); toast('Режим дзен · Esc или Alt+Z — выйти'); }
-  setTimeout(() => { lab?.renderer.resize(); lab?.applyLayout(); }, 60);
-}
-$('[data-zenexit]').addEventListener('click', () => toggleZen(false));
-document.addEventListener('keydown', (e) => {
-  if (e.altKey && !e.ctrlKey && e.code === 'KeyZ') { e.preventDefault(); toggleZen(); }
-  else if (e.key === 'Escape' && document.documentElement.classList.contains('zen') && !document.querySelector('.pal:not([hidden]), .sdlg:not([hidden]), .keys:not([hidden])')) toggleZen(false);
-});
 
 // ——— уровень и серия в заголовке ———
 function renderXp() {
@@ -235,20 +204,12 @@ function commands() {
     C('Скачать текущий файл (.c)', () => { L(); lab.ws.download(lab.ws.active); }, '', 'download экспорт'),
     C('Загрузить файлы с компьютера', () => L().ws.upload(), '', 'upload импорт открыть'),
     C('Показать / скрыть проводник', () => L().toggleSide(), 'Ctrl+B', 'explorer sidebar боковая'),
-    C('Показать / скрыть терминал и логи', () => L().togglePane('panel'), 'Ctrl+J', 'terminal console консоль панель'),
+    C('Показать / скрыть терминал', () => L().togglePane('panel'), 'Ctrl+J', 'terminal console консоль панель логи объяснения'),
     C('Показать / скрыть поле памяти', () => L().togglePane('uni'), 'Ctrl+Shift+M', 'universe визуализация вселенная'),
-    C('Показать / скрыть редактор', () => L().togglePane('editor'), '', 'editor код'),
-    C('Показать / скрыть разбор шага', () => L().togglePane('op'), '', 'операция op объяснение'),
-    C('Показать / скрыть плеер', () => L().togglePane('player'), '', 'player кнопки'),
-    C('Раскладка: сбалансированная', () => L().preset('balanced'), '', 'layout preset'),
-    C('Раскладка: фокус на коде', () => L().preset('code'), '', 'layout preset'),
-    C('Раскладка: фокус на памяти', () => L().preset('visual'), '', 'layout preset'),
-    C('Раскладка: разбор по шагам', () => L().preset('study'), '', 'layout preset'),
-    C('Раскладка: терминал крупно', () => L().preset('terminal'), '', 'layout preset'),
+    C('Показать / скрыть объяснение строки', () => L().togglePane('op'), '', 'операция op объяснение разбор'),
     ...THEME_ORDER.map(n => C(`Тема: ${THEMES[n].name}`, () => cycleTheme(n), '', 'theme цвет оформление')),
     C('Выровнять отступы в коде', () => L().formatCode(), 'Shift+Alt+F', 'format форматировать prettier'),
     C('Поделиться кодом: скопировать ссылку', () => L().share(), '', 'share ссылка link'),
-    C('Режим дзен', () => toggleZen(), 'Alt+Z', 'zen focus фокус полный экран'),
     C('Тренажёр: угадай вывод', () => { location.hash = '#/drill/quiz'; }, '', 'drill quiz викторина'),
     C('Таблица ASCII', () => { location.hash = '#/drill/ascii'; }, '', 'ascii коды символов'),
     C('Приоритет операций и расстановка скобок', () => { location.hash = '#/drill/prec'; }, '', 'precedence приоритет скобки'),
@@ -259,14 +220,12 @@ function commands() {
     C('Сохранить прогресс и файлы в файл', () => exportAll(), '', 'export backup резервная копия'),
     C('Загрузить прогресс из файла', () => importAll(toast), '', 'import restore восстановить'),
     C('Показать знакомство заново', () => showWelcome(), '', 'welcome onboarding мастер'),
-    C('Таймер фокуса: старт / пауза', () => $('[data-focus]').click(), '', 'pomodoro помодоро фокус таймер'),
     C('Распечатать урок / сохранить в PDF', () => { location.hash.startsWith('#/learn') ? print() : toast('Откройте урок в разделе «Теория»'); }, '', 'print pdf печать'),
     C('Подписка: ввести ключ', () => { location.hash = '#/pro'; }, '', 'pro ключ подписка лицензия оплата'),
     C('Что нового в обновлении', () => showWhatsNew(true, APP_VERSION), '', 'changelog обновление версия'),
     C('Сбросить кэш и перезагрузить', () => { Promise.resolve(self.caches?.keys()).then((ks) => Promise.all((ks || []).map((k) => caches.delete(k)))).finally(() => location.reload()); }, '', 'cache кэш reload обновить сломалось'),
     C('Очистить терминал', () => L().console.clear?.(), '', 'clear'),
     C('Открыть настройки', () => settingsDlg.open(), 'Ctrl+,', 'settings preferences'),
-    C('Настройки терминала', () => settingsDlg.open('term'), '', 'terminal settings шрифт'),
     C('Горячие клавиши', () => { keys.hidden = false; }, '', 'keys shortcuts'),
     C('Пройти обучение заново', () => startTour(), '', 'tour помощь help'),
     C('Перейти: Главная', () => go('home'), '', 'home'),
@@ -287,7 +246,6 @@ function commands() {
 }
 let lessonText;
 const palette = new Palette(commands);
-new FocusTimer($('[data-focus]'), toast);
 // масштаб кода: Ctrl+= / Ctrl+− / Ctrl+0
 document.addEventListener('keydown', (e) => {
   if (!(e.ctrlKey || e.metaKey) || e.altKey || currentView !== 'lab') return;
@@ -303,7 +261,7 @@ $('[data-cmdk]').addEventListener('click', () => palette.open());
 
 window.addEventListener('hashchange', route);
 updateProgressPill();
-// ——— подписка: проверяем ключ до первого показа, затем раз в 6 часов ———
+// ——— подписка: проверяем ключ до первого показа, затем каждые 10 минут и при возвращении во вкладку ———
 function renderPro() {
   const s = license(), el = $('[data-prochip]');
   el.hidden = !paywallOn();
@@ -321,7 +279,7 @@ onLicense((s) => {
 });
 await refreshLicense(false).catch(() => {});
 refreshLicense(true).catch(() => {});
-setInterval(() => refreshLicense(true).catch(() => {}), 6 * 3600e3);
+watchLicense();
 route();
 
 // ——— первое знакомство ———
@@ -352,8 +310,7 @@ const tour = new Tour({
 });
 function startTour() { go('lab'); setTimeout(() => tour.start(), 120); }
 const keys = $('[data-keysdlg]');
-$('[data-keys]').addEventListener('click', () => { keys.hidden = false; });
 keys.addEventListener('click', (e) => { if (e.target === keys || e.target.closest('[data-close]')) keys.hidden = true; });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { keys.hidden = true; layPop.hidden = true; } });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') keys.hidden = true; });
 $('[data-tour]').addEventListener('click', () => startTour());
 window.__app = { get lab() { return lab; }, palette };

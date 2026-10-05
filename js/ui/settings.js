@@ -1,91 +1,82 @@
 // Единые настройки приложения: схема, хранение, окно с поиском (в духе VS Code).
 import { store } from '../store.js';
-import { applyTheme } from './theme.js';
+import { applyTheme, themeId } from './theme.js';
 
-const ACCENTS = [
-  ['#c8f05a', 'Салатовый'], ['#e9d85c', 'Жёлтый'], ['#7fd6c2', 'Мятный'],
-  ['#8fb8f0', 'Голубой'], ['#f0a36b', 'Янтарный'], ['#d9a6f0', 'Сиреневый'],
-];
-
+// Для новичка видно только нужное. Остальные настройки остаются с разумными значениями:
+// hidden — не показываются в окне (но кнопки интерфейса могут их менять), fixed — всегда по умолчанию.
 export const SCHEMA = [
-  { id: 'ui', title: 'Интерфейс', icon: 'M4 5h16v14H4zM4 9h16', items: [
-    { key: 'ui.theme', label: 'Тема', desc: 'Оформление всего приложения, подсветки кода и поля памяти.', type: 'seg', options: [['graphite', 'Графит'], ['midnight', 'Полночь'], ['light', 'Светлая'], ['sepia', 'Сепия'], ['contrast', 'Контраст']], def: 'graphite' },
-    { key: 'ui.density', label: 'Плотность', desc: 'Размер кнопок, отступов и панелей.', type: 'seg', options: [['compact', 'Компактная'], ['normal', 'Обычная'], ['touch', 'Для пальцев']], def: 'normal' },
-    { key: 'ui.fontSize', label: 'Размер текста интерфейса', desc: 'Меню, панели, пояснения.', type: 'range', min: 11, max: 16, step: 0.5, unit: 'px', def: 13 },
-    { key: 'ui.accent', label: 'Акцентный цвет', desc: 'Цвет кнопки запуска, выделений и текущей строки.', type: 'swatch', options: ACCENTS, def: '#c8f05a' },
+  { id: 'ui', title: 'Внешний вид', icon: 'M4 5h16v14H4zM4 9h16', items: [
+    { key: 'ui.theme', label: 'Тема', desc: 'Оформление приложения, кода и поля памяти. Переключается и кнопкой в шапке.', type: 'seg', options: [['cosmos', 'Космос'], ['day', 'День']], def: 'cosmos' },
+    { key: 'ui.fontSize', label: 'Размер текста', desc: 'Меню, панели, объяснения.', type: 'range', min: 12, max: 17, step: 0.5, unit: 'px', def: 13.5 },
     { key: 'ui.tips', label: 'Подсказки при наведении на поле памяти', desc: 'Что это за элемент и за что он отвечает.', type: 'bool', def: true },
-    { key: 'ui.statusBar', label: 'Строка состояния внизу', desc: 'Состояние программы, шаг, строка и столбец курсора.', type: 'bool', def: true },
     { key: 'ui.reduceMotion', label: 'Меньше движения', desc: 'Отключить плавные анимации интерфейса.', type: 'bool', def: false },
+    { key: 'ui.accent', type: 'text', def: '', fixed: true },
+    { key: 'ui.density', type: 'text', def: 'normal', fixed: true },
+    { key: 'ui.statusBar', type: 'bool', def: false, fixed: true },
   ] },
-  { id: 'layout', title: 'Раскладка', icon: 'M4 4h16v16H4zM10 4v16M10 14h10', items: [
-    { key: 'layout.side', label: 'Проводник файлов', desc: 'Ctrl+B', type: 'bool', def: true },
-    { key: 'layout.editor', label: 'Редактор кода', type: 'bool', def: true },
-    { key: 'layout.uni', label: 'Поле памяти (визуализация)', desc: 'Ctrl+Shift+M', type: 'bool', def: true },
-    { key: 'layout.panel', label: 'Нижняя панель: терминал, логи, процессы, проблемы', desc: 'Ctrl+J', type: 'bool', def: true },
-    { key: 'layout.op', label: 'Панель «Операция» поверх поля памяти', desc: 'Разбор текущего шага картинками.', type: 'bool', def: true },
-    { key: 'layout.player', label: 'Пульт выполнения на поле памяти', desc: 'Кнопки запуска всегда есть и в шапке.', type: 'bool', def: true },
+  { id: 'editor', title: 'Код', icon: 'M8 7l-5 5 5 5M16 7l5 5-5 5', items: [
+    { key: 'editor.fontSize', label: 'Размер шрифта кода', desc: 'Ещё быстрее — Ctrl+= и Ctrl+−.', type: 'range', min: 11, max: 22, step: 0.5, unit: 'px', def: 14 },
+    { key: 'editor.inlineValues', label: 'Значения переменных прямо в коде', desc: 'Во время выполнения справа от строки видно, что в неё записалось: s = 11.', type: 'bool', def: true },
+    { key: 'complete.enabled', label: 'Подсказки при наборе', desc: 'Напечатайте «prf» — появится printf. Принять — → или Enter.', type: 'bool', def: true },
+    { key: 'editor.autoClose', label: 'Автозакрытие скобок и кавычек', type: 'bool', def: true },
+    { key: 'editor.liveCheck', label: 'Проверять ошибки при наборе', type: 'bool', def: true },
+    { key: 'editor.lineHeight', type: 'range', def: 1.6, hidden: true },
+    { key: 'editor.minimap', type: 'bool', def: false, fixed: true },
+    { key: 'editor.tabSize', type: 'seg', def: 4, hidden: true },
+    { key: 'editor.autoSave', type: 'bool', def: true, hidden: true },
+    { key: 'complete.accept', type: 'seg', def: 'right_enter', hidden: true },
+    { key: 'complete.minChars', type: 'seg', def: 1, hidden: true },
+    { key: 'complete.fuzzy', type: 'bool', def: true, hidden: true },
+    { key: 'complete.snippets', type: 'bool', def: true, hidden: true },
+    { key: 'complete.signature', type: 'bool', def: true, hidden: true },
+    { key: 'complete.formats', type: 'bool', def: true, hidden: true },
+    { key: 'complete.ghost', type: 'bool', def: true, hidden: true },
   ] },
-  { id: 'editor', title: 'Редактор', icon: 'M8 7l-5 5 5 5M16 7l5 5-5 5', items: [
-    { key: 'editor.fontSize', label: 'Размер шрифта кода', type: 'range', min: 11, max: 22, step: 0.5, unit: 'px', def: 13.5 },
-    { key: 'editor.lineHeight', label: 'Высота строки', type: 'range', min: 1.2, max: 2, step: 0.05, unit: '×', def: 1.55 },
-    { key: 'editor.inlineValues', label: 'Значения переменных в коде', desc: 'Во время выполнения справа от строки видно, что в неё записалось: s = 11.', type: 'bool', def: true },
-    { key: 'editor.minimap', label: 'Миникарта кода', desc: 'Справа от редактора — силуэт всего файла: текущая строка, ошибки, точки останова. Нажмите, чтобы перейти.', type: 'bool', def: true },
-    { key: 'editor.tabSize', label: 'Размер отступа', desc: 'Сколько пробелов вставляет Tab.', type: 'seg', options: [[2, '2'], [4, '4'], [8, '8']], def: 4 },
-    { key: 'editor.autoClose', label: 'Автозакрытие скобок и кавычек', desc: 'Набрали ( — сразу появится ). Повторный набор ) просто перешагнёт её.', type: 'bool', def: true },
-    { key: 'editor.autoSave', label: 'Автосохранение файлов', desc: 'Изменения сохраняются в браузере сразу. Выключено — сохранение по Ctrl+S.', type: 'bool', def: true },
-    { key: 'editor.liveCheck', label: 'Проверка ошибок при наборе', desc: 'Подчёркивать ошибки, не дожидаясь запуска.', type: 'bool', def: true },
-  ] },
-  { id: 'complete', title: 'Автодополнение', icon: 'M4 12h10M4 7h16M4 17h7', items: [
-    { key: 'complete.enabled', label: 'Подсказки при наборе', type: 'bool', def: true },
-    { key: 'complete.accept', label: 'Принимать подсказку клавишей', desc: 'Tab по умолчанию оставлен для отступов.', type: 'seg', options: [['right', '→'], ['right_enter', '→ и Enter'], ['tab', 'Tab'], ['all', '→, Enter, Tab']], def: 'right_enter' },
-    { key: 'complete.minChars', label: 'Показывать после символов', type: 'seg', options: [[1, '1'], [2, '2'], [3, '3']], def: 1 },
-    { key: 'complete.fuzzy', label: 'Нечёткий поиск', desc: '«prf» найдёт printf, «sqr» — sqrt.', type: 'bool', def: true },
-    { key: 'complete.snippets', label: 'Шаблоны (сниппеты)', desc: '«for» разворачивается в целый цикл; Tab переходит к следующему полю.', type: 'bool', def: true },
-    { key: 'complete.signature', label: 'Подсказка параметров функции', desc: 'Внутри скобок printf(…) показывает, какие аргументы ожидаются.', type: 'bool', def: true },
-    { key: 'complete.formats', label: 'Спецификаторы внутри строки', desc: 'После % в строке формата — список %d, %lf, %c…', type: 'bool', def: true },
-    { key: 'complete.ghost', label: 'Серый хвост подсказки в строке', type: 'bool', def: true },
-  ] },
-  { id: 'run', title: 'Выполнение и анимации', icon: 'M7 5l12 7-12 7z', items: [
-    { key: 'run.speed', label: 'Скорость по умолчанию', type: 'range', min: 1, max: 10, step: 1, unit: '', def: 4 },
-    { key: 'run.follow', label: 'Камера следует за выполнением', type: 'bool', def: true },
-    { key: 'run.typewriter', label: 'Вывод на экран компьютера по буквам', type: 'bool', def: true },
-    { key: 'run.beams', label: 'Летящие значения по лучам', type: 'bool', def: true },
-    { key: 'run.anims', label: 'Живые изменения', desc: 'Значение прокручивается как счётчик, курсор индекса едет по массиву, кадр функции разворачивается при вызове.', type: 'bool', def: true },
-    { key: 'run.flashes', label: 'Вспышки строк с условиями', type: 'bool', def: true },
-    { key: 'run.visuals', label: 'Картинки операций в панели «Операция»', type: 'bool', def: true },
-    { key: 'run.opAuto', label: 'Панель «Операция» развёрнута', desc: 'Выключите, чтобы видеть только заголовок шага.', type: 'bool', def: true },
-  ] },
-  { id: 'term', title: 'Терминал', icon: 'M4 17l5-5-5-5M11 18h9', items: [
-    { key: 'term.fs', label: 'Размер текста', type: 'range', min: 9, max: 24, step: 0.5, unit: 'px', def: 14 },
-    { key: 'term.lh', label: 'Межстрочный интервал', type: 'range', min: 1.1, max: 2.2, step: 0.05, unit: '×', def: 1.6 },
-    { key: 'term.wrap', label: 'Длинные строки', type: 'seg', options: [[false, 'листать вправо-влево'], [true, 'переносить']], def: false },
-    { key: 'term.font', label: 'Шрифт', type: 'seg', options: [['jet', 'JetBrains Mono'], ['system', 'Системный'], ['serif', 'С засечками']], def: 'jet' },
-    { key: 'term.theme', label: 'Цветовая схема', type: 'theme', def: 'default' },
-    { key: 'term.cursor', label: 'Курсор как в kitty', desc: 'Блочный мигающий курсор, который плавно едет к новому тексту.', type: 'bool', def: true },
-    { key: 'term.trail', label: 'След курсора', desc: 'За курсором тянется затухающий шлейф.', type: 'bool', def: true },
-    { key: 'term.typeOut', label: 'Печать вывода по буквам', type: 'bool', def: true },
-    { key: 'term.fadeIn', label: 'Плавное появление строк', type: 'bool', def: true },
-    { key: 'term.invis', label: 'Невидимые символы', desc: 'Пробел — ·, табуляция — →, перевод строки — ↵.', type: 'bool', def: false },
-    { key: 'term.autoscroll', label: 'Автопрокрутка вниз', type: 'bool', def: true },
-    { key: 'term.echo', label: 'Показывать «Входные данные заранее»', type: 'bool', def: true },
-    { key: 'term.compact', label: 'Компактный режим', desc: 'Скрыть строки команд gcc и ./main.', type: 'bool', def: false },
-  ] },
-  { id: 'logs', title: 'Логи', icon: 'M5 6h14M5 12h14M5 18h9', items: [
-    { key: 'logs.max', label: 'Сколько записей хранить', desc: 'Больше — подробнее хроника, но медленнее на долгих программах.', type: 'seg', options: [[500, '500'], [2500, '2 500'], [10000, '10 000'], [50000, '50 000'], [0, 'без ограничения']], def: 2500 },
-    { key: 'logs.fs', label: 'Размер текста терминала и для логов', type: 'bool', def: true },
-    { key: 'logs.stepNumbers', label: 'Номера шагов у записей', type: 'bool', def: true },
+  { id: 'run', title: 'Выполнение', icon: 'M7 5l12 7-12 7z', items: [
+    { key: 'run.speed', label: 'Скорость по умолчанию', desc: 'Сколько шагов в секунду при запуске с анимацией.', type: 'range', min: 1, max: 10, step: 1, unit: '', def: 4 },
+    { key: 'run.follow', label: 'Камера следует за выполнением', desc: 'Выключите, чтобы самим двигать и рассматривать поле памяти.', type: 'bool', def: true },
+    { key: 'term.fs', label: 'Размер текста в терминале', type: 'range', min: 11, max: 22, step: 0.5, unit: 'px', def: 14 },
+    { key: 'run.typewriter', type: 'bool', def: true, hidden: true },
+    { key: 'run.beams', type: 'bool', def: true, hidden: true },
+    { key: 'run.anims', type: 'bool', def: true, hidden: true },
+    { key: 'run.flashes', type: 'bool', def: true, hidden: true },
+    { key: 'run.visuals', type: 'bool', def: true, hidden: true },
+    { key: 'run.opAuto', type: 'bool', def: true, hidden: true },
+    { key: 'layout.side', type: 'bool', def: false, hidden: true },
+    { key: 'layout.editor', type: 'bool', def: true, hidden: true },
+    { key: 'layout.uni', type: 'bool', def: true, hidden: true },
+    { key: 'layout.panel', type: 'bool', def: true, hidden: true },
+    { key: 'layout.op', type: 'bool', def: true, hidden: true },
+    { key: 'layout.player', type: 'bool', def: true, fixed: true },
+    { key: 'term.lh', type: 'range', def: 1.6, hidden: true },
+    { key: 'term.wrap', type: 'bool', def: true, hidden: true },
+    { key: 'term.font', type: 'seg', def: 'jet', fixed: true },
+    { key: 'term.theme', type: 'theme', def: 'default', fixed: true },
+    { key: 'term.cursor', type: 'bool', def: true, hidden: true },
+    { key: 'term.trail', type: 'bool', def: true, hidden: true },
+    { key: 'term.typeOut', type: 'bool', def: true, hidden: true },
+    { key: 'term.fadeIn', type: 'bool', def: true, hidden: true },
+    { key: 'term.invis', type: 'bool', def: false, hidden: true },
+    { key: 'term.autoscroll', type: 'bool', def: true, hidden: true },
+    { key: 'term.echo', type: 'bool', def: true, hidden: true },
+    { key: 'term.compact', type: 'bool', def: false, hidden: true },
+    { key: 'logs.max', type: 'seg', def: 2500, fixed: true },
+    { key: 'logs.fs', type: 'bool', def: true, fixed: true },
+    { key: 'logs.stepNumbers', type: 'bool', def: true, fixed: true },
   ] },
 ];
 
 export const DEFAULTS = Object.fromEntries(SCHEMA.flatMap(c => c.items.map(i => [i.key, i.def])));
 const listeners = new Set();
+const FIXED = new Set(SCHEMA.flatMap(c => c.items.filter(i => i.fixed).map(i => i.key)));
 let values = { ...DEFAULTS, ...store.get('settings', {}) };
+values['ui.theme'] = themeId(values['ui.theme']);
 // перенос старых настроек терминала
 const oldTerm = store.get('term.cfg', null);
 if (oldTerm && !store.get('settings', null)) for (const [k, v] of Object.entries(oldTerm)) if (('term.' + k) in DEFAULTS) values['term.' + k] = v;
 
 export const settings = {
-  get: (k) => (k in values ? values[k] : DEFAULTS[k]),
+  get: (k) => (FIXED.has(k) || !(k in values) ? DEFAULTS[k] : values[k]),
   set(k, v) {
     const d = DEFAULTS[k];
     if (typeof d === 'number') v = +v;
@@ -96,7 +87,7 @@ export const settings = {
     for (const fn of listeners) fn(k, v);
   },
   reset(cat) {
-    for (const c of SCHEMA) if (!cat || c.id === cat) for (const i of c.items) settings.set(i.key, i.def);
+    for (const c of SCHEMA) if (!cat || c.id === cat) for (const i of c.items) if (!i.hidden && !i.fixed) settings.set(i.key, i.def);
   },
   on(fn) { listeners.add(fn); return () => listeners.delete(fn); },
 };
@@ -112,7 +103,7 @@ export function applyUi() {
   const r = document.documentElement;
   r.dataset.density = settings.get('ui.density');
   r.style.setProperty('--ui-fs', settings.get('ui.fontSize') + 'px');
-  applyTheme(settings.get('ui.theme'), settings.get('ui.accent'));
+  applyTheme(settings.get('ui.theme'));
   const fs = settings.get('editor.fontSize');
   r.style.setProperty('--fs-code', fs + 'px');
   r.style.setProperty('--lh-code', Math.round(fs * settings.get('editor.lineHeight')) + 'px');
@@ -165,9 +156,10 @@ export class SettingsDialog {
   close() { this.el.hidden = true; }
   render() {
     this.cats.innerHTML = SCHEMA.map(c => `<button data-cat="${c.id}" class="${c.id === this.cat && !this.q ? 'on' : ''}"><svg class="ic" viewBox="0 0 24 24"><path d="${c.icon}"/></svg>${esc(c.title)}</button>`).join('');
+    const shown = SCHEMA.map(c => ({ ...c, items: c.items.filter(i => !i.hidden && !i.fixed) }));
     const groups = this.q
-      ? SCHEMA.map(c => ({ ...c, items: c.items.filter(i => (i.label + ' ' + (i.desc || '') + ' ' + c.title).toLowerCase().includes(this.q)) })).filter(c => c.items.length)
-      : SCHEMA.filter(c => c.id === this.cat);
+      ? shown.map(c => ({ ...c, items: c.items.filter(i => (i.label + ' ' + (i.desc || '') + ' ' + c.title).toLowerCase().includes(this.q)) })).filter(c => c.items.length)
+      : shown.filter(c => c.id === this.cat);
     this.list.innerHTML = groups.length ? groups.map(c => `<h3>${esc(c.title)}</h3>${c.items.map(item).join('')}`).join('') : '<p class="muted">Ничего не найдено.</p>';
   }
 }

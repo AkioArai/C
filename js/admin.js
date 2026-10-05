@@ -15,6 +15,58 @@ const copy = (t, b) => navigator.clipboard?.writeText(t).then(() => { if (b) { c
 const download = (name, text) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; a.click(); };
 let last = null;
 
+// ——— список отозванных на сайте ———
+const RAW = () => `https://raw.githubusercontent.com/${CONFIG.repo}/${CONFIG.branch || 'main'}/revoked.json`;
+let pubState = { loading: true, remote: null, diff: false, msg: '' };
+/** Что должно быть в revoked.json: отозванные в журнале + чужие номера, которых в журнале нет. */
+function nextList() {
+  const journal = LS.get('journal', []);
+  const mine = new Set(journal.map(j => j.id));
+  const keep = (pubState.remote || []).filter(id => !mine.has(id));
+  return [...new Set([...keep, ...journal.filter(j => j.revoked).map(j => j.id)])];
+}
+function sameSet(a, b) { return a.length === b.length && a.every(x => b.includes(x)); }
+async function loadRemote() {
+  try {
+    const r = await fetch(RAW() + '?t=' + Date.now(), { cache: 'no-store' });
+    const j = await r.json();
+    pubState.remote = Array.isArray(j.revoked) ? j.revoked.map(String) : [];
+  } catch { pubState.remote = null; }
+  pubState.loading = false;
+  pubState.diff = pubState.remote ? !sameSet(nextList(), pubState.remote) : false;
+}
+function pubLine() {
+  if (pubState.busy) return '<p class="adm-st-line">⏳ Публикую на GitHub…</p>';
+  if (pubState.loading) return '<p class="adm-st-line muted">Проверяю, что опубликовано на сайте…</p>';
+  if (pubState.msg) return `<p class="adm-st-line ${pubState.ok ? 'ok' : 'bad'}">${pubState.msg}</p>`;
+  if (!pubState.remote) return '<p class="adm-st-line bad">Не удалось прочитать список с GitHub — проверьте интернет.</p>';
+  if (!pubState.diff) return `<p class="adm-st-line ok">✓ Всё опубликовано. Отозвано на сайте: ${pubState.remote.length ? pubState.remote.map(esc).join(', ') : 'ни одного ключа'}.</p>`;
+  const miss = nextList().filter(x => !pubState.remote.includes(x)), back = pubState.remote.filter(x => !nextList().includes(x));
+  return `<p class="adm-st-line bad"><b>⚠ Отзыв ещё не действует.</b> ${miss.length ? `Эти ключи у покупателей пока работают: <b>${miss.map(esc).join(', ')}</b>.` : ''} ${back.length ? `Эти ключи на сайте всё ещё отозваны: ${back.map(esc).join(', ')}.` : ''}</p>
+    <div class="lock-act">${LS.get('ghToken', '') ? '<button class="btn primary" data-a="publish">Опубликовать сейчас</button>' : '<span class="muted">Настройте публикацию одной кнопкой ниже или опубликуйте вручную.</span>'}</div>`;
+}
+const b64 = (t) => btoa(unescape(encodeURIComponent(t)));
+/** Записать revoked.json в репозиторий через GitHub API. */
+async function publish() {
+  const tok = LS.get('ghToken', '');
+  if (!tok) return;
+  pubState.busy = true; pubState.msg = ''; render();
+  const api = `https://api.github.com/repos/${CONFIG.repo}/contents/revoked.json`;
+  const h = { Authorization: `Bearer ${tok}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+  try {
+    await loadRemote();
+    const list = nextList();
+    const cur = await fetch(`${api}?ref=${CONFIG.branch || 'main'}`, { headers: h, cache: 'no-store' });
+    if (cur.status === 401 || cur.status === 403) throw new Error('GitHub не принял токен: проверьте, что он не истёк и у него есть право Contents: Read and write на ' + CONFIG.repo + '.');
+    const sha = cur.ok ? (await cur.json()).sha : undefined;
+    const r = await fetch(api, { method: 'PUT', headers: h, body: JSON.stringify({ message: `Отзыв ключей: ${list.length ? list.join(', ') : 'список пуст'}`, content: b64(JSON.stringify({ revoked: list }, null, 1) + '\n'), sha, branch: CONFIG.branch || 'main' }) });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(`GitHub ответил ${r.status}: ${j.message || 'ошибка'}`); }
+    pubState.remote = list; pubState.diff = false; pubState.ok = true;
+    pubState.msg = `✓ Опубликовано. Приложения покупателей увидят изменения в течение 10 минут (сразу — при следующем открытии). Отозвано: ${list.length ? list.map(esc).join(', ') : 'ни одного ключа'}.`;
+  } catch (err) { pubState.ok = false; pubState.msg = '✗ ' + esc(err.message || 'Не удалось опубликовать — проверьте интернет.'); }
+  pubState.busy = false; render();
+}
+
 function render() {
   const keys = LS.get('seller', null);
   const journal = LS.get('journal', []);
@@ -49,10 +101,25 @@ function render() {
       ${journal.length ? `<div class="adm-table">${journal.slice().reverse().map(j => { const st = j.revoked ? 'отозван' : Date.now() > j.e ? 'истёк' : 'активен'; return `<div class="adm-row ${j.revoked ? 'rev' : Date.now() > j.e ? 'exp' : ''}"><code>${esc(j.id)}</code><span><b>${esc(j.name || '—')}</b><small>${esc(j.note || '')}</small></span><span>${fmt(j.t)} → ${fmt(j.e)}</span><span class="adm-st">${st}</span><span class="adm-b"><button class="btn small ghost" data-copy="${esc(j.id)}">ссылка</button><button class="btn small ${j.revoked ? '' : 'ghost'}" data-rev="${esc(j.id)}">${j.revoked ? 'вернуть' : 'отозвать'}</button></span></div>`; }).join('')}</div>` : '<p class="muted">Ключей пока нет.</p>'}
     </section>
 
-    <section class="pro-card"><h3>Список отозванных ключей</h3>
-      <p>Чтобы отзыв сработал, содержимое ниже нужно вставить в файл <code>revoked.json</code> на GitHub. Приложение увидит это при следующем запуске с интернетом (до 6 часов, если оно уже открыто).</p>
-      <pre class="adm-pre">${esc(JSON.stringify({ revoked }, null, 1))}</pre>
-      <div class="lock-act"><button class="btn primary" data-a="copyrev">Скопировать</button><a class="btn" href="https://github.com/AkioArai/C/edit/main/revoked.json" target="_blank" rel="noopener">Открыть revoked.json на GitHub</a></div></section>`}
+    <section class="pro-card ${pubState.diff ? 'warn' : ''}" data-pubcard><h3>Отзыв на сайте</h3>
+      ${pubLine()}
+      <details class="adm-tok" ${LS.get('ghToken', '') ? '' : 'open'}><summary>${LS.get('ghToken', '') ? '✓ Публикация одной кнопкой настроена' : 'Настроить публикацию одной кнопкой (один раз, 3 минуты)'}</summary>
+        <ol>
+          <li>Откройте <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">создание токена на GitHub</a>.</li>
+          <li>Название — любое, срок — до года. <b>Repository access</b> → <i>Only select repositories</i> → <code>${esc(CONFIG.repo)}</code>.</li>
+          <li><b>Permissions → Repository permissions → Contents</b> → <i>Read and write</i>. Остальное не трогайте.</li>
+          <li>Нажмите <i>Generate token</i>, скопируйте его и вставьте сюда.</li>
+        </ol>
+        <div class="adm-form"><label>Токен GitHub<input data-f="tok" type="password" placeholder="github_pat_…" autocomplete="off" value="${esc(LS.get('ghToken', ''))}"></label></div>
+        <div class="lock-act"><button class="btn primary" data-a="savetok">Сохранить токен</button>${LS.get('ghToken', '') ? '<button class="btn ghost" data-a="deltok">Удалить токен</button>' : ''}</div>
+        <small class="muted">Токен хранится только в этом браузере и даёт право менять файлы только в этом репозитории. Никому его не отправляйте.</small>
+      </details>
+      <details class="adm-tok"><summary>Опубликовать вручную</summary>
+        <p>Вставьте это в файл <code>revoked.json</code> на GitHub и нажмите <i>Commit changes</i>.</p>
+        <pre class="adm-pre">${esc(JSON.stringify({ revoked: nextList() }, null, 1))}</pre>
+        <div class="lock-act"><button class="btn" data-a="copyrev">Скопировать</button><a class="btn ghost" href="https://github.com/${esc(CONFIG.repo)}/edit/${esc(CONFIG.branch || 'main')}/revoked.json" target="_blank" rel="noopener">Открыть revoked.json на GitHub</a></div>
+      </details>
+    </section>`}
   </div>`;
 }
 function message(k) {
@@ -87,11 +154,15 @@ document.addEventListener('click', async (e) => {
   if (a === 'copymsg') copy($('[data-msg]').value, e.target);
   if (a === 'copylink') copy(`${site()}#/activate/${last.key}`, e.target);
   if (a === 'copykey') copy(last.key, e.target);
-  if (a === 'copyrev') copy(JSON.stringify({ revoked: LS.get('journal', []).filter(j => j.revoked).map(j => j.id) }, null, 1), e.target);
+  if (a === 'copyrev') copy(JSON.stringify({ revoked: nextList() }, null, 1), e.target);
+  if (a === 'publish') publish();
+  if (a === 'savetok') { const v = $('[data-f="tok"]').value.trim(); if (!/^(github_pat_|ghp_)/.test(v)) { alert('Это не похоже на токен GitHub: он начинается с github_pat_'); return; } LS.set('ghToken', v); pubState.msg = ''; render(); if (pubState.diff) publish(); }
+  if (a === 'deltok' && confirm('Удалить токен из этого браузера?')) { LS.set('ghToken', ''); render(); }
   const rv = e.target.closest('[data-rev]');
-  if (rv) { const j = LS.get('journal', []); const it = j.find(x => x.id === rv.dataset.rev); if (it && (it.revoked || confirm(`Отозвать ключ ${it.id}${it.name ? ' (' + it.name + ')' : ''}?`))) { it.revoked = !it.revoked; LS.set('journal', j); render(); } }
+  if (rv) { const j = LS.get('journal', []); const it = j.find(x => x.id === rv.dataset.rev); if (it && (it.revoked || confirm(`Отозвать ключ ${it.id}${it.name ? ' (' + it.name + ')' : ''}?`))) { it.revoked = !it.revoked; LS.set('journal', j); pubState.msg = ''; pubState.diff = pubState.remote ? !sameSet(nextList(), pubState.remote) : true; render(); if (LS.get('ghToken', '')) publish(); else document.querySelector('[data-pubcard]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }
   const cp = e.target.closest('[data-copy]');
   if (cp) { const it = LS.get('journal', []).find(x => x.id === cp.dataset.copy); if (it) copy(`${site()}#/activate/${it.key}`, cp); }
 });
 render();
+loadRemote().then(render);
 export { parseKey };
