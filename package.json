@@ -1,1 +1,1 @@
-{ "name": "c-universe", "private": true, "type": "module", "scripts": { "test": "node tests/syntax.mjs && node tests/version.mjs && node tests/run.mjs && node tests/tasks.mjs && node tests/drill.mjs" } }
+{ "name": "c-universe", "private": true, "type": "module", "scripts": { "test": "node tests/syntax.mjs && node tests/version.mjs && node tests/run.mjs && node tests/tasks.mjs && node tests/drill.mjs && node tests/license.mjs" } }

@@ -3,6 +3,7 @@ import { LESSONS, TOPICS, SNIPPETS } from '../content/lessons.js';
 import { highlight } from '../ui/highlight.js';
 import { award } from '../ui/xp.js';
 import { store } from '../store.js';
+import { lessonLocked, lockCard } from '../license.js';
 
 export class LearnPage {
   constructor(root, opts) {
@@ -50,7 +51,7 @@ export class LearnPage {
       const shut = closed.has(String(t.id)) && t.id !== activeTopic;
       h += `<div class="ls-topic ${shut ? 'shut' : ''}"><button class="ls-th" data-topic="${t.id}"><span class="ls-tt">${t.title}</span><span class="ls-n">${done}/${list.length}</span><i class="ls-bar"><b style="width:${(done / list.length) * 100}%"></b></i></button><div class="ls-list">`;
       for (const l of list)
-        h += `<a href="#/learn/${l.id}" class="${l.id === active ? 'active' : ''}"><span class="num">${l.num}</span><span>${l.title}</span>${marks[l.id] ? '<span class="ls-star">★</span>' : ''}${notes[l.id] ? '<span class="ls-note" title="Есть заметка">✎</span>' : ''}${read[l.id] ? '<span class="done"></span>' : ''}</a>`;
+        h += `<a href="#/learn/${l.id}" class="${l.id === active ? 'active' : ''}"><span class="num">${l.num}</span><span>${l.title}</span>${lessonLocked(l) ? '<span class="ls-lock" title="В подписке">🔒</span>' : ''}${marks[l.id] ? '<span class="ls-star">★</span>' : ''}${notes[l.id] ? '<span class="ls-note" title="Есть заметка">✎</span>' : ''}${read[l.id] ? '<span class="done"></span>' : ''}</a>`;
       h += '</div></div>';
     }
     this.side.innerHTML = h;
@@ -58,6 +59,16 @@ export class LearnPage {
 
   open(id) {
     const lesson = LESSONS.find(l => l.id === id) || LESSONS.find(l => l.id === store.get('learn.last')) || LESSONS[0];
+    if (lessonLocked(lesson)) {
+      // закрытый урок: заголовок, начало текста размыто и карточка подписки
+      this.renderSide(lesson.id);
+      const topicT = TOPICS.find(t => t.id === lesson.topic)?.title || '';
+      const teaser = lesson.html.replace(/<div data-snip="\d+"><\/div>/g, '').slice(0, 900);
+      this.content.innerHTML = `<div class="lesson-wrap"><article class="article"><div class="kicker">${topicT}</div><h1>${lesson.num}. ${lesson.title}</h1><div class="lock-teaser">${teaser}</div>${lockCard('Этот урок')}</article></div>`;
+      this.content.scrollTop = 0;
+      this.lesson = lesson;
+      return;
+    }
     store.set('learn.last', lesson.id);
     const read = store.get('learn.read', {});
     const first = !read[lesson.id];
