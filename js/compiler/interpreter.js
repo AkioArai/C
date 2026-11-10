@@ -92,6 +92,9 @@ export class Interpreter {
     this.interactive = opts.stdin == null;
     this.input = { text: opts.stdin ?? '', pos: 0, eof: !this.interactive };
     this.stepLimit = opts.stepLimit ?? 5_000_000;
+    // откуда взят указатель, лежащий в памяти: адрес ячейки → { v, prov }.
+    // Нужно, чтобы указатель «за последним элементом» (m + n) не путался с соседней переменной.
+    this.pprov = new Map();
     this.maxDepth = opts.maxDepth ?? 2500;
     this.tracing = opts.tracing ?? true;
     this.steps = 0;
@@ -221,6 +224,8 @@ export class Interpreter {
     if (i >= 0) this.objects.splice(i, 1);
   }
 
+  notePtr(addr, v, prov) { if (prov != null) this.pprov.set(addr, { v, prov }); else this.pprov.delete(addr); }
+
   objectAt(addr, size = 1) {
     for (let i = this.objects.length - 1; i >= 0; i--) {
       const o = this.objects[i];
@@ -290,6 +295,7 @@ export class Interpreter {
       v = this.mem.read(addr, c.t);
     } catch { return { display: '?', init: false }; }
     const out = { display: display(c.t, v), init };
+    if (isFloat(c.t)) { out.num = Number(v); out.fbits = c.t.size === 4 ? 32 : 64; }
     if (c.t.k === 'ptr') {
       out.ptr = v;
       const sz = c.t.to?.size || 1;
@@ -398,6 +404,7 @@ export class Interpreter {
       else {
         const nv = this.mem.read(lv.addr, t);
         ev.display = display(t, nv);
+        if (isFloat(t)) { ev.num = Number(nv); ev.fbits = t.size === 4 ? 32 : 64; }
         ev.cell = this.cellIndexOf(p.obj, lv.addr);
         if (t.k === 'ptr') {
           const sz = t.to?.size || 1;
@@ -498,6 +505,7 @@ export class Interpreter {
         if (isRecord(p.type)) this.mem.writeBytes(obj.addr, a.bytes);
         else this.mem.write(obj.addr, p.type, a.v);
       } catch (e) { throw this.fault(e, callNode); }
+      if (isPointer(p.type)) this.notePtr(obj.addr, a.v, a.prov);
       if (p.name) frame.scopes[0].set(p.name, obj);
       params.push(obj);
       argDisp.push({ name: obj.name, display: isRecord(p.type) ? '{…}' : display(p.type, this.mem.read(obj.addr, p.type)) });
@@ -625,6 +633,7 @@ export class Interpreter {
     this.tr({ text: `${node.name ?? ''} = ${this.src_(init)}`, calc: '', value: display(type, convert(v.v, type)), note: cn,
       vis: cn && isArith(v.t) && isArith(type) ? { t: 'conv', explicit: false, from: typeName(v.t), to: typeName(type), before: disp(v), after: display(type, convert(v.v, type)), what: this.src_(init), target: node.name, fromFloat: isFloat(v.t), toFloat: isFloat(type), toChar: type.size === 1 && isInt(type) } : undefined });
     try { this.mem.write(addr, type, v.v); } catch (e) { throw this.fault(e, node); }
+    if (isPointer(type)) this.notePtr(addr, v.v, v.prov);
   }
 
   initString(addr, type, init, node) {
@@ -689,6 +698,7 @@ export class Interpreter {
     while (e.type === 'InitList') e = e.items[0] || { type: 'Num', raw: '0' };
     const v = yield* this.eval(e);
     try { this.mem.write(addr, t, v.v); } catch (err) { throw this.fault(err, node); }
+    if (isPointer(t)) this.notePtr(addr, v.v, v.prov);
   }
 
   *evalMaybeRecord(e) {
@@ -985,6 +995,7 @@ export class Interpreter {
         else if (typeof old.v === 'bigint') nv = old.v + BigInt(delta);
         else nv = old.v + delta;
         const res = this.store(lv, nv, e, 'inc', { op: e.op, exprText: this.src_(e) });
+        if (isPointer(lv.t)) this.notePtr(lv.addr, res, old.prov ?? this.objectAt(old.v)?.id);
         this.tr({ text: this.src_(e), calc: `${display(lv.t, old.v)} ${e.op === '++' ? '+' : '−'} 1`, value: display(lv.t, res), note: e.prefix ? 'префиксная форма: значение выражения — новое' : 'постфиксная форма: значение выражения — старое (' + display(lv.t, old.v) + ')',
           vis: { t: 'incdec', name: this.src_(e.arg), op: e.op, prefix: !!e.prefix, old: display(lv.t, old.v), now: display(lv.t, res), ptr: isPointer(lv.t), step: isPointer(lv.t) ? Math.max(1, lv.t.to.size) : 1 } });
         return { t: lv.t, v: e.prefix ? res : old.v, prov: old.prov };
@@ -1089,14 +1100,14 @@ export class Interpreter {
     }
     if (lv.t.k === 'func') return { t: ptr(lv.t), v: lv.addr };
     const r = this.load(lv, node);
-    if (isPointer(r.t)) r.prov = undefined;
+    if (isPointer(r.t)) { const s = this.pprov.get(lv.addr); r.prov = s && s.v === r.v ? s.prov : undefined; }
     return r;
   }
 
   *evalAssign(e) {
     const lv = yield* this.evalLV(e.target);
     if (lv.t.k === 'arr') throw new RuntimeError('массиву нельзя присвоить значение целиком', e, 'Для строк используйте strcpy, для массивов — цикл.');
-    const rhs = yield* this.eval(e.value);
+    let rhs = yield* this.eval(e.value);
     let nv;
     if (isRecord(lv.t)) {
       if (e.op !== '=' || !rhs.bytes) throw new RuntimeError('структуре можно присвоить только структуру того же типа', e);
@@ -1116,11 +1127,12 @@ export class Interpreter {
       this.tr({ text: `${this.src_(e.target)} ${e.op.slice(0, -1)} ${this.src_(e.value)}`, calc: `${disp(cur)} ${e.op.slice(0, -1)} ${disp(rhs)}`, value: disp(r), note: this.binNote(e.op.slice(0, -1), cur, rhs, r),
         vis: bvis || cvis });
       nv = r.v;
-      rhs.t = r.t;
+      rhs = { ...rhs, t: r.t, prov: r.prov };   // копия: значение константы может быть общим для всех проходов цикла
     }
     if (isPointer(lv.t) && isArith(rhs.t) && e.op === '=' && Number(rhs.v) !== 0)
       this.runtimeWarn(`указателю присвоено число ${disp(rhs)} — это не адрес переменной`, e, 'Указателю присваивают адрес: p = &x; или результат malloc.');
     const res = this.store(lv, nv, e, e.op === '=' ? 'assign' : 'compound', { op: e.op, exprText: this.src_(e.value), fullText: this.src_(e) });
+    if (isPointer(lv.t)) this.notePtr(lv.addr, res, rhs.prov);
     const cn = convNote(rhs.t, lv.t);
     this.tr({ text: `${this.src_(e.target)} ← ${display(lv.t, res)}`, calc: '', value: display(lv.t, res), note: cn, kind: 'store',
       vis: cn && isArith(rhs.t) && isArith(lv.t) ? { t: 'conv', explicit: false, from: typeName(rhs.t), to: typeName(lv.t), before: disp(rhs), after: display(lv.t, res), what: this.src_(e.value), target: this.src_(e.target), fromFloat: isFloat(rhs.t), toFloat: isFloat(lv.t), toChar: lv.t.size === 1 && isInt(lv.t) }
@@ -1831,6 +1843,12 @@ export class Interpreter {
       return { t: T.int, v: r };
     }
     // ——— math ———
+    if (name === 'isnan' || name === 'isinf' || name === 'isfinite') {
+      const x = num(0);
+      const r = name === 'isnan' ? Number.isNaN(x) : name === 'isinf' ? (x === Infinity || x === -Infinity) : Number.isFinite(x);
+      bi(name, [display(T.double, x)], r ? '1 (да)' : '0 (нет)');
+      return { t: T.int, v: r ? 1 : 0 };
+    }
     const MATH1 = {
       sqrt: Math.sqrt, cbrt: Math.cbrt, fabs: Math.abs, sin: Math.sin, cos: Math.cos, tan: Math.tan,
       asin: Math.asin, acos: Math.acos, atan: Math.atan, exp: Math.exp, log: Math.log, log10: Math.log10, log2: Math.log2,

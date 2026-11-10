@@ -1,6 +1,7 @@
 // Нижняя панель: Терминал, Объяснения (хроника шагов), Ошибки.
 import { esc, typeInfo } from '../universe/explain.js';
 import { formatDiag } from '../compiler/diagnostics.js';
+import { LogHelper } from './loghelper.js';
 import { settings } from './settings.js';
 
 const ICON = {
@@ -26,7 +27,7 @@ export class ConsolePanel {
     root.innerHTML = `
       <div class="con-tabs" role="tablist">
         <button class="con-tab active" data-tab="term" role="tab">Терминал</button>
-        <button class="con-tab" data-tab="logs" role="tab">Объяснения <span class="badge" data-badge="logs"></span><em class="pro-tag" data-protag hidden>PRO</em></button>
+        <button class="con-tab" data-tab="logs" role="tab">Объяснения <span class="badge" data-badge="logs"></span></button>
         <button class="con-tab" data-tab="prob" role="tab">Ошибки <span class="badge" data-badge="prob"></span></button>
         <span class="con-status" data-status></span>
         <div class="con-tools" data-tools>
@@ -48,7 +49,7 @@ export class ConsolePanel {
           </form>
         </section>
         <section class="con-pane" data-pane="logs">
-          <div class="logs" data-logs><div class="empty">Запустите программу — здесь по порядку появится объяснение каждой выполненной строки: что она сделала, откуда взялось значение и почему получилось именно так.</div></div>
+          <div class="lh" data-lh></div>
         </section>
         <section class="con-pane" data-pane="proc" hidden>
           <div class="proc" data-proc><div class="empty">Пока во вселенной пусто. Процессы появятся после запуска программы.</div></div>
@@ -58,7 +59,8 @@ export class ConsolePanel {
         </section>
       </div>`;
     this.term = root.querySelector('[data-term]');
-    this.logsEl = root.querySelector('[data-logs]');
+    this.helper = new LogHelper(root.querySelector('[data-lh]'), { onStep: (n) => this.opts.onStep?.(n), toast: (t) => this.opts.toast?.(t) });
+    this.logsEl = this.helper.body;
     this.procEl = root.querySelector('[data-proc]');
     this.probEl = root.querySelector('[data-prob]');
     this.inputForm = root.querySelector('[data-input]');
@@ -114,7 +116,7 @@ export class ConsolePanel {
     };
     this.logsEl.addEventListener('click', jump);
     this.procEl.addEventListener('click', jump);
-    this.probEl.addEventListener('click', jump);
+    this.probEl.addEventListener('click', (e) => { const b = e.target.closest('[data-fix]'); if (b) { e.stopPropagation(); this.opts.onFix?.(this.probDiags?.[+b.dataset.fix]); return; } jump(e); });
     this.term.addEventListener('click', (e) => { if (e.target.closest('[data-line]')) jump(e); });
   }
 
@@ -205,8 +207,9 @@ export class ConsolePanel {
     if (d.hint) html += `<div class="dg-hint">${esc(d.hint).replace(/\n/g, '<br>')}</div>`;
     this.line(html, 'diag ' + cls);
   }
-  askInput(on) {
+  askInput(on, hint) {
     this.inputForm.hidden = !on;
+    if (on) this.inputEl.placeholder = hint ? `${hint} — и Enter` : 'введите значение(я) и нажмите Enter';
     this.root.classList.toggle('waiting', on);
     if (on) { if (this.tab !== 'term') this.show('term'); setTimeout(() => this.inputEl.focus(), 30); }
   }
@@ -270,37 +273,18 @@ export class ConsolePanel {
 
   // ——— логи ———
   clearLogs() {
-    this.logsEl.innerHTML = '';
-    this.logsEl.dataset.filter = this.filter;
+    this.helper.clear();
     this.logCount = 0;
     this.badge('logs', '');
-  }
-  /** Замок в хронике: дальше объяснения — в PRO. */
-  lockLogs(html) {
-    const d = document.createElement('div');
-    d.innerHTML = html;
-    this.logsEl.appendChild(d.firstElementChild);
   }
   log(entry) {
     this.logCount++;
     const MAX_LOGS = settings.get('logs.max') || Infinity;
     if (this.logCount > MAX_LOGS) {
-      if (this.logCount === MAX_LOGS + 1) {
-        const d = document.createElement('div');
-        d.className = 'log k-warn';
-        d.innerHTML = `<span class="lg-ic"></span><span class="lg-tx">Журнал ограничен ${MAX_LOGS} записями — дальнейшие шаги выполняются без записи. Лимит меняется в настройках (раздел «Логи»).</span>`;
-        this.logsEl.appendChild(d);
-      }
+      if (this.logCount === MAX_LOGS + 1) this.helper.setNote(`Журнал хранит первые ${MAX_LOGS} записей — дальше программа выполнялась без записи.`);
       return;
     }
-    const stick = this.atBottom(this.logsEl);
-    const d = document.createElement('div');
-    d.className = 'log k-' + entry.kind;
-    if (entry.line) d.dataset.line = entry.line;
-    if (entry.ent) d.dataset.ent = entry.ent;
-    d.innerHTML = `<span class="lg-step">#${entry.step}</span><span class="lg-line">${entry.line ? 'стр. ' + entry.line : ''}</span><span class="kind-dot"></span><span class="lg-tx">${entry.html}</span>`;
-    this.logsEl.appendChild(d);
-    if (stick) this.logsEl.scrollTop = this.logsEl.scrollHeight;
+    this.helper.add(entry);
     this.badge('logs', this.logCount > 999 ? '999+' : this.logCount);
   }
 
@@ -361,12 +345,14 @@ export class ConsolePanel {
     if (!n) { this.probEl.innerHTML = '<div class="empty">Ошибок не найдено. Код выглядит правильно.</div>'; return; }
     const icon = { error: '', warning: '', note: '' };
     const name = { error: 'Ошибка', warning: 'Предупреждение', note: 'Заметка' };
-    this.probEl.innerHTML = diags.map(d => `
+    this.probEl.innerHTML = diags.map((d, i) => `
       <div class="pb pb-${d.severity}" data-line="${d.line}" data-col="${d.col}">
         <div class="pb-h"><span class="pb-ic">${icon[d.severity]}</span><span class="pb-kind">${name[d.severity]}</span><span class="pb-pos">строка ${d.line}:${d.col}</span></div>
         <div class="pb-m">${esc(d.message)}</div>
         ${lines[d.line - 1] !== undefined ? `<code class="pb-src">${esc(lines[d.line - 1].trim())}</code>` : ''}
         ${d.hint ? `<div class="pb-hint">${esc(d.hint).replace(/\n/g, '<br>')}</div>` : ''}
+        ${d.fix ? `<button class="btn small primary pb-fix" data-fix="${i}">Исправить: ${esc(d.fix.title)}</button>` : ''}
       </div>`).join('');
+    this.probDiags = diags;
   }
 }

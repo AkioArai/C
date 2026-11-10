@@ -190,6 +190,19 @@ export class Editor {
       const w = Math.max(1, d.len) * this.cw;
       h += `<div class="sq sq-${d.severity}" style="top:${top}px;left:${left}px;width:${w}px" title="${d.message.replace(/"/g, '&quot;')}"></div>`;
     }
+    // текст ошибки прямо в строке: что не так и как исправить
+    if (settings.get('editor.lens') !== false && this.diags.length) {
+      const lines = this.ta.value.split('\n');
+      const rank = { error: 3, warning: 2, note: 1 };
+      const byLine = new Map();
+      for (const d of this.diags) { const c = byLine.get(d.line); if (d.line && (!c || rank[d.severity] > rank[c.severity])) byLine.set(d.line, d); }
+      for (const [ln, d] of byLine) {
+        if (this.inline?.has(ln) || lines[ln - 1] == null) continue;
+        const width = lines[ln - 1].replace(/\t/g, '    ').length;
+        const e = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        h += `<div class="ed-lens l-${d.severity}" style="top:${this.pad + (ln - 1) * this.lh}px;left:${this.padL + (width + 3) * this.cw}px;height:${this.lh}px;line-height:${this.lh}px">${e(d.message)}${d.fix ? `<b>Alt+Enter — ${e(d.fix.title)}</b>` : ''}</div>`;
+      }
+    }
     // значения переменных справа от строки (как в отладчике)
     if (this.inline?.size) {
       const lines = this.ta.value.split('\n');

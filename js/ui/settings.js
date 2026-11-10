@@ -6,7 +6,7 @@ import { applyTheme, themeId } from './theme.js';
 // hidden — не показываются в окне (но кнопки интерфейса могут их менять), fixed — всегда по умолчанию.
 export const SCHEMA = [
   { id: 'ui', title: 'Внешний вид', icon: 'M4 5h16v14H4zM4 9h16', items: [
-    { key: 'ui.theme', label: 'Тема', desc: 'Оформление приложения, кода и поля памяти. Переключается и кнопкой в шапке.', type: 'seg', options: [['cosmos', 'Космос'], ['day', 'День']], def: 'cosmos' },
+    { key: 'ui.theme', label: 'Тема', desc: 'Оформление приложения, кода и поля памяти. Переключается и кнопкой в шапке.', type: 'seg', options: [['dark', 'Тёмная'], ['light', 'Светлая']], def: 'dark' },
     { key: 'ui.fontSize', label: 'Размер текста', desc: 'Меню, панели, объяснения.', type: 'range', min: 12, max: 17, step: 0.5, unit: 'px', def: 13.5 },
     { key: 'ui.tips', label: 'Подсказки при наведении на поле памяти', desc: 'Что это за элемент и за что он отвечает.', type: 'bool', def: true },
     { key: 'ui.reduceMotion', label: 'Меньше движения', desc: 'Отключить плавные анимации интерфейса.', type: 'bool', def: false },
@@ -36,6 +36,8 @@ export const SCHEMA = [
     { key: 'run.speed', label: 'Скорость по умолчанию', desc: 'Сколько шагов в секунду при запуске с анимацией.', type: 'range', min: 1, max: 10, step: 1, unit: '', def: 4 },
     { key: 'run.follow', label: 'Камера следует за выполнением', desc: 'Выключите, чтобы самим двигать и рассматривать поле памяти.', type: 'bool', def: true },
     { key: 'term.fs', label: 'Размер текста в терминале', type: 'range', min: 11, max: 22, step: 0.5, unit: 'px', def: 14 },
+    { key: 'run.auto', label: 'Автозапуск при наборе', desc: 'Программа сама выполняется после каждой правки, вывод виден под редактором.', type: 'bool', def: false },
+    { key: 'editor.lens', label: 'Текст ошибки прямо в строке кода', desc: 'Справа от строки с ошибкой видно, что не так и как это исправить.', type: 'bool', def: true },
     { key: 'run.typewriter', type: 'bool', def: true, hidden: true },
     { key: 'run.beams', type: 'bool', def: true, hidden: true },
     { key: 'run.anims', type: 'bool', def: true, hidden: true },

@@ -308,6 +308,162 @@ int main(void) {
 `,
   },
   {
+    id: 'fp-store', group: 'Тема 5. Плавающая точка', title: 'Что на самом деле хранится в 0.1',
+    code: `#include <stdio.h>
+
+int main(void) {
+    float f = 0.1f;
+    double d = 0.1;
+    printf("float:  %.20f\\n", f);     /* верны около 7 цифр */
+    printf("double: %.20f\\n", d);     /* верны около 16 цифр */
+    printf("0.1 + 0.2 = %.17f\\n", 0.1 + 0.2);
+    if (0.1 + 0.2 == 0.3)
+        printf("равны\\n");
+    else
+        printf("не равны!\\n");         /* сравнивать нужно через eps */
+    return 0;
+}
+`,
+  },
+  {
+    id: 'fp-bits', group: 'Тема 5. Плавающая точка', title: 'Биты float: знак, порядок, мантисса',
+    code: `#include <stdio.h>
+#include <string.h>
+
+int main(void) {
+    float f;
+    unsigned int u;
+    int i;
+    scanf("%f", &f);
+    memcpy(&u, &f, sizeof u);          /* те же 4 байта как целое */
+    for (i = 31; i >= 0; i--) {
+        printf("%u", (u >> i) & 1);
+        if (i == 31 || i == 23)
+            printf(" ");               /* знак | порядок | мантисса */
+    }
+    printf("\\nпорядок: %d\\n", (int)((u >> 23) & 255) - 127);
+    return 0;
+}
+`,
+    stdin: '155.625',
+  },
+  {
+    id: 'fp-kahan', group: 'Тема 5. Плавающая точка', title: 'Метод Кохена: сумма без потерь',
+    code: `#include <stdio.h>
+
+int main(void) {
+    float S = 0.0f, Sk = 0.0f, cor = 0.0f, f, fcor, Scor;
+    int i;
+    for (i = 1; i <= 2000; i++) {
+        f = 0.1f;
+        S += f;                      /* напрямую: ошибка копится */
+        fcor = f - cor;              /* возвращаем потерянное */
+        Scor = Sk + fcor;
+        cor = (Scor - Sk) - fcor;    /* что потерялось сейчас */
+        Sk = Scor;
+    }
+    printf("напрямую:     %.5f\\n", S);
+    printf("с коррекцией: %.5f\\n", Sk);
+    return 0;
+}
+`,
+  },
+  {
+    id: 'num-bisect', group: 'Тема 6. Вычислительные методы', title: 'Деление отрезка пополам',
+    code: `#include <stdio.h>
+
+double f(double x) {
+    return x * x * x - 2 * x - 5;    /* f(x) = 0 */
+}
+
+int main(void) {
+    double a = 2.0, b = 3.0, c;
+    int n = 0;
+    while (b - a > 1e-4) {
+        c = (a + b) / 2;             /* середина */
+        if (f(a) * f(c) <= 0)
+            b = c;                   /* корень слева */
+        else
+            a = c;                   /* корень справа */
+        n++;
+    }
+    printf("x = %.4f, делений: %d\\n", (a + b) / 2, n);
+    return 0;
+}
+`,
+  },
+  {
+    id: 'num-roots', group: 'Тема 6. Вычислительные методы', title: 'Все корни: отделение и уточнение',
+    code: `#include <stdio.h>
+#include <math.h>
+
+double f(double x) {
+    return cos(x) - 0.3 * x;
+}
+
+int main(void) {
+    double a = -6.0, b = 6.0, h, l, r, c;
+    int i, parts = 24;
+    h = (b - a) / parts;
+    for (i = 0; i < parts; i++) {
+        l = a + i * h;
+        r = l + h;
+        if (f(l) * f(r) > 0)
+            continue;                /* знак не меняется */
+        while (r - l > 1e-6) {
+            c = (l + r) / 2;
+            if (f(l) * f(c) <= 0) r = c; else l = c;
+        }
+        printf("x = %9.6f   f(x) = %.1e\\n", (l + r) / 2, f((l + r) / 2));
+    }
+    return 0;
+}
+`,
+  },
+  {
+    id: 'arr-func', group: 'Тема 7. Массивы и указатели', title: 'Массив значений функции',
+    code: `#include <stdio.h>
+#include <math.h>
+#define N 9
+
+int main(void) {
+    double y[N], max;
+    int i, imax = 0;
+    for (i = 0; i < N; i++)
+        y[i] = sin(0.5 * i);         /* x = 0, 0.5, 1.0, ... */
+    max = y[0];
+    for (i = 1; i < N; i++)
+        if (y[i] > max) {
+            max = y[i];
+            imax = i;
+        }
+    for (i = 0; i < N; i++)
+        printf("%d: %7.4f\\n", i, y[i]);
+    printf("максимум y[%d] = %.4f\\n", imax, max);
+    return 0;
+}
+`,
+  },
+  {
+    id: 'arr-walk', group: 'Тема 7. Массивы и указатели', title: 'Индексы и указатели: два обхода',
+    code: `#include <stdio.h>
+
+int main(void) {
+    int m[6] = {4, -2, 7, 0, -5, 3};
+    int i, s1 = 0, s2 = 0;
+    int *p, *end = m + 6;            /* адрес «за последним» */
+    for (i = 0; i < 6; i++)          /* способ 1: индексы */
+        s1 += m[i];
+    for (p = m; p < end; p++)        /* способ 2: указатель */
+        s2 += *p;
+    printf("%d %d\\n", s1, s2);
+    printf("m[2] = %d, *(m + 2) = %d\\n", m[2], *(m + 2));
+    printf("элементов между: %d\\n", (int)(end - m));
+    return 0;
+}
+`,
+  },
+  {
     id: 'quad', group: 'Математика', title: 'Квадратное уравнение (math.h)',
     stdin: '1 -3 2\n',
     code: `#include <stdio.h>

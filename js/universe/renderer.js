@@ -7,13 +7,13 @@ const TAU = Math.PI * 2;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
-const SANS = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+const SANS = 'Onest, Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 
 export const C = {
-  bg: '#0a0b09', panel: '#0e100d', panel2: '#121510', card: '#10120f', line: '#20241e', line2: '#2c3128', line3: '#3a4034',
-  faint: '#4b5145', muted: '#767d6c', text: '#e6e9df', text2: '#b3b8a9',
-  accent: '#c8f05a', yellow: '#e9d85c', green: '#8fd46a', red: '#e0705f', amber: '#e3b36b',
-  screen: '#080907', code: '#0d0f0c', cell: '#161914', zebra: 'rgba(255,255,255,0.018)', ptr: '#9fc7a8', star: '210,220,190', screenText: '#e6e9df',
+  bg: '#0d0e10', panel: '#121418', panel2: '#181b20', card: '#181b20', line: '#282c33', line2: '#3a404a', line3: '#4d5460',
+  faint: '#4c525c', muted: '#7f8792', text: '#eceef1', text2: '#b9bec7',
+  accent: '#4f8cff', accent2: '#ffb224', yellow: '#f5c542', green: '#3fcf8e', red: '#ff5d5d', amber: '#ff9447', blue: '#4f8cff', violet: '#b08cff',
+  screen: '#07080a', code: '#0f1013', cell: '#20242a', zebra: 'rgba(255,255,255,0.025)', ptr: '#e879c6', star: '160,170,185', screenText: '#eceef1',
 };
 
 function alpha(hex, a) {
@@ -25,6 +25,10 @@ export class Renderer {
   constructor(canvas, scene, opts = {}) {
     this.cv = canvas;
     this.ctx = canvas.getContext('2d');
+    // строгий стиль: на поле памяти нет окружностей и скруглений — точки и кольца рисуются квадратами
+    const cx = this.ctx;
+    cx.arc = (x, y, r) => cx.rect(x - r, y - r, r * 2, r * 2);
+    cx.roundRect = (x, y, w, h) => cx.rect(x, y, w, h);
     this.scene = scene;
     this.opts = opts;
     this.cam = { x: 400, y: 200, zoom: 0.8 };
@@ -35,7 +39,6 @@ export class Renderer {
     this.mouse = null;
     this.hover = null;
     this.insets = { top: 0, bottom: 0, right: 56 };
-    this.makeStars();
     this.bindInput();
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(canvas.parentElement);
@@ -43,11 +46,6 @@ export class Renderer {
     this.fitHome(true);
     const loop = (t) => { this.frame(t); this.raf = requestAnimationFrame(loop); };
     this.raf = requestAnimationFrame(loop);
-  }
-
-  makeStars() {
-    const r = (() => { let s = 7; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
-    this.stars = Array.from({ length: 90 }, () => ({ x: r() * 2400, y: r() * 2400, s: r() > 0.85 ? 1.5 : 1, a: 0.08 + r() * 0.16 }));
   }
 
   resize() {
@@ -256,12 +254,12 @@ export class Renderer {
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.fillStyle = C.bg;
     ctx.fillRect(0, 0, W, H);
-    for (const s of this.stars) {
-      let x = (s.x - this.cam.x * 0.05) % 2400; if (x < 0) x += 2400;
-      let y = (s.y - this.cam.y * 0.05) % 2400; if (y < 0) y += 2400;
-      if (x > W || y > H) continue;
-      ctx.fillStyle = `rgba(${C.star},${s.a})`;
-      ctx.fillRect(x, y, s.s, s.s);
+    // чертёжная сетка: точки привязаны к полю и двигаются вместе с камерой
+    const gs = 40 * this.cam.zoom;
+    if (gs >= 14) {
+      const ox = ((W / 2 - this.cam.x * this.cam.zoom) % gs + gs) % gs, oy = ((H / 2 - this.cam.y * this.cam.zoom) % gs + gs) % gs;
+      ctx.fillStyle = `rgba(${C.star},0.16)`;
+      for (let x = ox; x < W; x += gs) for (let y = oy; y < H; y += gs) ctx.fillRect(Math.round(x), Math.round(y), 1, 1);
     }
     ctx.save();
     ctx.translate(W / 2, H / 2);
@@ -307,7 +305,7 @@ export class Renderer {
   rect(x, y, w, h, { fill, stroke, lw = 1, r = 4 } = {}) {
     const ctx = this.ctx;
     ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h);
+    ctx.rect(x, y, w, h);
     if (fill) { ctx.fillStyle = fill; ctx.fill(); }
     if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = this.px(lw); ctx.stroke(); }
   }
@@ -472,20 +470,20 @@ export class Renderer {
       ctx.beginPath();
       ctx.rect(b.x - 4, b.y - 4, b.w + 8, hh + 8);
       ctx.clip();
-      if (open < 1) { ctx.strokeStyle = alpha('#b69cff', 0.6 * (1 - open)); ctx.lineWidth = this.px(2); ctx.beginPath(); ctx.moveTo(b.x + 8, b.y + hh); ctx.lineTo(b.x + b.w - 8, b.y + hh); ctx.stroke(); }
+      if (open < 1) { ctx.strokeStyle = alpha('#b08cff', 0.6 * (1 - open)); ctx.lineWidth = this.px(2); ctx.beginPath(); ctx.moveTo(b.x + 8, b.y + hh); ctx.lineTo(b.x + b.w - 8, b.y + hh); ctx.stroke(); }
     }
     const sel = sc.selected === 'frame:' + fr.id;
     // ошибка выполнения: кадр, где она случилась, «трясётся» и краснеет
     const ca = sc.crashed && active && settings.get('run.anims') !== false ? this.t - sc.crashed.at : -1;
     if (ca >= 0 && ca < 650) ctx.translate(Math.sin(ca / 22) * 6 * (1 - ca / 650), 0);
-    this.rect(b.x, b.y, b.w, b.h, { fill: C.panel, stroke: sel ? C.text2 : ca >= 0 ? alpha(C.red, 0.8) : active ? alpha(C.accent, 0.4) : C.line, r: 8 });
+    this.rect(b.x, b.y, b.w, b.h, { fill: C.panel, stroke: sel ? C.text2 : ca >= 0 ? alpha(C.red, 0.8) : active ? alpha(C.accent2, 0.75) : C.line2, lw: active ? 1.5 : 1 });
     // пока программа работает, по рамке выполняемой функции бежит «комета» — как планета по орбите
     if (active && !fr.ended && ca < 0 && settings.get('run.anims') !== false && document.documentElement.dataset.run === 'running') this.drawOrbit(b);
     // заголовок
     const title = `${fr.func}(${(fr.args || []).map(x => x.name + '=' + shortVal(x.display)).join(', ')})`;
     this.text(title, b.x + 14, b.y + 20, { size: 15, color: active ? C.text : C.text2, weight: 500, maxW: b.w * 0.55 });
     const sub = fr.ended ? (fr.ret != null ? `вернула ${fr.ret}` : 'завершилась') : active ? `выполняется · строка ${fr.curLine}` : `ждёт возврата из вызова (строка ${fr.curLine})`;
-    this.text(sub, b.x + b.w - 14, b.y + 20, { size: 11, color: fr.ended ? C.green : active ? C.accent : C.muted, align: 'right', mono: false });
+    this.text(sub, b.x + b.w - 14, b.y + 20, { size: 11, color: fr.ended ? C.green : active ? C.accent2 : C.muted, align: 'right', mono: false });
     if (fr.callLine && fr.func !== 'main') this.text(`вызвана в строке ${fr.callLine}`, b.x + 14, b.y + 36, { size: 9.5, color: C.faint, mono: false });
     // листинг
     this.drawListing(b);
@@ -514,9 +512,8 @@ export class Renderer {
       ctx.beginPath(); ctx.arc(px, py, this.px(1 + 2.2 * k), 0, TAU); ctx.fill();
     }
     const [hx, hy] = at(head);
-    const g = ctx.createRadialGradient(hx, hy, 0, hx, hy, this.px(12));
-    g.addColorStop(0, alpha(C.accent2 || C.accent, 0.55)); g.addColorStop(1, alpha(C.accent2 || C.accent, 0));
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(hx, hy, this.px(12), 0, TAU); ctx.fill();
+    ctx.strokeStyle = alpha(C.accent2 || C.accent, 0.5); ctx.lineWidth = this.px(1);
+    ctx.strokeRect(hx - this.px(6), hy - this.px(6), this.px(12), this.px(12));
     ctx.restore();
   }
 
@@ -539,9 +536,7 @@ export class Renderer {
       const bk = lp.backAt && settings.get('run.anims') !== false ? (this.t - lp.backAt) / 520 : 2;
       if (bk >= 0 && bk < 1) {
         const e = ease(bk), hy = yb + (ya - yb) * e;
-        const grad = ctx.createLinearGradient(0, hy, 0, Math.min(yb, hy + 34));
-        grad.addColorStop(0, alpha(C.accent, 0.95)); grad.addColorStop(1, alpha(C.accent, 0));
-        ctx.strokeStyle = grad; ctx.lineWidth = this.px(2.6);
+        ctx.strokeStyle = alpha(C.accent2, 0.6); ctx.lineWidth = this.px(2.6);
         ctx.beginPath(); ctx.moveTo(bx, hy); ctx.lineTo(bx, Math.min(yb, hy + 34)); ctx.stroke();
         ctx.fillStyle = C.accent;
         ctx.beginPath(); ctx.arc(bx, hy, this.px(3.2), 0, TAU); ctx.fill();
@@ -565,14 +560,13 @@ export class Renderer {
       const hy = y0 + st.cur * G.lineH;
       if (k < 1 && Math.abs(st.to - st.from) >= 1) {
         const ty = y0 + st.from * G.lineH, top = Math.min(ty, hy), h = Math.abs(hy - ty) + G.lineH;
-        const g = this.ctx.createLinearGradient(0, ty + G.lineH / 2, 0, hy + G.lineH / 2);
-        g.addColorStop(0, alpha(C.accent, 0)); g.addColorStop(1, alpha(C.accent, 0.22 * (1 - k)));
-        this.ctx.fillStyle = g;
-        this.ctx.fillRect(x + 1, top, 3, h);
+        this.ctx.fillStyle = alpha(C.accent2, 0.5 * (1 - k));
+        this.ctx.fillRect(x + 1, top, 2, h);
+        this.ctx.fillStyle = alpha(C.accent2, 0.07 * (1 - k));
         this.ctx.fillRect(x + 1, top, w - 2, h);
       }
-      this.rect(x + 1, hy, w - 2, G.lineH, { fill: alpha(C.accent, 0.13), r: 2 });
-      this.rect(x + 1, hy, 2, G.lineH, { fill: C.accent, r: 0 });
+      this.rect(x + 1, hy, w - 2, G.lineH, { fill: alpha(C.accent2, 0.14) });
+      this.rect(x + 1, hy, 3, G.lineH, { fill: C.accent2 });
     }
     for (let i = 0; i < n; i++) {
       const ln = fr.span.start + i;
@@ -600,7 +594,7 @@ export class Renderer {
         }
       }
       if (!lodText) continue;
-      this.text(String(ln), x + gutter - 4, ly + G.lineH / 2, { size: 10, color: cur ? C.accent : fr.visited.has(ln) ? C.muted : C.faint, align: 'right' });
+      this.text(String(ln), x + gutter - 4, ly + G.lineH / 2, { size: 10, color: cur ? C.accent2 : fr.visited.has(ln) ? C.muted : C.faint, align: 'right' });
       const src = (sc.srcLines[ln - 1] || '').replace(/\t/g, '    ');
       // справа — результат if/switch и счётчик цикла
       let tag = null, tagColor = C.muted;
@@ -664,7 +658,7 @@ export class Renderer {
     const ctx = this.ctx;
     const y = (ln) => b.codeY + (ln - b.fr.span.start) * G.lineH + G.lineH / 2;
     const x = b.codeX + 1, y0 = y(j.from), y1 = y(j.to);
-    const col = j.kind === 'break' ? C.red : j.kind === 'switch' ? '#b69cff' : C.yellow;
+    const col = j.kind === 'break' ? C.red : j.kind === 'switch' ? '#b08cff' : C.yellow;
     ctx.save();
     ctx.globalAlpha = a;
     ctx.strokeStyle = col;
@@ -705,6 +699,18 @@ export class Renderer {
       this.ctx.restore();
     }
     if (!this.lod) return;
+    // счётчик итераций квадратиками: каждый проход добавляет квадрат, текущий — янтарный
+    if (settings.get('run.anims') !== false && (lp.iter || lp.iters)) {
+      const total = lp.active ? lp.iter : (lp.iters ?? lp.iter), max = Math.floor((t.w - 24) / 7), n = Math.min(total, max);
+      const pop = lp.active && lp.iterAt ? clamp((this.t - lp.iterAt) / 300, 0, 1) : 1;
+      for (let i = 0; i < n; i++) {
+        const last = i === n - 1 && lp.active;
+        const s = last ? 5 * (0.4 + 0.6 * ease(pop)) + (1 - pop) * 4 : 5;
+        this.ctx.fillStyle = last ? C.accent2 : alpha(C.accent, lp.active ? 0.6 : 0.3);
+        this.ctx.fillRect(t.x + 12 + i * 7 + (5 - s) / 2, t.y + 25 + (5 - s) / 2, s, s);
+      }
+      if (total > max) this.text(`+${total - max}`, t.x + t.w - 10, t.y + 28, { size: 9, color: C.muted, align: 'right' });
+    }
     const cols = lp.trace.cols;
     const colW = Math.min(110, (t.w - 70 - 90) / Math.max(1, cols.length));
     const hy = t.y + 38;
@@ -790,7 +796,7 @@ export class Renderer {
       }
       // объявление: память выделяется побайтно — квадратики заполняются слева направо
       const ba = this.t - (o.ui?.born ?? -1e9);
-      if (ba >= 0 && ba < 1300 && o.size && this.lod) {
+      if (ba >= 0 && ba < 1300 && o.size && this.lod && !o.cells?.[0]?.fbits) {
         const n = Math.min(o.size, 32), bw = Math.min(9, (c.w - 24) / n - 2);
         const k = clamp(ba / 700, 0, 1), fade = ba > 1000 ? 1 - (ba - 1000) / 300 : 1;
         this.ctx.save(); this.ctx.globalAlpha *= fade;
@@ -892,8 +898,47 @@ export class Renderer {
       }
     }
     if (!this.lod) return;
+    if (cell.init && cell.fbits && settings.get('run.anims') !== false) { this.drawBits(c, o, cell); return; }
     const meta = [o.kind === 'param' ? 'параметр' : '', cell.ptr !== undefined && cell.init ? `адрес ${cell.display}` : ''].filter(Boolean).join(' · ');
     if (meta) this.text(meta, x, c.y + c.h - 9, { size: 9.5, color: C.faint, mono: false, maxW: w });
+  }
+
+  /** Вещественное число изнутри: полоска битов IEEE 754 — знак, порядок, мантисса.
+   *  Биты, которые изменились при последней записи, вспыхивают. Для inf и nan — предупреждающая рамка. */
+  drawBits(c, o, cell) {
+    const n = cell.fbits, ne = n === 32 ? 8 : 11;
+    const dv = new DataView(new ArrayBuffer(8));
+    let bits = '';
+    if (n === 32) { dv.setFloat32(0, cell.num); bits = dv.getUint32(0).toString(2).padStart(32, '0'); }
+    else { dv.setFloat64(0, cell.num); bits = dv.getUint32(0).toString(2).padStart(32, '0') + dv.getUint32(4).toString(2).padStart(32, '0'); }
+    const ui = o.ui;
+    if (ui.bits !== bits) { ui.bitsPrev = ui.bits || bits; ui.bits = bits; ui.bitsAt = this.t; }
+    const fa = clamp((this.t - (ui.bitsAt || 0)) / 900, 0, 1);
+    const x0 = c.x + 12, w = c.w - 24, bw = w / n, y = c.y + c.h - 11, h = 6, ctx = this.ctx;
+    for (let i = 0; i < n; i++) {
+      const on = bits[i] === '1';
+      const col = i === 0 ? C.red : i <= ne ? C.yellow : C.accent;
+      const flip = fa < 1 && ui.bitsPrev[i] !== bits[i];
+      ctx.fillStyle = flip ? alpha(C.text, 1 - fa * 0.6) : alpha(col, on ? 0.95 : 0.16);
+      const up = flip ? Math.sin(fa * Math.PI) * 3 : 0;
+      ctx.fillRect(x0 + i * bw, y - up, Math.max(0.6, bw - (n === 32 ? 1 : 0.5)), h + up);
+    }
+    // границы полей: знак | порядок | мантисса
+    ctx.fillStyle = C.card;
+    ctx.fillRect(x0 + bw - 0.5, y - 4, 1.2, h + 5);
+    ctx.fillRect(x0 + (1 + ne) * bw - 0.5, y - 4, 1.2, h + 5);
+    const special = Number.isNaN(cell.num) ? 'не число' : !Number.isFinite(cell.num) ? 'бесконечность' : '';
+    if (special) {
+      const blink = ((this.t - (ui.bitsAt || 0)) % 900) < 450 || this.t - (ui.bitsAt || 0) > 2700;
+      this.rect(c.x, c.y, c.w, c.h, { stroke: alpha(C.accent2, blink ? 0.95 : 0.25), lw: 2 });
+      this.font(10, 700);
+      const tw = ctx.measureText(special).width + 12;
+      this.rect(c.x + c.w - tw, c.y + c.h - 30, tw, 16, { fill: C.accent2 });
+      this.text(special, c.x + c.w - tw / 2, c.y + c.h - 22, { size: 10, weight: 700, color: '#1a1000', align: 'center', mono: false });
+    } else if (fa < 1) {
+      const p = (cell.num === 0 ? '' : `порядок ${Math.floor(Math.log2(Math.abs(cell.num)))}`);
+      if (p) { ctx.save(); ctx.globalAlpha *= 1 - fa; this.text(p, c.x + c.w - 12, c.y + c.h - 20, { size: 9, color: C.yellow, align: 'right', mono: false }); ctx.restore(); }
+    }
   }
 
   drawArray(c, o, col) {
@@ -1090,13 +1135,13 @@ export class Renderer {
       const p1 = { x: b.x + 2, y: b.y + 20 };
       const mx = Math.max(p0.x, p1.x) + 50;
       ctx.save();
-      ctx.strokeStyle = alpha('#b69cff', 0.55);
+      ctx.strokeStyle = alpha('#b08cff', 0.55);
       ctx.lineWidth = this.px(1.4);
       ctx.setLineDash([this.px(6), this.px(5)]);
       ctx.lineDashOffset = -this.t / 40 / this.cam.zoom;
       ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.bezierCurveTo(mx, p0.y, mx, p1.y - 40, p1.x, p1.y); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = alpha('#b69cff', 0.8);
+      ctx.fillStyle = alpha('#b08cff', 0.8);
       ctx.beginPath(); ctx.arc(p0.x, p0.y, this.px(3), 0, TAU); ctx.fill();
       ctx.restore();
     }

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Вселенная Си</title>
   <meta name="description" content="Вселенная Си — учебник и лаборатория языка C: пишите код и смотрите, как он работает внутри. Память, каждый шаг и объяснение каждой строки.">
-  <meta name="app-version" content="16">
-  <meta name="theme-color" content="#090a14">
+  <meta name="app-version" content="17">
+  <meta name="theme-color" content="#0a0b0d">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -16,30 +16,30 @@
   <meta name="apple-mobile-web-app-title" content="Вселенная Си">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header class="titlebar">
-    <a class="tb-logo" href="#/home" title="Главная"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg-t" x1="5" y1="5" x2="27" y2="27" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#a593ff"/><stop offset="1" stop-color="#35d6e8"/></linearGradient></defs><path d="M24.4 8.9A11 11 0 1 0 24.4 23.1" fill="none" stroke="url(#lg-t)" stroke-width="3.6" stroke-linecap="round"/><circle cx="16" cy="16" r="2.7" fill="url(#lg-t)"/><g class="lg-orbit"><circle cx="27.4" cy="16" r="2.5" fill="#ffc46b"/></g></svg><span class="wm">Вселенная <b>Си</b></span></a>
+    <a class="tb-logo" href="#/home" title="Главная"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path class="lg-c" d="M26 7H7v18h19"/><rect class="lg-p" x="19" y="13" width="6" height="6"/></svg><span class="wm">Вселенная <b>Си</b></span></a>
     <nav class="tb-crumb" data-crumb aria-label="Где вы сейчас"></nav>
-    <button class="cmdk" data-cmdk title="Поиск по урокам, задачам, примерам и файлам (Ctrl+K)"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><span>Найти урок, задачу или пример</span><kbd>Ctrl K</kbd></button>
+    <button class="cmdk" data-cmdk title="Поиск по урокам, задачам, примерам и файлам (Ctrl+K)"><svg class="ic" viewBox="0 0 24 24"><path d="M5 5h11v11H5z"/><path d="M16 16l4 4"/></svg><span>Найти урок, задачу или пример</span><kbd>Ctrl K</kbd></button>
     <div class="tb-right">
-      <a class="tb-pro" href="#/pro" data-prochip hidden></a>
       <a class="tb-xp" href="#/home" data-xpchip title="Уровень, опыт и серия дней"></a>
-      <button class="tb-b tb-theme" data-themetoggle title="Светлая / тёмная тема"><svg class="ic i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><svg class="ic i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="tb-b tb-theme" data-themetoggle title="Светлая или тёмная тема"><svg class="ic i-moon" viewBox="0 0 24 24"><path d="M5 5h14v14H5z"/><path d="M12 5v14"/><path d="M12 5h7v14h-7z" fill="currentColor"/></svg></button>
     </div>
   </header>
   <nav class="rail" aria-label="Разделы">
     <i class="rail-ind" aria-hidden="true"></i>
     <a href="#/home" data-nav="home" class="rail-i" title="Главная: ваш путь и прогресс"><svg class="ic" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/><path d="M10 20v-5h4v5"/></svg><span>Главная</span></a>
     <a href="#/learn" data-nav="learn" class="rail-i" title="Теория по методичкам"><svg class="ic" viewBox="0 0 24 24"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg><span>Теория</span></a>
-    <a href="#/practice" data-nav="practice" class="rail-i" title="Задачи с автопроверкой"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6" fill="currentColor"/></svg><span>Задачи</span><em class="rail-badge" data-progress title="Решено задач"></em></a>
+    <a href="#/practice" data-nav="practice" class="rail-i" title="Задачи с автопроверкой"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 12l3 3 5-6"/></svg><span>Задачи</span><em class="rail-badge" data-progress title="Решено задач"></em></a>
     <a href="#/lab" data-nav="lab" class="rail-i" data-explorer title="Редактор кода и поле памяти"><svg class="ic" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/><path d="M13.5 4l-3 16"/></svg><span>Код</span></a>
     <a href="#/drill" data-nav="drill" class="rail-i" title="Тренажёр: угадай вывод"><svg class="ic" viewBox="0 0 24 24"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></svg><span>Тренажёр</span></a>
     <div class="rail-sp"></div>
-    <button class="rail-i" data-tour title="Как пользоваться: короткая экскурсия"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><path d="M12 17.5v.01"/></svg><span>Помощь</span></button>
-    <button class="rail-i" data-settings title="Настройки (Ctrl+,)"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Настройки</span></button>
+    <button class="rail-i" data-tour title="Как пользоваться: короткая экскурсия"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M9.5 9.5V8h5v3.5H12V14"/><path d="M12 17v.01"/></svg><span>Помощь</span></button>
+    <button class="rail-i" data-speed title="Как писать код быстрее: подсказки, шаблоны, клавиши"><svg class="ic" viewBox="0 0 24 24"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></svg><span>Быстрее</span></button>
+    <button class="rail-i" data-settings title="Настройки (Ctrl+,)"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><path d="M13 5h4v4h-4zM7 15h4v4H7z"/></svg><span>Настройки</span></button>
   </nav>
 
   <main>
@@ -59,6 +59,7 @@
               <button class="tb-b" data-ed="share" title="Скопировать ссылку на этот код"><svg class="ic" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/></svg></button>
             </div></div>
           <div class="editor-host" data-editor></div>
+          <div class="fixbar ok" data-fixbar aria-live="polite"></div>
           <details class="stdin-box">
             <summary>Входные данные заранее <small>(необязательно)</small></summary>
             <textarea data-stdin rows="3" spellcheck="false" placeholder="Если оставить пустым, программа попросит ввод в терминале во время работы. Можно вписать значения заранее: например «5 7»."></textarea>
@@ -89,9 +90,9 @@
             <button class="ubtn" data-u="zin" title="Приблизить"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
             <button class="ubtn" data-u="zout" title="Отдалить"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
             <button class="ubtn" data-u="home" title="Показать всю вселенную"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/></svg></button>
-            <button class="ubtn" data-u="follow" title="Камера следует за выполнением"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+            <button class="ubtn" data-u="follow" title="Камера следует за выполнением"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z"/><path d="M11 11h2v2h-2z"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button>
             <button class="ubtn" data-u="op" title="Объяснение строки"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18M7 17h6"/></svg></button>
-            <button class="ubtn" data-u="legend" title="Легенда: что означают объекты"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><path d="M12 17.5v.01"/></svg></button>
+            <button class="ubtn" data-u="legend" title="Легенда: что означают объекты"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M9.5 9.5V8h5v3.5H12V14"/><path d="M12 17v.01"/></svg></button>
           </div>
           <div class="u-coords" data-coords></div>
           <div class="u-legend" data-legend hidden>
@@ -130,9 +131,6 @@
     <!-- ТРЕНАЖЁР -->
     <section class="view" id="view-drill" data-view="drill" hidden></section>
 
-    <!-- ПОДПИСКА -->
-    <section class="view" id="view-pro" data-view="pro" hidden></section>
-
     <!-- ТЕОРИЯ -->
     <section class="view" id="view-learn" data-view="learn" hidden></section>
 
@@ -141,34 +139,16 @@
   </main>
 
   <div class="keys" data-keysdlg hidden>
-    <div class="keys-card" role="dialog" aria-label="Горячие клавиши">
-      <div class="keys-h"><b>Горячие клавиши</b><button class="in-close" data-close aria-label="Закрыть">×</button></div>
-      <table>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>Поиск по всему: файлы, примеры, уроки, задачи, команды</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></td><td>Только команды</td></tr>
-        <tr><td><kbd>F5</kbd> или <kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>Запуск / пауза / продолжить</td></tr>
-        <tr><td><kbd>F10</kbd></td><td>Один шаг</td></tr>
-        <tr><td><kbd>Shift</kbd>+<kbd>F10</kbd></td><td>Шаг назад</td></tr>
-        <tr><td><kbd>F8</kbd></td><td>Выполнить мгновенно</td></tr>
-        <tr><td><kbd>Shift</kbd>+<kbd>F5</kbd></td><td>Остановить</td></tr>
-        <tr><td><kbd>→</kbd> / <kbd>Enter</kbd></td><td>Принять подсказку при наборе (меняется в настройках)</td></tr>
-        <tr><td><kbd>Tab</kbd> в шаблоне</td><td>Перейти к следующему полю шаблона</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>Space</kbd></td><td>Показать подсказки</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Сохранить файл</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>N</kbd></td><td>Новый файл</td></tr>
-        <tr><td><kbd>F2</kbd></td><td>Переименовать файл</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd></td><td>Скрыть/показать проводник</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>J</kbd></td><td>Скрыть/показать терминал</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd></td><td>Скрыть/показать поле памяти</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>Настройки</td></tr>
-        <tr><td><kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd></td><td>Выровнять отступы</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Дублировать строку</td></tr>
-        <tr><td><kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></td><td>Переместить строку</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>/</kbd></td><td>Закомментировать строки</td></tr>
-        <tr><td><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>Отступ / убрать отступ</td></tr>
-        <tr><td><kbd>Ctrl</kbd> + колесо</td><td>Размер текста в терминале</td></tr>
-        <tr><td>Номер строки</td><td>Точка останова</td></tr>
-      </table>
+    <div class="keys-card" role="dialog" aria-label="Как писать код быстрее">
+      <div class="keys-h"><b>Как писать код быстрее</b><button class="in-close" data-close aria-label="Закрыть">×</button></div>
+      <div class="sp-grid">
+        <section class="sp-sec"><h4>1. Шаблоны: слово → готовый код</h4><p>Наберите слово в начале строки и нажмите <kbd>Enter</kbd> или <kbd>→</kbd>. <kbd>Tab</kbd> переводит к следующему полю шаблона.</p><div class="sp-row"><span>prog</span><span>вся заготовка: <code>#include</code>, <code>main</code>, <code>return 0</code></span></div><div class="sp-row"><span>pf · sf</span><span><code>printf("%d\n", x);</code> и <code>scanf("%d", &amp;x);</code></span></div><div class="sp-row"><span>pfd · sfd</span><span>то же для вещественных: <code>%.2f</code> и <code>%lf</code></span></div><div class="sp-row"><span>fori · forr</span><span>цикл от 0 до n−1 и обратный</span></div><div class="sp-row"><span>if · ife · elif</span><span>ветвления со скобками</span></div><div class="sp-row"><span>arrin · arrout</span><span>ввод и вывод массива</span></div><div class="sp-row"><span>sum · max · swap</span><span>сумма, наибольший элемент, обмен</span></div><div class="sp-row"><span>eps · bis · kahan</span><span>сравнение через ε, деление пополам, шаг Кохена</span></div><div class="sp-row"><span>ptr</span><span>обход массива указателем</span></div></section>
+        <section class="sp-sec"><h4>2. Подсказки при наборе</h4><p>Достаточно первых букв, даже не подряд: <code>prf</code> → <code>printf</code>, <code>sq</code> → <code>sqrt</code>.</p><div class="sp-row"><span><kbd>→</kbd> / <kbd>Enter</kbd></span><span>принять подсказку</span></div><div class="sp-row"><span><kbd>Ctrl</kbd><kbd>Space</kbd></span><span>показать подсказки сейчас</span></div><div class="sp-row"><span>после <code>%</code></span><span>список спецификаторов: в scanf первым идёт нужный</span></div><div class="sp-row"><span>после <code>#include &lt;</code></span><span>список библиотек</span></div><div class="sp-row"><span>внутри <code>( )</code></span><span>какие аргументы ждёт функция</span></div><p>Скобки и кавычки закрываются сами. Отступ после <code>{</code> ставится сам.</p></section>
+        <section class="sp-sec"><h4>3. Компилятор исправляет сам</h4><p>Ошибка видна сразу, прямо в строке кода. Под редактором — что не так и кнопка с готовой правкой.</p><div class="sp-row"><span><kbd>Alt</kbd><kbd>Enter</kbd></span><span>исправить ошибку в строке: <code>;</code>, <code>&amp;</code>, <code>==</code>, <code>%lf</code>, <code>#include</code>…</span></div><div class="sp-row"><span><kbd>Shift</kbd><kbd>Alt</kbd><kbd>Enter</kbd></span><span>исправить всё, что можно</span></div><div class="sp-row"><span><kbd>F4</kbd></span><span>перейти к следующей ошибке</span></div><div class="sp-row"><span><kbd>Ctrl</kbd><kbd>Z</kbd></span><span>отменить любую правку</span></div><div class="sp-row"><span>Автозапуск</span><span>галочка под редактором: вывод программы виден, пока вы пишете</span></div></section>
+        <section class="sp-sec"><h4>4. Запуск и проверка</h4><div class="sp-row"><span><kbd>F5</kbd></span><span>запуск с анимацией, пауза, продолжить</span></div><div class="sp-row"><span><kbd>F8</kbd></span><span>сразу результат, без анимации</span></div><div class="sp-row"><span><kbd>F10</kbd> · <kbd>Shift</kbd><kbd>F10</kbd></span><span>шаг вперёд и шаг назад</span></div><div class="sp-row"><span><kbd>Shift</kbd><kbd>F5</kbd></span><span>остановить</span></div><div class="sp-row"><span>номер строки</span><span>нажмите — точка останова</span></div><p>Чтобы не вводить данные каждый раз, впишите их в «Входные данные заранее» или нажмите «Запомнить этот ввод» после запуска.</p></section>
+        <section class="sp-sec"><h4>5. Правка без мыши</h4><div class="sp-row"><span><kbd>Ctrl</kbd><kbd>D</kbd></span><span>дублировать строку</span></div><div class="sp-row"><span><kbd>Alt</kbd><kbd>↑</kbd> / <kbd>Alt</kbd><kbd>↓</kbd></span><span>переместить строку</span></div><div class="sp-row"><span><kbd>Ctrl</kbd><kbd>/</kbd></span><span>закомментировать строки</span></div><div class="sp-row"><span><kbd>Tab</kbd> / <kbd>Shift</kbd><kbd>Tab</kbd></span><span>сдвинуть выделенные строки</span></div><div class="sp-row"><span><kbd>Shift</kbd><kbd>Alt</kbd><kbd>F</kbd></span><span>выровнять весь код</span></div><div class="sp-row"><span><kbd>Ctrl</kbd><kbd>F</kbd> · <kbd>Ctrl</kbd><kbd>H</kbd></span><span>найти и заменить</span></div><div class="sp-row"><span><kbd>Ctrl</kbd><kbd>=</kbd> / <kbd>Ctrl</kbd><kbd>−</kbd></span><span>размер шрифта кода</span></div></section>
+        <section class="sp-sec"><h4>6. Логи вместо отладочных printf</h4><p>Не нужно вставлять <code>printf</code>, чтобы узнать значение переменной.</p><div class="sp-row"><span>Объяснения</span><span>вкладка внизу: что сделала каждая строка</span></div><div class="sp-row"><span>имя переменной</span><span>нажмите — вся история её значений</span></div><div class="sp-row"><span>Таблица</span><span>трассировка: значения на каждом шаге</span></div><div class="sp-row"><span>«к шагу»</span><span>вернуть программу в любой момент</span></div><div class="sp-row"><span><kbd>Ctrl</kbd><kbd>K</kbd></span><span>поиск по урокам, задачам, примерам и файлам</span></div></section>
+      </div>
     </div>
   </div>
   <div class="rotate-hint">Поверните телефон горизонтально — так поместятся и код, и память программы.</div>

@@ -70,6 +70,9 @@ export const HEADERS = {
       ['hypot', f(T.double, [T.double, T.double], 'Гипотенуза √(x²+y²).')],
       ['fmin', f(T.double, [T.double, T.double], 'Минимум.')],
       ['fmax', f(T.double, [T.double, T.double], 'Максимум.')],
+      ['isnan', f(T.int, [T.double], 'Проверка: значение — «не число» (NaN)?')],
+      ['isinf', f(T.int, [T.double], 'Проверка: значение — бесконечность?')],
+      ['isfinite', f(T.int, [T.double], 'Проверка: обычное конечное число?')],
     ])),
     consts: {
       M_PI: { type: T.double, value: Math.PI, desc: 'Число π.' },
@@ -183,6 +186,11 @@ export const HEADERS = {
       DBL_MAX: { type: T.double, value: Number.MAX_VALUE, desc: 'Максимум double.' },
       DBL_MIN: { type: T.double, value: 2.2250738585072014e-308, desc: 'Минимальный нормализованный double.' },
       FLT_MAX: { type: T.double, value: 3.4028234663852886e38, desc: 'Максимум float.' },
+      FLT_MIN: { type: T.double, value: 1.1754943508222875e-38, desc: 'Минимальный нормализованный float.' },
+      FLT_DIG: { type: T.int, value: 6, desc: 'Верных десятичных цифр у float.' },
+      DBL_DIG: { type: T.int, value: 15, desc: 'Верных десятичных цифр у double.' },
+      FLT_MANT_DIG: { type: T.int, value: 24, desc: 'Двоичных разрядов мантиссы float.' },
+      DBL_MANT_DIG: { type: T.int, value: 53, desc: 'Двоичных разрядов мантиссы double.' },
     },
   },
   'stdbool.h': {
