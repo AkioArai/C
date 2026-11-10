@@ -9,8 +9,6 @@ import { initPwa, install, canInstall, isStandalone, onInstallChange } from './u
 import { exportAll, importAll } from './ui/backup.js';
 import { Welcome } from './ui/welcome.js';
 import { showWhatsNew } from './ui/whatsnew.js';
-import { ProPage } from './pages/pro.js';
-import { refresh as refreshLicense, onLicense, license, paywallOn, activate, watch as watchLicense } from './license.js';
 import { confetti } from './ui/fx.js';
 import { Tour } from './ui/tour.js';
 import { Palette } from './ui/palette.js';
@@ -25,7 +23,7 @@ const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // ——— защита от «смеси версий»: страница и код должны быть из одного обновления ———
-export const APP_VERSION = '16';
+export const APP_VERSION = '17';
 {
   const pageVer = document.querySelector('meta[name="app-version"]')?.content;
   if (pageVer !== APP_VERSION && !sessionStorage.getItem('cu.verfix')) {
@@ -62,11 +60,10 @@ $('[data-explorer]').addEventListener('click', (e) => {
   if (currentView === 'lab' && lab) { e.preventDefault(); lab.toggleSide(); }
 });
 
-let lab, learn, practice, home, drill, pro, currentView = '';
+let lab, learn, practice, home, drill, currentView = '';
 
 function ensure(name) {
   if (name === 'lab' && !lab) lab = new Lab(document.getElementById('view-lab'), { openSettings: (cat) => settingsDlg.open(cat), onCrumb: () => crumb() });
-  if (name === 'pro' && !pro) pro = new ProPage(document.getElementById('view-pro'), { celebrate: () => confetti(innerWidth / 2, innerHeight / 3) });
   if (name === 'drill' && !drill) drill = new DrillPage(document.getElementById('view-drill'), { openInLab });
   if (name === 'learn' && !learn) learn = new LearnPage(document.getElementById('view-learn'), { openInLab });
   if (name === 'practice' && !practice) practice = new PracticePage(document.getElementById('view-practice'), { openInLab });
@@ -91,6 +88,7 @@ function homeAction(act, arg) {
   else if (act === 'file') openFile(arg);
   else if (act === 'example') { const ex = EXAMPLES.find(e => e.id === arg); if (ex) openExample(ex); }
   else if (act === 'tour') startTour();
+  else if (act === 'speed') { keys.hidden = false; }
   else if (act === 'drill') location.hash = '#/drill/' + (arg || 'quiz');
   else if (act === 'install') install().then(toast);
   else if (act === 'export') exportAll();
@@ -98,7 +96,7 @@ function homeAction(act, arg) {
 }
 
 // ——— «хлебные крошки» в заголовке: где я и что открыто ———
-const NAMES = { home: 'Главная', lab: 'Код', learn: 'Теория', practice: 'Задачи', drill: 'Тренажёр', pro: 'Подписка' };
+const NAMES = { home: 'Главная', lab: 'Код', learn: 'Теория', practice: 'Задачи', drill: 'Тренажёр' };
 function crumb() {
   const el = $('[data-crumb]');
   let tail = '';
@@ -118,15 +116,7 @@ function crumb() {
 
 function route() {
   const [, name = 'home', ...rest] = (location.hash || '#/home').split('/');
-  // ссылка активации: #/activate/CU1.… — ключ подставляется сам
-  if (name === 'activate' && rest.length) {
-    const key = decodeURIComponent(rest.join('/'));
-    history.replaceState(null, '', '#/pro');
-    activate(key).then((r) => { ensure('pro'); pro.msg = r; if (currentView === 'pro') pro.open(''); if (r.ok) confetti(innerWidth / 2, innerHeight / 3); });
-    route();
-    return;
-  }
-  const view = ['home', 'lab', 'learn', 'practice', 'drill', 'pro'].includes(name) ? name : 'home';
+  const view = ['home', 'lab', 'learn', 'practice', 'drill'].includes(name) ? name : 'home';
   try { ensure(view); } catch (err) { console.error(err); lastStack = String(err.stack || '').slice(0, 1500); showCrash(err.message); if (view === 'lab') lab = null; return; }
   currentView = view;
   document.body.dataset.view = view;
@@ -137,7 +127,6 @@ function route() {
   if (view === 'learn') learn.open(rest[0]);
   if (view === 'practice') practice.open(rest[0]);
   if (view === 'drill') drill.open(rest[0]);
-  if (view === 'pro') pro.open(rest[0] || '');
   if (view === 'lab') {
     lab.renderer.resize();
     if (rest[0] === 's' && rest[1]) { const enc = rest[1]; history.replaceState(null, '', '#/lab'); lab.openShared(enc); }
@@ -221,12 +210,15 @@ function commands() {
     C('Загрузить прогресс из файла', () => importAll(toast), '', 'import restore восстановить'),
     C('Показать знакомство заново', () => showWelcome(), '', 'welcome onboarding мастер'),
     C('Распечатать урок / сохранить в PDF', () => { location.hash.startsWith('#/learn') ? print() : toast('Откройте урок в разделе «Теория»'); }, '', 'print pdf печать'),
-    C('Подписка: ввести ключ', () => { location.hash = '#/pro'; }, '', 'pro ключ подписка лицензия оплата'),
     C('Что нового в обновлении', () => showWhatsNew(true, APP_VERSION), '', 'changelog обновление версия'),
     C('Сбросить кэш и перезагрузить', () => { Promise.resolve(self.caches?.keys()).then((ks) => Promise.all((ks || []).map((k) => caches.delete(k)))).finally(() => location.reload()); }, '', 'cache кэш reload обновить сломалось'),
     C('Очистить терминал', () => L().console.clear?.(), '', 'clear'),
     C('Открыть настройки', () => settingsDlg.open(), 'Ctrl+,', 'settings preferences'),
-    C('Горячие клавиши', () => { keys.hidden = false; }, '', 'keys shortcuts'),
+    C('Как писать код быстрее: шаблоны и клавиши', () => { keys.hidden = false; }, '', 'keys shortcuts горячие клавиши шаблоны сниппеты быстрее'),
+    C('Исправить ошибку в строке', () => L().fixCurrent(), 'Alt+Enter', 'fix исправить quick'),
+    C('Исправить все ошибки', () => L().fixEverything(), 'Shift+Alt+Enter', 'fix all исправить'),
+    C('Следующая ошибка', () => L().nextProblem(), 'F4', 'error next'),
+    C('Автозапуск: включить / выключить', () => { settings.set('run.auto', !settings.get('run.auto')); L().renderFixBar(lab.lastCompile); toast('Автозапуск ' + (settings.get('run.auto') ? 'включён' : 'выключен')); }, '', 'auto run live'),
     C('Пройти обучение заново', () => startTour(), '', 'tour помощь help'),
     C('Перейти: Главная', () => go('home'), '', 'home'),
     C('Перейти: Код', () => go('lab'), '', 'lab'),
@@ -261,25 +253,6 @@ $('[data-cmdk]').addEventListener('click', () => palette.open());
 
 window.addEventListener('hashchange', route);
 updateProgressPill();
-// ——— подписка: проверяем ключ до первого показа, затем каждые 10 минут и при возвращении во вкладку ———
-function renderPro() {
-  const s = license(), el = $('[data-prochip]');
-  el.hidden = !paywallOn();
-  el.className = 'tb-pro ' + (s.pro ? 'on' : 'off');
-  el.textContent = s.pro ? `PRO · ${s.daysLeft} дн.` : 'Подписка';
-  el.title = s.pro ? `Подписка активна до ${new Date(s.until).toLocaleDateString('ru')}` : 'Бесплатная версия — открыть PRO';
-  document.documentElement.classList.toggle('is-pro', !!s.pro);
-}
-let lastPro = null;
-onLicense((s) => {
-  renderPro();
-  if (lastPro !== null && lastPro !== s.pro && currentView && currentView !== 'pro') route(); // доступ изменился — перерисовать раздел
-  lastPro = s.pro;
-  if (s.status === 'active' && s.daysLeft <= 3) toast(`Подписка заканчивается через ${s.daysLeft} дн. — продлите у продавца`);
-});
-await refreshLicense(false).catch(() => {});
-refreshLicense(true).catch(() => {});
-watchLicense();
 route();
 
 // ——— первое знакомство ———
@@ -313,4 +286,5 @@ const keys = $('[data-keysdlg]');
 keys.addEventListener('click', (e) => { if (e.target === keys || e.target.closest('[data-close]')) keys.hidden = true; });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') keys.hidden = true; });
 $('[data-tour]').addEventListener('click', () => startTour());
+$('[data-speed]').addEventListener('click', () => { keys.hidden = false; });
 window.__app = { get lab() { return lab; }, palette };

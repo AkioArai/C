@@ -4,8 +4,6 @@ import { TASKS, TASK_TOPICS, LEVELS } from '../content/tasks.js';
 import { EXAMPLES } from '../content/examples.js';
 import { store } from '../store.js';
 import { stats as xpStats, ACHIEVEMENTS } from '../ui/xp.js';
-import { license, paywallOn } from '../license.js';
-import { CONFIG } from '../config.js';
 
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const I = (d) => `<svg class="ic" viewBox="0 0 24 24">${d}</svg>`;
@@ -14,17 +12,11 @@ const plural = (n, a, b, c) => (n % 10 === 1 && n % 100 !== 11 ? a : n % 10 >= 2
 
 /** Живая мини-сцена: строка кода → карточка в памяти → объяснение. Крутится по кругу. */
 export function demoScene(kind = 'hero') {
-  const steps = kind === 'pro'
-    ? [
-      ['for (i = 1; i <= 3; i++)', 'Проверяем условие: i = 3, 3 ≤ 3 — правда, поэтому заходим в тело цикла ещё раз.', 'i', '3'],
-      ['    s = s + i;', 'Берём s (было 3) и i (сейчас 3), складываем: 3 + 3 = 6 и записываем результат обратно в s.', 's', '6'],
-      ['printf("%d\\n", s);', 'Вместо %d подставляется значение s — 6. На экран выводится «6», а \\n переводит строку.', '▸', '6'],
-    ]
-    : [
-      ['int a = 5;', 'В памяти появилась ячейка a на 4 байта, в неё записано 5.', 'a', '5'],
-      ['int b = a * 2;', 'Берём a (5), умножаем на 2 — получаем 10 и кладём в новую ячейку b.', 'b', '10'],
-      ['printf("%d", b);', 'Вместо %d подставляется значение b. На экране появляется 10.', '▸', '10'],
-    ];
+  const steps = [
+    ['int a = 5;', 'В памяти появилась ячейка a на 4 байта, в неё записано 5.', 'a', '5'],
+    ['int b = a * 2;', 'Берём a (5), умножаем на 2 — получаем 10 и кладём в новую ячейку b.', 'b', '10'],
+    ['printf("%d", b);', 'Вместо %d подставляется значение b. На экране появляется 10.', '▸', '10'],
+  ];
   return `<div class="demo demo-${kind}" aria-hidden="true">
     <div class="demo-code">${steps.map(([c], i) => `<div class="dl dl${i + 1}"><span class="dn">${i + 1}</span><code>${esc(c)}</code></div>`).join('')}<i class="demo-hl"></i></div>
     <div class="demo-mem">${steps.map(([, , n, v], i) => `<div class="dm dm${i + 1}${n === '▸' ? ' scr' : ''}"><small>${n === '▸' ? 'экран' : 'int ' + esc(n)}</small><b>${esc(v)}</b></div>`).join('')}</div>
@@ -68,20 +60,16 @@ export class HomePage {
     const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
     const gotN = ACHIEVEMENTS.filter(a => xp.got[a.id]).length;
     const started = nRead + nSolved > 0;
-    const lic = license();
-    const showPro = paywallOn() && !lic.pro;
-    const featured = ['sum2', 'nested-table', 'ptr-swap', 'list'].map(id => EXAMPLES.find(e => e.id === id)).filter(Boolean);
-    const minPrice = CONFIG.prices?.[0]?.price?.replace(/\s*\/.*$/, '') || '';
+    const featured = ['sum2', 'nested-table', 'fp-store', 'num-bisect'].map(id => EXAMPLES.find(e => e.id === id)).filter(Boolean);
 
-    const ring = (p, n, all) => `<div class="hx-ring" style="--p:${p}"><b data-count="${n}">${n}</b><small>из ${all}</small></div>`;
+    const ring = (p, n, all) => `<div class="hx-prog"><div class="hx-pn"><b data-count="${n}">${n}</b><small>из ${all}</small></div><div class="bar"><i style="width:${p}%"></i></div></div>`;
 
     this.root.innerHTML = `<div class="home">
-      <div class="hm-sky" aria-hidden="true"><i class="a1"></i><i class="a2"></i><i class="a3"></i><div class="stars"></div></div>
       <div class="home-in stagger">
       <section class="hx-hero">
         <div class="hx-copy">
-          <div class="hx-hi"><span class="pulse-dot"></span>${hello}${xp.streak ? ` · ${xp.streak} ${plural(xp.streak, 'день', 'дня', 'дней')} подряд 🔥` : ''}</div>
-          <h1>Смотрите, как <span class="grad-t">думает</span> программа</h1>
+          <div class="hx-hi">${hello}${xp.streak ? ` · ${xp.streak} ${plural(xp.streak, 'день', 'дня', 'дней')} подряд` : ''}</div>
+          <h1>Смотрите, как <em>думает</em> программа</h1>
           <p>Пишете на C — и видите память, каждый шаг и объяснение каждой строки. Сначала понимаете, потом пишете сами.</p>
           <div class="hx-cta">
             <button class="btn primary big" data-home="learn:${next.id}">${started ? 'Продолжить обучение' : 'Начать с первого урока'}${ARROW}</button>
@@ -108,13 +96,13 @@ export class HomePage {
         <button class="hx-step" data-home="lab">
           <span class="hx-num">3</span>
           <div class="hx-st"><small>Писать своё</small><h3>Редактор</h3><p>${files.length ? `${files.length} ${plural(files.length, 'файл', 'файла', 'файлов')} · последний ${esc(files[0].name)}` : 'Запустите код и посмотрите на память'}</p></div>
-          <div class="hx-ring go">${I('<path d="M7 5l12 7-12 7z"/>')}</div>
+          <div class="hx-go">${I('<path d="M7 5l12 7-12 7z"/>')}</div>
         </button>
       </section>
 
       <section class="hx-row">
         <button class="hx-card" data-home="task:${daily.id}">
-          <div class="hx-k">${I('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/>')}Задача дня</div>
+          <div class="hx-k">${I('<path d="M4 4h16v16H4z"/><path d="M9 9h6v6H9z"/>')}Задача дня</div>
           <h3>${esc(daily.title)}</h3>
           <p><span class="lvl lvl-${daily.level}">${LEVELS[daily.level].name}</span> · ${esc(TASK_TOPICS[daily.topic] || '')}</p>
         </button>
@@ -131,28 +119,17 @@ export class HomePage {
         </button>
       </section>
 
-      ${showPro ? `<section class="hx-pro">
-        <div class="hx-pro-copy">
-          <div class="pro-kick"><span>PRO</span>Объяснение каждой строки</div>
-          <h2>Как личный преподаватель, который никогда не устаёт</h2>
-          <p>Нажали «Запуск» — и рядом с каждой выполненной строкой появляется понятное объяснение: что она делает, откуда взялось значение и почему получилось именно так.</p>
-          <ul class="pro-ticks"><li>Каждый шаг — простыми словами, без терминов «на вырост»</li><li>Полная хроника выполнения: вернитесь к любой строке</li><li>Плюс все темы, 60+ задач и тренажёры</li></ul>
-          <div class="hx-cta"><a class="btn primary big" href="#/pro/buy">Открыть PRO${minPrice ? ` · от ${esc(minPrice)}` : ''}${ARROW}</a><a class="btn ghost big" href="#/pro">У меня есть ключ</a></div>
-        </div>
-        ${demoScene('pro')}
-      </section>` : ''}
-
       <section class="hx-sec">
         <h2>Запустите пример — и посмотрите внутрь</h2>
         <div class="hx-ex">${featured.map((ex, i) => `<button class="hx-exi" data-home="example:${ex.id}" style="--i:${i}"><small>${esc(ex.group)}</small><b>${esc(ex.title)}</b><code>${esc(ex.code.split('\n').find(l => /printf|scanf|for|while|->/.test(l))?.trim() || '')}</code><span class="hx-play">${I('<path d="M7 5l12 7-12 7z"/>')}</span></button>`).join('')}</div>
       </section>
 
       <footer class="hx-foot">
-        <button data-home="tour">${I('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><path d="M12 17.5v.01"/>')}Как пользоваться</button>
+        <button data-home="tour">${I('<path d="M4 4h16v16H4z"/><path d="M9.5 9.5V8h5v3.5H12V14"/><path d="M12 17v.01"/>')}Как пользоваться</button>
         ${standalone ? '' : `<button data-home="install">${I('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>')}Установить приложение</button>`}
         <button data-home="export">${I('<path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 21h14"/>')}Сохранить прогресс в файл</button>
         <button data-home="import">${I('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>')}Загрузить прогресс</button>
-        <a href="#/pro/terms">Соглашение</a><a href="#/pro/privacy">Конфиденциальность</a>
+        <button data-home="speed">${I('<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>')}Как писать код быстрее</button>
       </footer>
     </div></div>`;
     countUp(this.root);

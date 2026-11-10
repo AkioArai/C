@@ -3,36 +3,36 @@ import { C } from '../universe/renderer.js';
 import { TYPE_COLORS } from '../universe/scene.js';
 
 export const THEMES = {
-  cosmos: {
-    name: 'Космос', dark: true, accent: '#8f7cff', accent2: '#35d6e8',
+  dark: {
+    name: 'Тёмная', dark: true, accent: '#4f8cff', accent2: '#ffb224', ink: '#06101f',
     css: {
-      '--bg': '#0b0c18', '--bg2': '#0e1020', '--panel': '#121427', '--panel2': '#191c33', '--panel3': '#222641', '--chrome': '#090a14',
-      '--line': '#1f2340', '--line2': '#2d3256', '--text': '#eef0ff', '--text2': '#bcc1e0', '--muted': '#8189ad', '--faint': '#4f5579',
-      '--yellow': '#ffd36e', '--green': '#4fe3a1', '--red': '#ff6b88', '--blue': '#6aa8ff', '--violet': '#b69cff', '--orange': '#ffa463',
-      '--shadow': 'rgba(3,4,14,.6)', '--hover': 'rgba(160,170,255,.05)', '--code-bg': '#0d0f1e',
-      '--syn-kw': '#b69cff', '--syn-type': '#5fd4ff', '--syn-str': '#ffd36e', '--syn-fmt': '#ffe7a3', '--syn-chr': '#ffa463', '--syn-com': '#5c6390',
-      '--syn-pre': '#ff8fc8', '--syn-num': '#ffa463', '--syn-fn': '#e8eaff', '--syn-const': '#ff9fd8', '--syn-op': '#8f96bd', '--syn-id': '#dfe2ff',
+      '--bg': '#0d0e10', '--bg2': '#111316', '--panel': '#15171b', '--panel2': '#1b1e23', '--panel3': '#23272e', '--chrome': '#0a0b0d',
+      '--line': '#24272d', '--line2': '#353a43', '--text': '#eceef1', '--text2': '#b9bec7', '--muted': '#7f8792', '--faint': '#4c525c',
+      '--yellow': '#f5c542', '--green': '#3fcf8e', '--red': '#ff5d5d', '--blue': '#4f8cff', '--violet': '#b08cff', '--orange': '#ff9447',
+      '--shadow': 'rgba(0,0,0,.55)', '--hover': 'rgba(255,255,255,.04)', '--code-bg': '#0f1013',
+      '--syn-kw': '#7aa8ff', '--syn-type': '#4fd1c5', '--syn-str': '#e6c15a', '--syn-fmt': '#f5d98a', '--syn-chr': '#ff9447', '--syn-com': '#5f6672',
+      '--syn-pre': '#d58cff', '--syn-num': '#ff9447', '--syn-fn': '#eceef1', '--syn-const': '#d58cff', '--syn-op': '#9aa1ad', '--syn-id': '#dfe2e7',
     },
-    canvas: { bg: '#0b0c18', panel: '#0f1122', card: '#14162b', line: '#22264a', line2: '#2f3460', line3: '#40467a', faint: '#4f5579', muted: '#8189ad', text: '#eef0ff', text2: '#bcc1e0', yellow: '#ffd36e', green: '#4fe3a1', red: '#ff6b88', amber: '#ffa463', screen: '#07080f', code: '#0e1020', cell: '#1a1d36', zebra: 'rgba(255,255,255,0.02)', ptr: '#7fe0ff', star: '200,205,255' },
-    types: { int: '#7fb2ff', long: '#4fe3a1', char: '#ffa463', dbl: '#ffd36e', bool: '#ff9fd8' },
+    canvas: { bg: '#0d0e10', panel: '#121418', card: '#181b20', line: '#282c33', line2: '#3a404a', line3: '#4d5460', faint: '#4c525c', muted: '#7f8792', text: '#eceef1', text2: '#b9bec7', yellow: '#f5c542', green: '#3fcf8e', red: '#ff5d5d', amber: '#ff9447', blue: '#4f8cff', violet: '#b08cff', screen: '#07080a', code: '#0f1013', cell: '#20242a', zebra: 'rgba(255,255,255,0.025)', ptr: '#e879c6', star: '160,170,185' },
+    types: { int: '#6ea8ff', long: '#4fd1c5', char: '#ff9447', dbl: '#f5c542', bool: '#d58cff' },
   },
-  day: {
-    name: 'День', dark: false, accent: '#6a4fe0', accent2: '#0aa5b8',
+  light: {
+    name: 'Светлая', dark: false, accent: '#1d5fe0', accent2: '#b45f00', ink: '#ffffff',
     css: {
-      '--bg': '#f5f5fb', '--bg2': '#efeff8', '--panel': '#ffffff', '--panel2': '#eef0f8', '--panel3': '#e4e7f3', '--chrome': '#ffffff',
-      '--line': '#e3e5f1', '--line2': '#cdd1e6', '--text': '#151833', '--text2': '#3d4266', '--muted': '#666c92', '--faint': '#9aa0c0',
-      '--yellow': '#946b00', '--green': '#0f8a5f', '--red': '#d12f55', '--blue': '#2b62d9', '--violet': '#6a4fe0', '--orange': '#c25a12',
-      '--shadow': 'rgba(30,35,80,.14)', '--hover': 'rgba(20,25,80,.04)', '--code-bg': '#fbfbfe',
-      '--syn-kw': '#6a4fe0', '--syn-type': '#0b7fa8', '--syn-str': '#9a6a00', '--syn-fmt': '#b07a00', '--syn-chr': '#c25a12', '--syn-com': '#9aa0c0',
-      '--syn-pre': '#c02a86', '--syn-num': '#c25a12', '--syn-fn': '#151833', '--syn-const': '#b0359a', '--syn-op': '#666c92', '--syn-id': '#262a4d',
+      '--bg': '#f4f5f7', '--bg2': '#eceef1', '--panel': '#ffffff', '--panel2': '#f0f1f4', '--panel3': '#e4e6ea', '--chrome': '#ffffff',
+      '--line': '#dcdfe4', '--line2': '#c3c8d0', '--text': '#14171c', '--text2': '#3c424c', '--muted': '#646b77', '--faint': '#9aa1ac',
+      '--yellow': '#8a6400', '--green': '#0f7f4f', '--red': '#c8322f', '--blue': '#1d5fe0', '--violet': '#7446c9', '--orange': '#b4540a',
+      '--shadow': 'rgba(20,25,35,.16)', '--hover': 'rgba(0,0,0,.04)', '--code-bg': '#fbfbfc',
+      '--syn-kw': '#1d5fe0', '--syn-type': '#0b7f86', '--syn-str': '#8a6400', '--syn-fmt': '#a07400', '--syn-chr': '#b4540a', '--syn-com': '#9aa1ac',
+      '--syn-pre': '#8a3fc9', '--syn-num': '#b4540a', '--syn-fn': '#14171c', '--syn-const': '#8a3fc9', '--syn-op': '#646b77', '--syn-id': '#262b33',
     },
-    canvas: { bg: '#f3f3fa', panel: '#fafaff', card: '#ffffff', line: '#e3e5f1', line2: '#cdd1e6', line3: '#b4b9d6', faint: '#9aa0c0', muted: '#666c92', text: '#151833', text2: '#3d4266', yellow: '#946b00', green: '#0f8a5f', red: '#d12f55', amber: '#c25a12', screen: '#14162b', code: '#f7f7fc', cell: '#eef0f8', zebra: 'rgba(0,0,30,0.025)', ptr: '#2b62d9', star: '120,125,170' },
-    types: { int: '#2b62d9', long: '#0f8a5f', char: '#c25a12', dbl: '#946b00', bool: '#b0359a' },
-    screenText: '#eef0ff',
+    canvas: { bg: '#f4f5f7', panel: '#fafbfc', card: '#ffffff', line: '#dcdfe4', line2: '#c3c8d0', line3: '#a9afb9', faint: '#9aa1ac', muted: '#646b77', text: '#14171c', text2: '#3c424c', yellow: '#8a6400', green: '#0f7f4f', red: '#c8322f', amber: '#b4540a', blue: '#1d5fe0', violet: '#7446c9', screen: '#15171b', code: '#f6f7f9', cell: '#eef0f3', zebra: 'rgba(0,0,0,0.03)', ptr: '#b0308a', star: '120,128,140' },
+    types: { int: '#1d5fe0', long: '#0b7f86', char: '#b4540a', dbl: '#8a6400', bool: '#8a3fc9' },
+    screenText: '#eceef1',
   },
 };
-/** Старые темы прошлых версий → новые. */
-export const themeId = (n) => (THEMES[n] ? n : /light|sepia/.test(n || '') ? 'day' : 'cosmos');
+/** Темы прошлых версий → новые. */
+export const themeId = (n) => (THEMES[n] ? n : /light|sepia|day/.test(n || '') ? 'light' : 'dark');
 
 function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
 
@@ -48,7 +48,7 @@ export function applyTheme(name) {
   root.style.setProperty('--accent-rgb', `${r}, ${g}, ${b}`);
   root.style.setProperty('--accent2', t.accent2);
   root.style.setProperty('--accent2-rgb', `${r2}, ${g2}, ${b2}`);
-  root.style.setProperty('--accent-ink', '#ffffff');
+  root.style.setProperty('--accent-ink', t.ink);
   root.dataset.theme = themeId(name);
   root.style.colorScheme = t.dark ? 'dark' : 'light';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t.css['--chrome']);

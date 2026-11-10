@@ -357,6 +357,12 @@ export function analyze(prog, pp, src) {
         if (['<', '>', '<=', '>='].includes(e.op) && e.left.type === 'Binary' && ['<', '>', '<=', '>='].includes(e.left.op) && !e.left.paren)
           add('warning', `сравнение вида «a ${e.left.op} b ${e.op} c» работает не так, как в математике`, e,
             `В C сначала вычисляется (a ${e.left.op} b) → 0 или 1, и уже это число сравнивается с c. Правильно: a ${e.left.op} b && b ${e.op} c`);
+        // вещественные числа на точное равенство: почти всегда ошибка (кроме сравнения с целой константой вроде 0)
+        if ((e.op === '==' || e.op === '!=') && a && b && (isFloat(a) || isFloat(b))) {
+          const whole = (n) => n.type === 'Num' && Number.isInteger(Number(n.raw));
+          if (!whole(e.left) && !whole(e.right))
+            add('note', `вещественные числа сравниваются через ${e.op}`, e, 'Числа с плавающей точкой хранятся приближённо, и точного равенства может не получиться. Сравнивайте разность с малой величиной: fabs(x - y) < eps (нужен <math.h>).', 'float-eq');
+        }
         if ((e.op === '&' || e.op === '|') && e.left.type === 'Binary' && ['<', '>', '<=', '>=', '==', '!='].includes(e.left.op))
           add('note', `«${e.op}» — побитовая операция`, e, `Для логического «${e.op === '&' ? 'И' : 'ИЛИ'}» используйте ${e.op}${e.op}.`);
         if (e.op === '^' && isInt(a) && e.right.type === 'Num' && e.left.type !== 'Binary')
@@ -390,6 +396,8 @@ export function analyze(prog, pp, src) {
       case 'CompoundLit': walkExpr(e.init, scope); return;
       case 'SizeofExpr': inSizeof++; try { walkExpr(e.arg, scope, { lvalue: true }); } finally { inSizeof--; } return;
       case 'AddrOf': walkExpr(e.arg, scope, { lvalue: true });
+        // адрес взят — значение может появиться через указатель (scanf, memcpy, своя функция)
+        { let t = e.arg; while (t && (t.type === 'Index' || t.type === 'Member')) t = t.obj; const sy = t && t.type === 'Ident' ? scope.lookup(t.name) : null; if (sy) sy.assigned = true; }
         if (!['Ident', 'Index', 'Deref', 'Member', 'CompoundLit'].includes(e.arg.type)) add('error', 'операция & применима только к переменной', e, 'Адрес есть только у переменной: &x.');
         return;
       case 'Deref': {

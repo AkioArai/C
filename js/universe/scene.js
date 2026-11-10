@@ -13,7 +13,7 @@ export const TYPE_COLORS = {
 export const colorForType = (t) => {
   if (!t) return '#b3b8a9';
   if (t.includes('(*)')) return '#b3b8a9';
-  if (t.includes('*')) return '#7fe0ff';
+  if (t.includes('*')) return '#e879c6';
   if (t.startsWith('struct') || t.startsWith('union')) return '#d6c27a';
   const base = t.replace(/\[.*$/, '').replace(/^enum.*/, 'enum').trim();
   return TYPE_COLORS[base] || '#b3b8a9';
@@ -155,7 +155,7 @@ export class Scene {
         this.frameStack.push(fr.id);
         if (caller && fr.func !== 'main') {
           const label = `${fr.func}(${(ev.args || []).map(x => shortVal(x.display)).join(', ')})`;
-          this.anim({ type: 'beam', from: { frameLine: caller }, to: { frame: fr.id }, color: '#b69cff', dur, label, delay: 60 });
+          this.anim({ type: 'beam', from: { frameLine: caller }, to: { frame: fr.id }, color: '#b08cff', dur, label, delay: 60 });
         }
         this.focus = fr.id;
         break;
@@ -171,7 +171,7 @@ export class Scene {
             fr.closeAt = now;
             for (const id of fr.vars) { const o = this.objects.get(id); if (o) o.dying = now + dur; }
             const parent = this.current;
-            if (parent && ev.ret != null) this.anim({ type: 'beam', from: { frame: fr.id }, to: { frameLine: parent }, color: '#4fe3a1', dur, label: ev.ret });
+            if (parent && ev.ret != null) this.anim({ type: 'beam', from: { frame: fr.id }, to: { frameLine: parent }, color: '#3fcf8e', dur, label: ev.ret });
           }
         }
         this.focus = this.current;
@@ -237,6 +237,7 @@ export class Scene {
           }
           if (wrap) { o.ui.ovf = { ...wrap, at: now, cell: ev.cell }; this.pendingOvf = null; }
         }
+        if (o.shape === 'scalar' && ev.num !== undefined && o.cells[0]) { o.cells[0].num = ev.num; o.cells[0].fbits = ev.fbits; }
         if (o.shape === 'scalar') {
           // «одометр»: старое значение уезжает вверх, новое въезжает, рядом — на сколько изменилось
           const after = o.cells[0]?.display;
@@ -254,7 +255,7 @@ export class Scene {
         if (o.ui.history.length > 80) o.ui.history.splice(0, 20);
         this.noteLoopWrite(o, ev);
         const fromIn = ev.via === 'scanf' || ev.via === 'fgets' || ev.via === 'gets' || ev.via === 'fscanf' || ev.via === 'sscanf';
-        if (fromIn) this.anim({ type: 'beam', from: { input: true }, to: { obj: o.id, cell: ev.cell }, color: '#ffd36e', dur, label: ev.inputText ?? ev.display });
+        if (fromIn) this.anim({ type: 'beam', from: { input: true }, to: { obj: o.id, cell: ev.cell }, color: '#f5c542', dur, label: ev.inputText ?? ev.display });
         else {
           const srcs = [...new Map((ev.sources || []).filter(s => s.objId !== o.id && this.objects.has(s.objId)).map(s => [s.objId, s])).values()];
           for (const s of srcs) { const so = this.objects.get(s.objId); if (so) so.ui.readAt = now; }
@@ -275,7 +276,7 @@ export class Scene {
           this.printText(ev.text, true, dur);
           const srcs = [...new Map((ev.sources || []).filter(s => this.objects.has(s.objId)).map(s => [s.objId, s])).values()];
           for (const s of srcs) { const so = this.objects.get(s.objId); if (so) so.ui.readAt = now; }
-          for (const s of srcs.slice(0, 4)) this.anim({ type: 'beam', from: { obj: s.objId }, to: { screen: true }, color: '#4fe3a1', dur, label: s.display != null ? String(s.display) : undefined });
+          for (const s of srcs.slice(0, 4)) this.anim({ type: 'beam', from: { obj: s.objId }, to: { screen: true }, color: '#3fcf8e', dur, label: s.display != null ? String(s.display) : undefined });
         } else if (ev.stream === 'stderr') {
           this.stderrLines.push(ev.text);
         } else if (ev.stream === 'file') {
@@ -388,7 +389,7 @@ export class Scene {
       for (const id of fr.vars) { const x = this.objects.get(id); if (x && x.name === o.name && !x.dying && x.line === o.line) x.dying = this.now; }
       fr.vars.push(o.id);
     }
-    if (ev.via === 'decl' || ev.via === 'global') this.anim({ type: 'beam', from: { core: true }, to: { obj: o.id }, color: '#8f7cff', dur: dur * 0.8, detect: true });
+    if (ev.via === 'decl' || ev.via === 'global') this.anim({ type: 'beam', from: { core: true }, to: { obj: o.id }, color: '#4f8cff', dur: dur * 0.8, detect: true });
   }
 
   loopOf(fr, nodeId, ev) {

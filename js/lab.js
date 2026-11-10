@@ -1,5 +1,6 @@
 // Лаборатория: связывает редактор, компилятор, интерпретатор, вселенную и консоль.
 import { compile, Interpreter, RuntimeError, HEADERS, runToEnd } from './compiler/index.js';
+import { fixFor, applyFix, fixAll } from './compiler/quickfix.js';
 import { Editor } from './ui/editor.js';
 import { ConsolePanel } from './ui/console.js';
 import { Scene } from './universe/scene.js';
@@ -14,7 +15,6 @@ import { Workspace } from './ui/files.js';
 import { award } from './ui/xp.js';
 import { formatC } from './ui/format.js';
 import { snapshot, HistoryDialog } from './ui/history.js';
-import { featureLocked, explainLocked, freeExplainSteps, onLicense, license, paywallOn } from './license.js';
 
 const PLAY = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>';
 const SPEEDS = [2200, 1500, 1050, 750, 520, 340, 200, 110, 50, 16];
@@ -32,7 +32,7 @@ export class Lab {
 
     this.editor = new Editor(this.el('[data-editor]'), {
       onChange: () => this.onCodeChange(),
-      onCursor: (ln, col) => this.status('pos', `Стр ${ln}, стлб ${col}`),
+      onCursor: (ln) => { if (ln !== this.cursorLine) { this.cursorLine = ln; if (this.lastCompile?.diagnostics.length && !this.busy()) this.renderFixBar(this.lastCompile); } },
       onRun: () => this.run('anim'),
       onBreakpoints: (bp) => { this.breakpoints = bp; },
     });
@@ -43,6 +43,9 @@ export class Lab {
       onInput: (v) => this.submitInput(v),
       onEOF: () => this.submitEOF(),
       onJump: (line, col) => this.editor.flash(line, col),
+      onStep: (n) => { if (this.state === 'running') this.pause(); this.gotoStep(n); },
+      toast: (t) => this.ws.toast(t),
+      onFix: (d) => { if (d) { this.cursorLine = d.line; this.fixCurrent(); } },
       onEntity: (id) => this.focusEntity(id),
       onSettings: (cat) => this.opts.openSettings?.(cat),
       onHide: () => this.togglePane('panel', false),
@@ -92,6 +95,8 @@ export class Lab {
     this.stdinEl.addEventListener('input', () => this.ws.edited());
     this.el('[data-tsets]')?.addEventListener('click', (e) => this.onTestSets(e));
     this.el('[data-console]').addEventListener('click', (e) => {
+      if (e.target.closest('[data-fixall]')) { if (this.fixEverything()) setTimeout(() => this.run('anim'), 80); return; }
+      if (e.target.closest('[data-keepinput]')) { this.stdinEl.value = this.lastInput || ''; this.el('.stdin-box').open = true; this.ws.edited(); this.ws.toast('Ввод запомнен: следующие запуски пройдут без вопросов'); e.target.closest('[data-keepinput]').outerHTML = '<span class="ts-ok">✓ ввод запомнен</span>'; return; }
       const b = e.target.closest('[data-tsexp]');
       if (!b || !this.lastRun) return;
       const i = +b.dataset.tsexp, l = this.testSets();
@@ -116,18 +121,28 @@ export class Lab {
       if (b.dataset.ed === 'share') this.share();
       if (b.dataset.ed === 'history') this.showHistory();
     });
+    this.fixbar = this.el('[data-fixbar]');
+    this.fixbar?.addEventListener('click', (e) => {
+      if (e.target.closest('[data-fxfix]')) this.fixCurrent();
+      else if (e.target.closest('[data-fxall]')) this.fixEverything();
+      else if (e.target.closest('[data-fxnext]')) this.nextProblem();
+      else if (e.target.closest('[data-fxjump]')) { const d = this.barDiag; if (d) this.editor.flash(d.line, d.col); }
+      else if (e.target.closest('[data-fxtab]')) { this.togglePane('panel', true); this.console.show('prob'); }
+    });
+    this.fixbar?.addEventListener('change', (e) => {
+      if (e.target.matches('[data-fxauto]')) { settings.set('run.auto', e.target.checked); if (e.target.checked) this.autoRun(this.lastCompile, true); else this.setAutoOut(''); }
+    });
     document.addEventListener('keydown', (e) => {
       if (this.root.hidden) return;
       if (e.shiftKey && e.altKey && e.code === 'KeyF') { e.preventDefault(); this.formatCode(); }
+      else if (e.altKey && !e.ctrlKey && e.key === 'Enter') { e.preventDefault(); if (e.shiftKey) this.fixEverything(); else this.fixCurrent(); }
+      else if (e.key === 'F4' && !e.ctrlKey && !e.altKey) { e.preventDefault(); this.nextProblem(e.shiftKey ? -1 : 1); }
       // Ctrl+F / Ctrl+H — поиск по коду, даже если фокус не в редакторе
       else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && /^[fh]$/i.test(e.key) && !/input|textarea/i.test(document.activeElement?.tagName || '')) { e.preventDefault(); this.editor.find.open(/h/i.test(e.key)); }
     });
     this.applyLayout();
     this.el('.p-side').addEventListener('click', () => this.renderFileStatus());
     settings.on((k) => this.onSetting(k));
-    const syncPro = () => { const t = this.el('[data-protag]'); if (t) t.hidden = !(paywallOn() && !license().pro); };
-    syncPro();
-    onLicense(syncPro);
     this.setState('idle');
     this.onCodeChange(true, true);
     this.renderFileStatus();
@@ -152,7 +167,6 @@ export class Lab {
   }
   /** Окно истории версий текущего файла. */
   showHistory() {
-    if (featureLocked()) { this.ws.toast('История версий — в подписке PRO'); location.hash = '#/pro'; return; }
     const f = this.ws.current;
     if (!f || f.preview) { this.ws.toast('У примеров нет истории — начните его менять, и он станет вашим файлом'); return; }
     this.ws.capture();
@@ -456,14 +470,116 @@ export class Lab {
     clearTimeout(this._chk);
     const doCheck = () => {
       if (this.state === 'running' || this.state === 'input' || this.state === 'paused') return;
-      const c = compile(this.editor.value);
+      const c = this.annotate(compile(this.editor.value));
       this.lastCompile = c;
       this.editor.setDiagnostics(c.diagnostics);
       this.console.setProblems(c.diagnostics, c.lines);
-      const ne = c.diagnostics.filter(d => d.severity === 'error').length, nw = c.diagnostics.filter(d => d.severity === 'warning').length;
-      this.status('problems', `<span class="${ne ? 'sb-err' : ''}">⊗ ${ne}</span> <span class="${nw ? 'sb-warn' : ''}">⚠ ${nw}</span>`);
+      this.renderFixBar(c);
+      if (!noEdit) this.autoRun(c);
     };
     if (immediate) doCheck(); else this._chk = setTimeout(doCheck, 450);
+  }
+
+  // ——— удобный компилятор: готовые исправления, переход по ошибкам, автозапуск ———
+  /** К каждому сообщению компилятора прикладываем готовую правку, если она есть. */
+  annotate(c) {
+    for (const d of c.diagnostics) { try { d.fix = fixFor(c.source, d); } catch { d.fix = null; } }
+    return c;
+  }
+  /** Главное сообщение для полосы под редактором: сначала ошибки, потом предупреждения. */
+  mainDiag(c, nearLine) {
+    const ds = c?.diagnostics || [];
+    const pick = (sev) => {
+      const l = ds.filter(d => d.severity === sev);
+      return l.find(d => d.line === nearLine) || l[0];
+    };
+    return pick('error') || pick('warning') || null;
+  }
+  renderFixBar(c) {
+    const bar = this.fixbar;
+    if (!bar || !c) return;
+    const ds = c.diagnostics, ne = ds.filter(d => d.severity === 'error').length, nw = ds.filter(d => d.severity === 'warning').length;
+    const d = this.barDiag = this.mainDiag(c, this.cursorLine);
+    const nfix = ds.filter(x => x.fix && (x.severity === 'error' || x.severity === 'warning')).length;
+    const auto = `<label class="fx-auto" title="Пока вы пишете, программа сама выполняется, а вывод показывается здесь. Ввод берётся из поля «Входные данные заранее» или из прошлого запуска."><input type="checkbox" data-fxauto ${settings.get('run.auto') ? 'checked' : ''}><span>Автозапуск</span></label>`;
+    bar.className = 'fixbar ' + (ne ? 'err' : nw ? 'warn' : 'ok');
+    if (!d) {
+      bar.innerHTML = `<span class="fx-st">✓ Ошибок нет</span><span class="fx-out" data-fxout>${this._autoOut || '<span class="muted">F5 — запуск · F10 — по шагам · F8 — сразу результат</span>'}</span>${auto}`;
+      return;
+    }
+    const head = ne ? `✗ ${ne} ${plural(ne, 'ошибка', 'ошибки', 'ошибок')}` : `⚠ ${nw} ${plural(nw, 'предупреждение', 'предупреждения', 'предупреждений')}`;
+    bar.innerHTML = `<button class="fx-st" data-fxtab title="Открыть список во вкладке «Ошибки»">${head}</button>
+      <button class="fx-pos" data-fxjump title="Перейти к строке">строка ${d.line}</button>
+      <span class="fx-m" title="${esc(d.message)}${d.hint ? '\n\n' + esc(d.hint) : ''}">${esc(d.message)}</span>
+      ${d.fix ? `<button class="fx-btn" data-fxfix>Исправить: ${esc(d.fix.title)}<kbd>Alt ↵</kbd></button>` : ''}
+      ${nfix > 1 ? `<button class="fx-btn ghost" data-fxall title="Применить все готовые исправления (Shift+Alt+Enter)">Исправить всё · ${nfix}</button>` : ''}
+      ${ne + nw > 1 ? '<button class="fx-btn ghost" data-fxnext title="Следующая (F4), предыдущая — Shift+F4">Дальше<kbd>F4</kbd></button>' : ''}${auto}`;
+  }
+  /** Заменить весь текст одной правкой — отменяется через Ctrl+Z. */
+  replaceCode(src, line, col) {
+    const ta = this.editor.ta, top = this.editor.scroll.scrollTop;
+    ta.focus(); ta.select();
+    this.editor.insert(src);
+    this.editor.scroll.scrollTop = top;
+    if (line) this.editor.flash(line, col);
+    this.onCodeChange(true);
+  }
+  busy() { return this.state === 'running' || this.state === 'input' || this.state === 'paused'; }
+  /** Исправить ошибку в строке курсора, а если там чисто — первую в файле. */
+  fixCurrent() {
+    if (this.busy()) { this.ws.toast('Сначала остановите программу'); return false; }
+    const c = this.annotate(compile(this.editor.value));
+    const ds = c.diagnostics.filter(d => d.fix);
+    const d = ds.find(x => x.line === this.cursorLine && x.severity === 'error') || ds.find(x => x.line === this.cursorLine) || ds.find(x => x.severity === 'error') || ds.find(x => x.severity === 'warning') || ds[0];
+    if (!d) { this.ws.toast(c.diagnostics.length ? 'Для этой ошибки готового исправления нет — прочитайте подсказку во вкладке «Ошибки»' : 'Исправлять нечего: ошибок нет'); return false; }
+    const e0 = d.fix.edits[d.fix.edits.length - 1] || d;
+    this.replaceCode(applyFix(c.source, d.fix), d.fix.edits[0].line || d.line, undefined);
+    this.ws.toast(`Исправлено в строке ${e0.line || d.line}: ${d.fix.title} · Ctrl+Z — отменить`);
+    return true;
+  }
+  fixEverything() {
+    if (this.busy()) { this.ws.toast('Сначала остановите программу'); return false; }
+    const r = fixAll(this.editor.value, compile, false);
+    if (!r.applied.length) { this.ws.toast('Готовых исправлений нет'); return false; }
+    this.replaceCode(r.source);
+    this.ws.toast(`Исправлений: ${r.applied.length} · Ctrl+Z — отменить`);
+    this.console.line(`Автоисправление: ${r.applied.map(esc).join('; ')}`, 'muted');
+    return true;
+  }
+  nextProblem(dir = 1) {
+    const ds = (this.lastCompile?.diagnostics || []).filter(d => d.severity !== 'note');
+    if (!ds.length) { this.ws.toast('Ошибок и предупреждений нет'); return; }
+    const cur = this.cursorLine || 0;
+    const d = dir > 0 ? (ds.find(x => x.line > cur) || ds[0]) : ([...ds].reverse().find(x => x.line < cur) || ds[ds.length - 1]);
+    this.cursorLine = d.line;
+    this.editor.flash(d.line, d.col);
+    this.renderFixBar(this.lastCompile);
+  }
+  setAutoOut(html) {
+    this._autoOut = html;
+    const el = this.fixbar?.querySelector('[data-fxout]');
+    if (el && html) el.innerHTML = html;
+    else if (this.lastCompile) this.renderFixBar(this.lastCompile);
+  }
+  /** Автозапуск: программа выполняется сама после каждой удачной правки, вывод — в полосе под редактором. */
+  autoRun(c, now) {
+    clearTimeout(this._auto);
+    if (!settings.get('run.auto') || !c || this.busy()) return;
+    if (!c.ok) { this._autoOut = ''; return; }
+    this._auto = setTimeout(() => {
+      if (this.busy() || this.editor.value !== c.source) return;
+      const reads = /\b(scanf|getchar|gets|fgets|getc|fgetc)\s*\(/.test(c.source);
+      const stdin = this.stdinEl.value.trim() ? this.stdinEl.value : (this.lastInput || '');
+      if (reads && !stdin) { this.setAutoOut('<span class="muted">Автозапуск: программа ждёт ввод. Впишите его в «Входные данные заранее» или запустите один раз вручную.</span>'); return; }
+      let r;
+      try { r = runToEnd(c.source, stdin + '\n', { stepLimit: 300_000 }); } catch (err) { r = { output: '', error: { message: String(err.message || err) } }; }
+      const out = (r.output || '').replace(/\n+$/, '');
+      const shown = out.length > 160 ? out.slice(0, 160) + '…' : out;
+      const body = shown ? `<code>${esc(shown).replace(/\n/g, '<i>↵</i>')}</code>` : '<span class="muted">программа ничего не вывела</span>';
+      this.setAutoOut(r.error
+        ? `<b class="bad">ошибка выполнения${r.error.line ? ` в строке ${r.error.line}` : ''}:</b> ${esc(r.error.message).slice(0, 120)}`
+        : `<b>вывод:</b> ${body}`);
+    }, now ? 0 : 350);
   }
 
   // ——— состояние ———
@@ -506,19 +622,21 @@ export class Lab {
     const src = this.editor.value;
     this.console.clear();
     this.console.clearLogs();
-    this._logLocked = false;
     this.inspector.hidden = true;
     this.splash.hidden = true;
     this.console.line(`<span class="prompt">$</span> gcc -Wall -std=c11 main.c -o main`, 'cmd');
-    const c = compile(src);
+    const c = this.annotate(compile(src));
     this.lastCompile = c;
     this.editor.setDiagnostics(c.diagnostics);
     this.console.setProblems(c.diagnostics, c.lines);
+    this.renderFixBar(c);
     for (const d of c.diagnostics) this.console.diag(d, c.lines);
     const errs = c.diagnostics.filter(d => d.severity === 'error').length;
     const warns = c.diagnostics.filter(d => d.severity === 'warning').length;
     if (!c.ok) {
       this.console.line(`Компиляция не удалась: ${errs} ${plural(errs, 'ошибка', 'ошибки', 'ошибок')}${warns ? `, ${warns} ${plural(warns, 'предупреждение', 'предупреждения', 'предупреждений')}` : ''}. Исправьте ошибки (они подсвечены в коде) и запустите снова.`, 'fail');
+      const nfix = c.diagnostics.filter(d => d.fix && d.severity === 'error').length;
+      if (nfix) this.console.line(`<a class="lnk" data-fixall>Исправить автоматически и запустить</a> <span class="muted">— найдено готовых исправлений: ${nfix}. Отменить правку: Ctrl+Z.</span>`, 'okl');
       this.setState('cerror');
       this.console.show('term');
       this.scene.reset();
@@ -702,10 +820,16 @@ export class Lab {
         this._inlDirty = ev.line;
       }
       this.consoleEvent(ev);
-      if (explainLocked(this.stepNo)) { if (!this._logLocked) { this._logLocked = true; this.console.lockLogs(lockLogsHtml()); } }
-      else if (!fast || !logFull) {
+      if (!fast || !logFull) {
         const x = explain(ev);
-        if (x) this.console.log({ step: this.stepNo, line: ev.line || step.line, html: x.html, kind: x.kind, ent: this.entKey(ev) });
+        if (x) {
+          const ln = ev.line || step.line;
+          const e = { step: this.stepNo, line: ln, html: x.html, kind: x.kind, ent: this.entKey(ev), code: ln ? (this.scene.srcLines[ln - 1] || '').replace(/\/\*.*?\*\//g, '').trim().slice(0, 70) : '' };
+          // для истории переменных и таблицы трассировки
+          if (ev.type === 'write' && ev.path && ev.display != null) { e.v = ev.path; e.val = String(ev.display); }
+          else if (ev.type === 'var' && ev.obj?.shape === 'scalar' && ev.via !== 'static-again') { const c = ev.obj.cells?.[0]; e.v = ev.obj.name; e.val = c?.init ? String(c.display) : 'мусор'; }
+          this.console.log(e);
+        }
       } else if (this.console.logCount < maxLogs + 2) this.console.log({});
     }
     this.scene.setLine(step.line);
@@ -723,8 +847,9 @@ export class Lab {
       if (this.replaying) return false;
       this.editor.setExecLine(step.line, 'input');
       this.setState('input');
-      this.console.askInput(true);
-      this.showOp(renderMessage('ждёт ввода', '<b>Программа ждёт ввода.</b> Функция чтения остановила выполнение: введите значение в терминале внизу и нажмите Enter. Символы попадут в буфер клавиатуры (виден на панели компьютера), и функция заберёт из него то, что ей нужно.', 'io', step.line, this.scene.srcLines));
+      const ih = inputHint(this.scene.srcLines?.[step.line - 1] || '');
+      this.console.askInput(true, ih);
+      this.showOp(renderMessage('ждёт ввода', `<b>Программа ждёт ввода${ih ? ': ' + esc(ih) : ''}.</b> Введите в терминале внизу и нажмите Enter. Несколько значений можно набрать сразу через пробел.` + ' Символы попадут в буфер клавиатуры (виден на панели компьютера), и функция заберёт из него то, что ей нужно.', 'io', step.line, this.scene.srcLines));
       this.refreshProcesses(true);
       return false;
     }
@@ -803,6 +928,12 @@ export class Lab {
     this.gen = null;
     this.console.askInput(false);
     this.console.line(`Программа завершилась с кодом ${code} · шагов: ${this.stepNo.toLocaleString('ru')}`, code === 0 ? 'okl' : 'warnl');
+    // ввод, набранный в терминале, запоминаем: его можно повторять без набора
+    const typed = (this.inputLog || []).filter(v => v != null).join('');
+    if (typed.trim() && !this.stdinEl.value.trim()) {
+      this.lastInput = typed.replace(/\n$/, '');
+      this.console.line(`<a class="lnk" data-keepinput>Запомнить этот ввод</a> <span class="muted">— следующие запуски не будут ничего спрашивать (ввод: ${esc(this.lastInput.replace(/\n/g, ' ↵ ')).slice(0, 60)})</span>`, 'muted');
+    }
     this.editor.setExecLine(0);
     this.setState('done');
     this.refreshProcesses(true);
@@ -837,17 +968,10 @@ export class Lab {
 
   // ——— панель «Операция» ———
   showStep(step) {
-    const opts = { stepNo: this.stepNo, srcLines: this.scene.srcLines, showVisuals: settings.get('run.visuals') };
-    if (explainLocked(this.stepNo)) { this.showOp(lockedStep(step, opts)); return; }
-    let html = renderStep(step, opts);
-    // бесплатные шаги: видно, сколько осталось до конца пробного объяснения
-    if (paywallOn() && !license().pro) {
-      const n = freeExplainSteps();
-      html += `<div class="op-free"><span>Бесплатное объяснение: шаг ${this.stepNo} из ${n}</span><i><b style="width:${Math.round((this.stepNo / n) * 100)}%"></b></i><a href="#/pro/buy">Все шаги — в PRO</a></div>`;
-    }
-    this.showOp(html);
+    this.showOp(renderStep(step, { stepNo: this.stepNo, srcLines: this.scene.srcLines, showVisuals: settings.get('run.visuals') }));
   }
   showOp(html) {
+    this.console.helper?.setCurrent(this.stepNo);
     this.op.innerHTML = html;
     this.op.hidden = false;
     this.syncInsets();
@@ -997,27 +1121,17 @@ export class Lab {
   }
 }
 
-// ——— объяснение строк в PRO: витрина вместо текста ———
-const LOCK_I = '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
-const RU = 'абвгдеёжзиклмнопрстуфхцчшщыэюя';
-/** Текст той же длины, но из случайных букв: видно, что объяснение есть, но прочитать нельзя. */
-function scramble(html) {
-  const t = String(html).replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ');
-  let h = 0;
-  for (const ch of t) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return t.replace(/[A-Za-zА-Яа-яЁё0-9]/g, () => { h = (h * 1103515245 + 12345) >>> 0; return RU[h % RU.length]; });
-}
-function lockedStep(step, { stepNo, srcLines }) {
-  const line = step.line, code = line ? (srcLines[line - 1] || '').trim() : '';
-  const texts = (step.events || []).map(explain).filter(Boolean).slice(0, 3);
-  const fake = (texts.length ? texts : [{ html: 'объяснение того что произошло на этой строке и почему' }]).map(x => `<p>${esc(scramble(x.html))}</p>`).join('');
-  return `<div class="op-head"><span class="op-step">шаг ${stepNo}</span>${line ? `<span class="op-line" data-line="${line}">строка ${line}</span><code class="op-code">${esc(code)}</code>` : ''}<span class="op-tg"></span><button class="op-close" data-opclose title="Скрыть объяснение">×</button></div>
-    <div class="op-lock"><div class="op-lock-blur">${fake}</div>
-      <div class="op-lock-cta"><span class="ol-ic">${LOCK_I}</span><div><b>Объяснение каждой строки — в PRO</b><small>Первые ${freeExplainSteps()} шагов каждого запуска — бесплатно. Дальше: что делает строка, откуда значение и почему так вышло.</small></div><a class="btn primary small" href="#/pro/buy">Открыть</a></div>
-    </div>`;
-}
-function lockLogsHtml() {
-  return `<div class="log-lock"><span class="pro-tag">PRO</span><h4>Дальше — объяснение каждой строки</h4>
-    <p>Бесплатно объясняются первые ${freeExplainSteps()} шагов каждого запуска. С PRO здесь будет вся хроника: каждая выполненная строка простыми словами — что произошло, откуда взялось значение и почему.</p>
-    <div class="lock-act"><a class="btn primary" href="#/pro/buy">Открыть PRO</a><a class="btn ghost" href="#/pro">Ввести ключ</a></div></div>`;
+/** Что ждёт программа: по строке с scanf/getchar составляет подсказку «целое число → n, вещественное → x». */
+export function inputHint(line) {
+  const m = line.match(/scanf\s*\(\s*"((?:[^"\\]|\\.)*)"\s*((?:,[^;]*)?)\)/);
+  if (m) {
+    const specs = [...m[1].matchAll(/%(\*?)\d*(hh|h|ll|l|L)?([dioxXucsfeEgG])/g)].filter(x => !x[1]);
+    const args = m[2].split(',').slice(1).map(a => a.replace(/[&\s()]/g, ''));
+    const what = (c, l) => (/[dixXo]/.test(c) ? 'целое число' : c === 'u' ? 'целое без знака' : /[feEgG]/.test(c) ? 'вещественное число (с точкой)' : c === 'c' ? 'один символ' : 'слово без пробелов');
+    const parts = specs.map((x, i) => `${what(x[3], x[2])}${args[i] ? ' → ' + args[i] : ''}`);
+    if (parts.length) return parts.join(', ');
+  }
+  if (/\b(getchar|getc|fgetc)\s*\(/.test(line)) return 'один символ';
+  if (/\b(fgets|gets)\s*\(/.test(line)) return 'строка текста';
+  return '';
 }

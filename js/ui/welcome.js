@@ -37,8 +37,8 @@ export class Welcome {
     const th = settings.get('ui.theme');
     const dots = `<div class="wlc-dots">${[0, 1].map(i => `<i class="${i === this.step ? 'on' : i < this.step ? 'done' : ''}"></i>`).join('')}</div>`;
     const steps = [
-      () => `<div class="wlc-hero"><svg class="logo big" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg-w" x1="5" y1="5" x2="27" y2="27" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#a593ff"/><stop offset="1" stop-color="#35d6e8"/></linearGradient></defs><path d="M24.4 8.9A11 11 0 1 0 24.4 23.1" fill="none" stroke="url(#lg-w)" stroke-width="3.6" stroke-linecap="round"/><circle cx="16" cy="16" r="2.7" fill="url(#lg-w)"/><g class="lg-orbit spin"><circle cx="27.4" cy="16" r="2.5" fill="#ffc46b"/></g></svg></div>
-        <h2>Добро пожаловать во <span class="grad-t">Вселенную Си</span></h2>
+      () => `<div class="wlc-hero"><svg class="logo big" viewBox="0 0 32 32" aria-hidden="true"><path class="lg-c" d="M26 7H7v18h19"/><rect class="lg-p" x="19" y="13" width="6" height="6"/></svg></div>
+        <h2>Добро пожаловать во <em>Вселенную Си</em></h2>
         <p class="wlc-sub">Здесь программа на C не просто запускается: вы видите, что происходит у неё внутри, шаг за шагом.</p>
         <div class="wlc-feats">
           <div><i>1</i><b>Понять</b><span>Короткие уроки по методичкам с примерами, которые можно запустить.</span></div>
