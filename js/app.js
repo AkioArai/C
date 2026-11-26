@@ -23,7 +23,7 @@ const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // ——— защита от «смеси версий»: страница и код должны быть из одного обновления ———
-export const APP_VERSION = '17';
+export const APP_VERSION = '18';
 {
   const pageVer = document.querySelector('meta[name="app-version"]')?.content;
   if (pageVer !== APP_VERSION && !sessionStorage.getItem('cu.verfix')) {
@@ -215,6 +215,11 @@ function commands() {
     C('Очистить терминал', () => L().console.clear?.(), '', 'clear'),
     C('Открыть настройки', () => settingsDlg.open(), 'Ctrl+,', 'settings preferences'),
     C('Как писать код быстрее: шаблоны и клавиши', () => { keys.hidden = false; }, '', 'keys shortcuts горячие клавиши шаблоны сниппеты быстрее'),
+    C('Фокус: всё — код, память, объяснение, терминал', () => L().setFocus('all'), 'Alt+1', 'focus фокус режим layout раскладка'),
+    C('Фокус: только код', () => L().setFocus('code'), 'Alt+2', 'focus фокус код code zen дзен'),
+    C('Фокус: вселенная (поле памяти)', () => L().setFocus('universe'), 'Alt+3', 'focus фокус память universe'),
+    C('Фокус: разбор каждой строки', () => L().setFocus('explain'), 'Alt+4', 'focus фокус объяснение разбор explain'),
+    C('Фокус: терминал и логи', () => L().setFocus('term'), 'Alt+5', 'focus фокус терминал логи вывод'),
     C('Исправить ошибку в строке', () => L().fixCurrent(), 'Alt+Enter', 'fix исправить quick'),
     C('Исправить все ошибки', () => L().fixEverything(), 'Shift+Alt+Enter', 'fix all исправить'),
     C('Следующая ошибка', () => L().nextProblem(), 'F4', 'error next'),
@@ -250,6 +255,13 @@ document.addEventListener('keydown', (e) => {
   toast(`Размер кода: ${v}px · Ctrl+0 — сбросить`);
 });
 $('[data-cmdk]').addEventListener('click', () => palette.open());
+// ——— режимы фокуса: что видно в редакторе ———
+document.querySelector('.focus-sw').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-focus-k]');
+  if (!b) return;
+  ensure('lab'); if (currentView !== 'lab') go('lab');
+  lab.setFocus(b.dataset.focusK);
+});
 
 window.addEventListener('hashchange', route);
 updateProgressPill();

@@ -301,6 +301,7 @@ export class Editor {
     if (!r || !r.items.length) { this.hideComplete(); return; }
     this.acData = r;
     this.acSel = 0;
+    this.acPicked = false;
     this.renderComplete();
   }
   renderComplete(keepScroll) {
@@ -309,7 +310,7 @@ export class Editor {
     const it = r.items[this.acSel];
     const ghostOn = settings.get('complete.ghost') && it.label.startsWith(r.prefix) && it.kind !== 'snip';
     const rest = ghostOn ? it.label.slice(r.prefix.length) : '';
-    const key = { right: '→', right_enter: '→', tab: 'Tab', all: '→' }[settings.get('complete.accept')];
+    const key = this.arrowAccepts() ? '→' : 'Tab';
     const hl = (x) => { let o = ''; for (let i = 0; i < x.label.length; i++) o += x.hits.includes(i) ? `<b>${escH(x.label[i])}</b>` : escH(x.label[i]); return o; };
     const listLeft = Math.max(0, left - r.prefix.length * this.cw - 26);
     const doc = it.kind === 'snip' ? `<pre class="ac-snip">${escH(expandSnippet(it.insert, '').text)}</pre>` : '';
@@ -318,7 +319,7 @@ export class Editor {
         <div class="ac-list">${r.items.slice(0, 40).map((x, i) =>
           `<div class="ac-it${i === this.acSel ? ' on' : ''}" data-i="${i}"><span class="ac-ic k-${x.kind}">${escH(kindIcon(x.kind))}</span><code>${hl(x)}</code><span class="ac-dt">${escH(x.detail || '')}</span></div>`).join('')}</div>
         <div class="ac-doc"><div class="ac-doc-h"><b>${escH(it.label)}</b><span>${escH(kindLabel(it.kind))}${it.header ? ' · ' + escH(it.header) : ''}</span></div>${it.detail && it.kind === 'fn' ? `<code class="ac-sigl">${escH(it.detail)}</code>` : ''}<p>${escH(it.desc || '')}</p>${doc}
-          <div class="ac-hint">${key} или Enter — вставить · ↑↓ — выбрать · Esc — скрыть</div></div>
+          <div class="ac-hint">Tab${this.exactWord() ? '' : ' или Enter'} — вставить · ↑↓ — выбрать · → в конце строки — вставить, перед скобкой — просто шаг · Esc — скрыть</div></div>
       </div>`;
     this.ac.hidden = false;
     // не вылезать за правый край экрана
@@ -419,12 +420,31 @@ export class Editor {
   }
 
   acceptKey(e) {
-    const mode = settings.get('complete.accept');
     if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return false;
-    if (e.key === 'ArrowRight') return mode !== 'tab';
-    if (e.key === 'Enter') return mode === 'right_enter' || mode === 'all';
-    if (e.key === 'Tab') return mode === 'tab' || mode === 'all';
+    // Tab вставляет подсказку всегда, когда список открыт
+    if (e.key === 'Tab') return true;
+    const exact = this.exactWord();
+    // набранное слово уже есть в программе (ваша переменная) — Enter и → его не трогают
+    if (e.key === 'Enter') return !exact || this.acPicked;
+    if (e.key === 'ArrowRight') return this.arrowAccepts();
     return false;
+  }
+  /** → вставляет подсказку, только если вы выбрали её стрелками ↑↓ или курсор стоит в конце строки.
+   *  Перед ) , ; " ] стрелка просто двигает курсор — так удобно выходить за скобки. */
+  arrowAccepts() {
+    if (this.acPicked) return true;
+    if (this.exactWord()) return false;
+    const v = this.ta.value, pos = this.ta.selectionStart;
+    const eol = v.indexOf('\n', pos);
+    return !v.slice(pos, eol < 0 ? v.length : eol).trim();
+  }
+  /** Набранное слово целиком совпадает с именем, которое уже встречается в коде (ваша переменная или функция). */
+  exactWord() {
+    const r = this.acData;
+    if (!r || !r.prefix || !/^[A-Za-z_]\w*$/.test(r.prefix)) return false;
+    const v = this.ta.value;
+    const rest = v.slice(0, r.from) + ' ' + v.slice(r.to);
+    return new RegExp(`\\b${r.prefix}\\b`).test(rest);
   }
 
   onKey(e) {
@@ -438,6 +458,7 @@ export class Editor {
         const n = Math.min(40, this.acData.items.length);
         const step = e.key.startsWith('Page') ? 8 : 1;
         const down = e.key === 'ArrowDown' || e.key === 'PageDown';
+        this.acPicked = true;
         if (step === 1) this.acSel = (this.acSel + (down ? 1 : n - 1)) % n;
         else this.acSel = down ? Math.min(n - 1, this.acSel + step) : Math.max(0, this.acSel - step);
         this.renderComplete();
@@ -501,6 +522,10 @@ export class Editor {
     }
     if (e.key === 'Tab') {
       e.preventDefault();
+      // выход за скобку или кавычку: курсор перед ) ] } " ' в середине строки — Tab перешагивает её
+      if (s === en && !e.shiftKey && /[)\]}"']/.test(v[s] || '') && curLine.trim()) {
+        ta.setSelectionRange(s + 1, s + 1); this.updateSignature(); this.emitCursor(); return;
+      }
       if (s !== en && v.slice(s, en).includes('\n')) {
         const le = v.indexOf('\n', en - 1); const end = le < 0 ? v.length : le;
         const ls = v.slice(lineStart, end).split('\n');
@@ -539,6 +564,16 @@ export class Editor {
       const PAIRS = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'" };
       const next = v[s] || '';
       const prev = v[s - 1] || '';
+      // «умная» точка с запятой: printf("x"|) + ; → printf("x"); — за скобки выходить не нужно
+      if (e.key === ';' && s === en && !/^\s*for\b/.test(curLine)) {
+        const le = v.indexOf('\n', s), lineEnd = le < 0 ? v.length : le, tail = v.slice(s, lineEnd);
+        const inStr = (curLine.match(/"/g) || []).length % 2 === 1;
+        if (/^[)\]]+\s*$/.test(tail) && !inStr) {
+          e.preventDefault();
+          const end = s + tail.trimEnd().length;
+          ta.setSelectionRange(end, end); this.insert(';'); this.hideComplete(); this.updateSignature(); return;
+        }
+      }
       if ([')', ']', '}', '"', "'"].includes(e.key) && s === en && next === e.key) {
         e.preventDefault(); ta.setSelectionRange(s + 1, s + 1); this.updateSignature(); return;
       }

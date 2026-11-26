@@ -52,6 +52,7 @@ export class PracticePage {
               <button class="chip" data-t="5">Тема 5</button>
               <button class="chip" data-t="6">Тема 6</button>
               <button class="chip" data-t="7">Тема 7</button>
+              <button class="chip" data-t="8">Тема 8</button>
               <button class="chip" data-t="sr">ЛР и СР</button>
             </div>
             <div class="seg prac-lv" data-flevel>

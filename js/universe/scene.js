@@ -171,13 +171,36 @@ export class Scene {
             fr.closeAt = now;
             for (const id of fr.vars) { const o = this.objects.get(id); if (o) o.dying = now + dur; }
             const parent = this.current;
+            // в строке вызова у вызывающей функции появится метка с возвращённым значением
+            const pf = this.frames.get(fr.parentId);
+            if (pf && ev.ret != null && fr.callLine) pf.retStamp = { val: shortVal(ev.ret), line: fr.callLine, func: fr.func, at: now + dur * 0.6 };
             if (parent && ev.ret != null) this.anim({ type: 'beam', from: { frame: fr.id }, to: { frameLine: parent }, color: '#3fcf8e', dur, label: ev.ret });
           }
         }
         this.focus = this.current;
         break;
       }
-      case 'var': this.addObject(ev.obj, ev, dur); break;
+      case 'var': {
+        this.addObject(ev.obj, ev, dur);
+        // параметр: значение пришло копией аргумента — запоминаем, откуда
+        if (ev.via === 'param') {
+          const o = this.objects.get(ev.obj.id), fr = this.frames.get(ev.obj.frameId);
+          const arg = fr?.args?.find(a => a.name === ev.obj.name);
+          if (o && arg) {
+            const src = (arg.src || '').trim();
+            o.ui.copyAt = now;
+            o.ui.copySrc = src;
+            o.ui.copyAddr = /^&/.test(src);
+            const name = src.replace(/^&\s*/, '');
+            const pf = this.frames.get(fr.parentId);
+            if (pf && /^[A-Za-z_]\w*$/.test(name)) {
+              const so = pf.vars.map(id => this.objects.get(id)).find(x => x && x.name === name && !x.dying);
+              if (so) o.ui.copyFrom = so.id;
+            }
+          }
+        }
+        break;
+      }
       case 'alloc': this.addObject(ev.obj, ev, dur); break;
       case 'heap-view': {
         const o = this.objects.get(ev.objId);
