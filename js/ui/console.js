@@ -43,7 +43,7 @@ export class ConsolePanel {
           <span class="ktrail" aria-hidden="true"></span><span class="kcur" aria-hidden="true"></span>
           <form class="term-input" data-input hidden>
             <span class="ti-prompt">stdin ›</span>
-            <input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="введите значение(я) и нажмите Enter" enterkeyhint="send">
+            <input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="введите значение(я) и нажмите Enter · ↑ — прошлый ввод" enterkeyhint="send">
             <button type="submit" class="btn small">Отправить</button>
             <button type="button" class="btn small ghost" data-eof title="Сообщить программе, что ввод закончен (Ctrl+D)">EOF</button>
           </form>
@@ -104,10 +104,29 @@ export class ConsolePanel {
       e.preventDefault();
       const v = this.inputEl.value;
       this.inputEl.value = '';
+      if (v.trim() && this.hist[this.hist.length - 1] !== v) {
+        this.hist.push(v);
+        this.hist = this.hist.slice(-50);
+        try { localStorage.setItem('cuniverse.term.hist', JSON.stringify(this.hist)); } catch { /* приватный режим */ }
+      }
+      this.histPos = -1;
       this.opts.onInput?.(v);
     });
     this.inputForm.querySelector('[data-eof]').addEventListener('click', () => this.opts.onEOF?.());
-    this.inputEl.addEventListener('keydown', (e) => { if (e.ctrlKey && (e.key === 'd' || e.key === 'z')) { e.preventDefault(); this.opts.onEOF?.(); } });
+    // история ввода: ↑ / ↓ — прошлые значения, как в настоящем терминале
+    this.hist = JSON.parse(localStorage.getItem('cuniverse.term.hist') || '[]');
+    this.histPos = -1;
+    this.inputEl.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && (e.key === 'd' || e.key === 'z')) { e.preventDefault(); this.opts.onEOF?.(); return; }
+      if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && this.hist.length) {
+        e.preventDefault();
+        if (this.histPos < 0) this.histDraft = this.inputEl.value;
+        this.histPos = Math.max(-1, Math.min(this.hist.length - 1, this.histPos + (e.key === 'ArrowUp' ? 1 : -1)));
+        this.inputEl.value = this.histPos < 0 ? (this.histDraft || '') : this.hist[this.hist.length - 1 - this.histPos];
+        const n = this.inputEl.value.length; this.inputEl.setSelectionRange(n, n);
+      }
+      if (e.key === 'Escape') { this.inputEl.value = ''; this.histPos = -1; }
+    });
     const jump = (e) => {
       const el = e.target.closest('[data-line],[data-ent]');
       if (!el) return;

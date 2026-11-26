@@ -508,7 +508,7 @@ export class Interpreter {
       if (isPointer(p.type)) this.notePtr(obj.addr, a.v, a.prov);
       if (p.name) frame.scopes[0].set(p.name, obj);
       params.push(obj);
-      argDisp.push({ name: obj.name, display: isRecord(p.type) ? '{…}' : display(p.type, this.mem.read(obj.addr, p.type)) });
+      argDisp.push({ name: obj.name, display: isRecord(p.type) ? '{…}' : display(p.type, this.mem.read(obj.addr, p.type)), src: callNode?.args?.[i] ? this.src_(callNode.args[i]) : '' });
     }
     this.emit({ type: 'frame-enter', frame: { id: frame.id, func: f.name, depth: frame.depth, parentId: frame.parentId, line: f.line, endLine: f.body.endLine }, args: argDisp, line: f.line, callLine: callNode.line, ret: typeName(f.ret) });
     for (const o of params) this.emit({ type: 'var', obj: this.snapshot(o), line: f.line, via: 'param' });

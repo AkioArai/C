@@ -1,7 +1,7 @@
 // Офлайн-режим. Пока есть интернет, всегда берём свежие файлы с сервера
 // (в обход HTTP-кэша браузера), чтобы старые и новые файлы никогда не смешивались.
 // Без интернета — отдаём последнюю сохранённую копию.
-const CACHE = 'cuniverse-v4';
+const CACHE = 'cuniverse-v5';
 const CORE = ['./', './index.html', './css/style.css', './js/app.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {

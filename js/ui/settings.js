@@ -50,6 +50,7 @@ export const SCHEMA = [
     { key: 'layout.panel', type: 'bool', def: true, hidden: true },
     { key: 'layout.op', type: 'bool', def: true, hidden: true },
     { key: 'layout.player', type: 'bool', def: true, fixed: true },
+    { key: 'layout.focus', type: 'seg', def: 'all', hidden: true },
     { key: 'term.lh', type: 'range', def: 1.6, hidden: true },
     { key: 'term.wrap', type: 'bool', def: true, hidden: true },
     { key: 'term.font', type: 'seg', def: 'jet', fixed: true },

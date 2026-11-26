@@ -16,6 +16,14 @@ import { award } from './ui/xp.js';
 import { formatC } from './ui/format.js';
 import { snapshot, HistoryDialog } from './ui/history.js';
 
+/** Пять режимов фокуса: что видно на экране. Alt+1…5. */
+export const FOCUS = {
+  all: { name: 'Всё', hint: 'код, память, объяснение и терминал', show: null },
+  code: { name: 'Код', hint: 'только редактор и терминал — ничего не отвлекает', show: { editor: true, uni: false, panel: true, op: false } },
+  universe: { name: 'Вселенная', hint: 'большое поле памяти, код сбоку', show: { editor: true, uni: true, panel: true, op: false } },
+  explain: { name: 'Разбор', hint: 'код и подробное объяснение каждой строки', show: { editor: true, uni: true, panel: true, op: true } },
+  term: { name: 'Терминал', hint: 'код и большой терминал с логами', show: { editor: true, uni: false, panel: true, op: false } },
+};
 const PLAY = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>';
 const SPEEDS = [2200, 1500, 1050, 750, 520, 340, 200, 110, 50, 16];
 
@@ -135,6 +143,7 @@ export class Lab {
     document.addEventListener('keydown', (e) => {
       if (this.root.hidden) return;
       if (e.shiftKey && e.altKey && e.code === 'KeyF') { e.preventDefault(); this.formatCode(); }
+      else if (e.altKey && !e.ctrlKey && !e.metaKey && /^Digit[1-5]$/.test(e.code)) { e.preventDefault(); this.setFocus(Object.keys(FOCUS)[+e.code.slice(5) - 1]); }
       else if (e.altKey && !e.ctrlKey && e.key === 'Enter') { e.preventDefault(); if (e.shiftKey) this.fixEverything(); else this.fixCurrent(); }
       else if (e.key === 'F4' && !e.ctrlKey && !e.altKey) { e.preventDefault(); this.nextProblem(e.shiftKey ? -1 : 1); }
       // Ctrl+F / Ctrl+H — поиск по коду, даже если фокус не в редакторе
@@ -302,16 +311,31 @@ export class Lab {
   applyLayout() {
     const lab = this.el('.lab');
     const g = (k) => settings.get('layout.' + k);
+    const f = FOCUS[g('focus')] ? g('focus') : 'all';
+    // режим фокуса важнее отдельных переключателей панелей: «Код» всегда без вселенной и т. д.
+    const on = f === 'all' ? { editor: g('editor'), uni: g('uni'), panel: g('panel'), op: g('op') } : FOCUS[f].show;
+    for (const k of Object.keys(FOCUS)) lab.classList.toggle('f-' + k, k === f);
     lab.classList.toggle('no-side', !g('side'));
-    lab.classList.toggle('no-editor', !g('editor'));
-    lab.classList.toggle('no-uni', !g('uni'));
-    lab.classList.toggle('no-panel', !g('panel'));
-    this.el('.p-universe').classList.toggle('no-op', !g('op'));
+    lab.classList.toggle('no-editor', !on.editor);
+    lab.classList.toggle('no-uni', !on.uni);
+    lab.classList.toggle('no-panel', !on.panel);
+    this.el('.p-universe').classList.toggle('no-op', !on.op);
+    document.querySelectorAll('[data-focus-k]').forEach(b => { b.classList.toggle('on', b.dataset.focusK === f); b.setAttribute('aria-pressed', b.dataset.focusK === f); });
     this.el('.p-universe').classList.toggle('no-player', !g('player'));
     this.el('[data-ed="files"]')?.classList.toggle('on', !!g('side'));
     this.el('[data-u="op"]')?.classList.toggle('on', g('op'));
     clearTimeout(this._lr);
     this._lr = setTimeout(() => { this.renderer.resize(); this.syncInsets(); this.console.placeCursor?.(true); }, 40);
+  }
+  /** Режим фокуса: на чём сосредоточиться (см. FOCUS). Повторный выбор того же режима возвращает «Всё». */
+  setFocus(name) {
+    const cur = settings.get('layout.focus');
+    const next = !FOCUS[name] || (name === cur && name !== 'all') ? 'all' : name;
+    settings.set('layout.focus', next);
+    if (next === 'explain' || next === 'all') this.togglePane('op', true);
+    if (next === 'explain') { this.op.classList.remove('mini'); }
+    this.ws.toast(`Фокус: ${FOCUS[next].name} · ${FOCUS[next].hint}`);
+    return next;
   }
   /** Готовые раскладки. */
   preset(name) {

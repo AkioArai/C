@@ -2191,3 +2191,35 @@ h1, h2 { text-wrap: balance; }
 }
 @media (prefers-reduced-motion: reduce) { .demo * { animation: none !important; } .dm, .ds1 { opacity: 1 !important; } }
 .reduce-motion .dm, .reduce-motion .ds1 { opacity: 1 !important; }
+
+/* ——— режимы фокуса (Alt+1…5) ——— */
+.focus-sw { display: none; flex: none; border: 1px solid var(--line2); height: 32px; }
+body[data-view="lab"] .focus-sw { display: flex; }
+.focus-sw button { display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; border: 0; border-right: 1px solid var(--line2); background: transparent; color: var(--muted); font: 500 12px var(--sans); cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
+.focus-sw button:last-child { border-right: 0; }
+.focus-sw button .ic { width: 15px; height: 15px; }
+.focus-sw button:hover { color: var(--text); background: var(--tint2); }
+.focus-sw button.on { background: var(--accent); color: var(--accent-ink); }
+body[data-view="lab"] .tb-crumb { flex: 0 1 auto; max-width: 180px; }
+body[data-view="lab"] .cmdk { flex: 0 1 300px; }
+@media (max-width: 1380px) { body[data-view="lab"] .cmdk span { display: none; } body[data-view="lab"] .cmdk { flex: 0 0 auto; } }
+@media (max-width: 1180px) { .focus-sw button span { display: none; } .focus-sw button { padding: 0 9px; } body[data-view="lab"] .tb-crumb { display: none; } }
+
+/* Код: редактор во всю ширину */
+.lab.f-code, .lab.f-term { --c-ed: minmax(0, 1fr); --c-sv: 0px; --c-uni: 0px; }
+.lab.f-code .p-editor .editor-host { font-size: 1.06em; }
+/* Вселенная: поле памяти шире, код узкой колонкой, терминал ниже */
+.lab.f-universe { --c-ed: clamp(300px, 30%, 460px); --r-con: 22%; }
+/* Терминал: большой */
+.lab.f-term { --r-con: 62%; }
+/* Разбор: вместо поля памяти — объяснение строки на всю высоту */
+.lab.f-explain { --c-ed: minmax(0, 1fr); --c-uni: minmax(0, 1fr); --r-con: 26%; }
+.lab.f-explain .p-universe canvas, .lab.f-explain .u-controls, .lab.f-explain .u-legend, .lab.f-explain .inspector { display: none !important; }
+.lab.f-explain .p-universe { background: var(--panel); }
+.lab.f-explain .oppanel, .lab.f-explain .oppanel.mini { top: 40px; bottom: 0; left: 0; right: 0; max-height: none; border: 0; overflow: auto; }
+.lab.f-explain .oppanel.mini .op-blocks, .lab.f-explain .oppanel.mini .op-texts, .lab.f-explain .oppanel.mini .vis-row { display: flex; }
+.lab.f-explain .oppanel .op-tg, .lab.f-explain .oppanel .op-close { display: none; }
+.lab.f-explain .op-x { font-size: 14px; }
+.lab.f-explain .op-texts .op-x:nth-child(n+2) { font-size: 13.5px; }
+.lab.f-explain .op-texts { padding-top: 12px; }
+.lab.f-explain .p-universe:has(.oppanel[hidden])::after { content: 'Нажмите F10 — и здесь появится подробный разбор каждой выполненной строки: что она сделала, откуда взялось значение и почему.'; position: absolute; left: 24px; right: 24px; top: 80px; color: var(--muted); font-size: 14px; line-height: 1.6; max-width: 460px; }

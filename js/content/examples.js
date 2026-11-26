@@ -464,6 +464,81 @@ int main(void) {
 `,
   },
   {
+    id: 'fn-power', group: 'Тема 8. Функции', title: 'Своя функция: степень с прототипом',
+    code: `#include <stdio.h>
+
+int power(int a, int n);      /* прототип */
+
+int main(void) {
+    int x = 3, y = 4, r;
+    r = power(x, y);          /* вызов: main ждёт */
+    printf("%d^%d = %d\\n", x, y, r);
+    printf("2^10 = %d\\n", power(2, 10));
+    return 0;
+}
+
+int power(int a, int n) {     /* a и n - копии аргументов */
+    int i, p = 1;
+    for (i = 1; i <= n; ++i)
+        p *= a;
+    return p;                 /* результат - в точку вызова */
+}
+`,
+  },
+  {
+    id: 'fn-swap', group: 'Тема 8. Функции', title: 'По значению и по адресу: два swap',
+    code: `#include <stdio.h>
+
+void swap_copy(int x, int y) {   /* получает копии */
+    int t = x;
+    x = y;
+    y = t;
+}
+
+void swap_addr(int *px, int *py) { /* получает адреса */
+    int t = *px;
+    *px = *py;
+    *py = t;
+}
+
+int main(void) {
+    int a = 2, b = 3;
+    swap_copy(a, b);
+    printf("после swap_copy: a=%d b=%d\\n", a, b);
+    swap_addr(&a, &b);
+    printf("после swap_addr: a=%d b=%d\\n", a, b);
+    return 0;
+}
+`,
+  },
+  {
+    id: 'fn-errcode', group: 'Тема 8. Функции', title: 'Код ошибки и результат по адресу',
+    code: `#include <stdio.h>
+#include <limits.h>
+
+int add(int a, int b, int *s) {
+    if (INT_MAX - a >= b)
+        *s = a + b;
+    else
+        return 1;             /* переполнение */
+    return 0;                 /* всё хорошо */
+}
+
+int main(void) {
+    int sum = 0;
+    if (add(2000000000, 100000000, &sum))
+        printf("Error: addition overflow.\\n");
+    else
+        printf("Result = %d\\n", sum);
+    if (add(2000000000, 200000000, &sum))
+        printf("Error: addition overflow.\\n");
+    else
+        printf("Result = %d\\n", sum);
+    return 0;
+}
+`,
+  },
+  {
     id: 'quad', group: 'Математика', title: 'Квадратное уравнение (math.h)',
     stdin: '1 -3 2\n',
     code: `#include <stdio.h>

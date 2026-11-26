@@ -485,12 +485,46 @@ export class Renderer {
     const sub = fr.ended ? (fr.ret != null ? `вернула ${fr.ret}` : 'завершилась') : active ? `выполняется · строка ${fr.curLine}` : `ждёт возврата из вызова (строка ${fr.curLine})`;
     this.text(sub, b.x + b.w - 14, b.y + 20, { size: 11, color: fr.ended ? C.green : active ? C.accent2 : C.muted, align: 'right', mono: false });
     if (fr.callLine && fr.func !== 'main') this.text(`вызвана в строке ${fr.callLine}`, b.x + 14, b.y + 36, { size: 9.5, color: C.faint, mono: false });
+    // глубина вызова: столько квадратиков, сколько функций сейчас в стеке до этой включительно
+    const depth = sc.frameStack.indexOf(fr.id);
+    if (depth >= 0 && settings.get('run.anims') !== false) {
+      for (let i = 0; i <= depth; i++) { ctx.fillStyle = i === depth && active ? C.accent2 : alpha(C.accent, 0.55); ctx.fillRect(b.x + b.w - 14 - (depth - i) * 8 - 6, b.y + 30, 6, 6); }
+    }
+    // вызывающая функция ждёт: её рамка заштрихована, штриховка медленно ползёт
+    if (!active && !fr.ended && depth >= 0 && settings.get('run.anims') !== false) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(b.x + 1, b.y + 1, b.w - 2, b.h - 2); ctx.clip();
+      ctx.strokeStyle = alpha(C.muted, 0.12); ctx.lineWidth = this.px(1);
+      const step = 14, off = (this.t / 60) % step;
+      ctx.beginPath();
+      for (let d = -b.h + off; d < b.w; d += step) { ctx.moveTo(b.x + d, b.y + b.h); ctx.lineTo(b.x + d + b.h, b.y); }
+      ctx.stroke();
+      ctx.restore();
+    }
     // листинг
     this.drawListing(b);
     if (!fr.vars.length && this.lod) this.text('переменных пока нет', b.x + G.varsX, b.codeY + 16, { size: 11, color: C.faint, mono: false });
     for (const t of b.traces) this.drawTrace(t, fr);
     this.drawJump(b);
+    this.drawRetStamp(b);
     ctx.restore();
+  }
+
+  /** Возврат из функции: в строке вызова выезжает метка «↩ значение» — сюда пришёл результат. */
+  drawRetStamp(b) {
+    const st = b.fr.retStamp;
+    if (!st || settings.get('run.anims') === false) return;
+    const a = this.t - st.at;
+    if (a < 0 || a > 2600 || st.line < b.fr.span.start || st.line > b.fr.span.end) return;
+    const k = ease(clamp(a / 420, 0, 1)), fade = a > 2000 ? 1 - (a - 2000) / 600 : 1;
+    const label = `↩ ${st.func} вернула ${st.val}`;
+    this.font(10.5, 700);
+    const tw = this.ctx.measureText(label).width + 14;
+    const y = b.codeY + (st.line - b.fr.span.start) * G.lineH, x = b.codeX + b.codeW - tw - 4 + (1 - k) * 30;
+    this.ctx.save(); this.ctx.globalAlpha *= fade * k;
+    this.rect(x, y + 1, tw, G.lineH - 2, { fill: C.green });
+    this.text(label, x + 7, y + G.lineH / 2, { size: 10.5, weight: 700, color: C.bg, mono: true });
+    this.ctx.restore();
   }
 
   /** Огонёк обегает рамку кадра по периметру со светящимся хвостом. */
@@ -782,6 +816,29 @@ export class Renderer {
     else if (o.shape === 'array') this.drawArray(c, o, col);
     else this.drawRecord(c, o, col);
     this.drawOverflow(c, o);
+    if (settings.get('run.anims') !== false && o.ui?.copyAt) {
+      // параметр функции: метка «копия x» или «адрес &x» и пунктир к переменной-источнику
+      const ca = t - o.ui.copyAt;
+      if (ca >= 0 && ca < 2600) {
+        const k = ease(clamp(ca / 350, 0, 1)), fade = ca > 2000 ? 1 - (ca - 2000) / 600 : 1;
+        const col = o.ui.copyAddr ? C.ptr : C.accent;
+        const lb = o.ui.copyAddr ? `адрес ${o.ui.copySrc}` : `копия ${o.ui.copySrc || 'аргумента'}`;
+        ctx.save(); ctx.globalAlpha *= fade;
+        const src = o.ui.copyFrom != null ? this.scene.L?.cards?.get(o.ui.copyFrom) : null;
+        if (src && !o.ui.copyAddr) {
+          const x0 = src.x + src.w / 2, y0 = src.y + src.h, x1 = c.x + c.w / 2, y1 = c.y;
+          ctx.strokeStyle = alpha(col, 0.8); ctx.lineWidth = this.px(1.4); ctx.setLineDash([this.px(5), this.px(4)]);
+          ctx.lineDashOffset = -ca / 30;
+          ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + (y1 - y0) / 2); ctx.lineTo(x1, y0 + (y1 - y0) / 2); ctx.lineTo(x1, y1); ctx.stroke();
+          ctx.setLineDash([]);
+        }
+        this.font(10.5, 700);
+        const tw = ctx.measureText(lb).width + 14, tx = c.x, ty = c.y - 18 * k;
+        this.rect(tx, ty, tw, 16, { fill: col });
+        this.text(lb, tx + 7, ty + 8, { size: 10.5, weight: 700, color: C.bg, mono: true });
+        ctx.restore();
+      }
+    }
     if (settings.get('run.anims') !== false) {
       // «сонар»: из этой переменной сейчас читают значение
       const ra = o.ui?.readAt ? this.t - o.ui.readAt : 1e9;
